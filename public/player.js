@@ -1,0 +1,2010 @@
+(function () {
+  'use strict';
+
+  window.CrownGame = window.CrownGame || {};
+
+  function resolveOutfitPalette(wardrobe) {
+    const W = window.CrownWardrobe;
+    if (!W) {
+      return {
+        primary: '#ece8e2',
+        secondary: '#cfa74e',
+        accent: '#2b5ea8',
+        trim: '#fffaf2',
+        category: 'gowns',
+        outfitId: 'versailles-ivory-gown',
+      };
+    }
+    const cfg = W.clampWardrobe(wardrobe || W.createDefaultWardrobe());
+    const outfit =
+      W.OUTFITS.find(function (o) {
+        return o.id === cfg.outfitId;
+      }) || W.OUTFITS[0];
+    const themeId = cfg.themeId === 'signature' ? outfit.defaultTheme : cfg.themeId;
+    const theme =
+      W.COLOR_THEMES.find(function (t) {
+        return t.id === themeId;
+      }) || W.COLOR_THEMES[1];
+    return {
+      primary: theme.primary,
+      secondary: theme.secondary,
+      accent: theme.accent,
+      trim: theme.trim || '#fffaf2',
+      category: outfit.category,
+      outfitId: outfit.id,
+    };
+  }
+
+  function resolveLookData(look) {
+    const L = window.CrownLooks;
+    const cfg = L ? L.clampLook(look || L.createDefaultLook()) : look || {};
+    const skinPal = L && typeof L.getSkinPalette === 'function' ? L.getSkinPalette(cfg) : null;
+
+    let lipHex = '#cc7b86';
+    if (L && Array.isArray(L.LIPSTICK_SHADES)) {
+      const foundLip = L.LIPSTICK_SHADES.find(function (item) {
+        return item.id === cfg.lipstick;
+      });
+      if (foundLip) lipHex = foundLip.hex;
+    }
+
+    let eyeHex = cfg.eyeColorHex || '#3b6ca8';
+    if (!cfg.eyeColorHex && L && Array.isArray(L.EYE_COLORS)) {
+      const foundEye = L.EYE_COLORS.find(function (item) {
+        return item.id === cfg.eyeColorId;
+      });
+      if (foundEye) eyeHex = foundEye.hex;
+    }
+
+    let blushHex = (skinPal && skinPal.blushTint) || '#e0899a';
+    if (L && Array.isArray(L.BLUSH_STYLES)) {
+      const foundBlush = L.BLUSH_STYLES.find(function (item) {
+        return item.id === cfg.blush;
+      });
+      if (foundBlush && cfg.blush !== 'none') blushHex = foundBlush.hex;
+    }
+
+    let shadowHex = '#d8b57d';
+    let shadowAlpha = 0.25;
+    if (L && Array.isArray(L.EYESHADOW_PALETTES)) {
+      const foundShadow = L.EYESHADOW_PALETTES.find(function (item) {
+        return item.id === cfg.eyeshadow;
+      });
+      if (foundShadow) {
+        shadowHex = foundShadow.hex;
+        shadowAlpha = foundShadow.alpha;
+      }
+    }
+
+    return {
+      cfg: cfg,
+      skinHex: (skinPal && skinPal.base) || '#f0cbb4',
+      skinShadowHex: (skinPal && skinPal.shadow) || '#ca987b',
+      skinHighlightHex: (skinPal && skinPal.highlight) || '#fde5d5',
+      blushHex: blushHex,
+      blushIntensity: typeof cfg.blushIntensity === 'number' ? cfg.blushIntensity : 0.45,
+      hairRootHex: cfg.hairRootHex || '#a9854c',
+      hairTipHex: cfg.hairTipHex || '#e9d39c',
+      hairHighlightHex: cfg.hairHighlightHex || '#fff2cf',
+      eyeHex: eyeHex,
+      eyeShape: cfg.eyeShape || 'almond',
+      eyeSize: cfg.faceSliders && typeof cfg.faceSliders.eyeSize === 'number' ? cfg.faceSliders.eyeSize : 1.0,
+      eyeSpacing: cfg.faceSliders && typeof cfg.faceSliders.eyeSpacing === 'number' ? cfg.faceSliders.eyeSpacing : 1.0,
+      eyeDepth: typeof cfg.eyeDepth === 'number' ? cfg.eyeDepth : 0.55,
+      pupilShape: cfg.pupilShape || 'round',
+      eyeliner: cfg.eyeliner || 'classic-wing',
+      shadowHex: shadowHex,
+      shadowAlpha: shadowAlpha,
+      lipHex: lipHex,
+      lipFullness: cfg.faceSliders && typeof cfg.faceSliders.lipFullness === 'number' ? cfg.faceSliders.lipFullness : 1.0,
+      browStyle: cfg.browStyle || 'arched',
+      freckles: cfg.freckles || 'none',
+      mole: cfg.mole || 'none',
+      hairStyle: cfg.hairStyle || 'regal-waves',
+    };
+  }
+
+  function hexToRgba(hex, alpha) {
+    const clean = String(hex || '#ffffff').replace('#', '');
+    const r = parseInt(clean.slice(0, 2), 16) || 200;
+    const g = parseInt(clean.slice(2, 4), 16) || 170;
+    const b = parseInt(clean.slice(4, 6), 16) || 150;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
+  /**
+   * 512x512 crisp planar-projected royal face texture.
+   * Front face vertices map cleanly into x=[0.16..0.84], y=[0.06..0.94]; back-of-head maps to [0..0.12].
+   */
+  function createRoyalFaceTexture(lookInfo) {
+    const THREE = window.THREE;
+    const size = 512;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+
+    ctx.fillStyle = lookInfo.skinHex;
+    ctx.fillRect(0, 0, size, size);
+
+    // Subtle facial volumetric sculpting (forehead light, temple & jaw contour)
+    const cx = size * 0.5;
+    const faceGlow = ctx.createRadialGradient(cx, size * 0.48, size * 0.04, cx, size * 0.5, size * 0.36);
+    faceGlow.addColorStop(0, hexToRgba(lookInfo.skinHighlightHex, 0.36));
+    faceGlow.addColorStop(0.65, hexToRgba(lookInfo.skinHex, 0));
+    faceGlow.addColorStop(1, hexToRgba(lookInfo.skinShadowHex, 0.42));
+    ctx.fillStyle = faceGlow;
+    ctx.fillRect(size * 0.1, 0, size * 0.85, size);
+
+    // Eye anchors match planar projection of sculptural head (+y = top of canvas in UV, canvas y=0 is top!)
+    // In BufferGeometry UV v=0 is chin (bottom -> canvas y=size), v=1 is crown (top -> canvas y=0)
+    const eyeY = size * 0.47;
+    const eyeSep = size * 0.095 * lookInfo.eyeSpacing;
+    const eyeScale = 0.92 + (lookInfo.eyeSize - 0.85) * 0.55;
+    const rx = 25 * eyeScale;
+    const ry = (lookInfo.eyeShape === 'doe' ? 16.5 : lookInfo.eyeShape === 'hooded' ? 12.2 : 14.5) * eyeScale;
+
+    // Airbrushed Cheekbone Blush
+    if (lookInfo.blushIntensity > 0.02) {
+      [-1, 1].forEach(function (side) {
+        const bx = cx + side * size * 0.14;
+        const by = size * 0.585;
+        const bg = ctx.createRadialGradient(bx, by, 4, bx, by, 44);
+        bg.addColorStop(0, hexToRgba(lookInfo.blushHex, Math.min(0.55, lookInfo.blushIntensity * 0.5)));
+        bg.addColorStop(1, hexToRgba(lookInfo.blushHex, 0));
+        ctx.fillStyle = bg;
+        ctx.beginPath();
+        ctx.arc(bx, by, 44, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // Soft sculpted nose bridge highlight + subtle nostrils shadow (zero cone polygon needed!)
+    const noseBridge = ctx.createLinearGradient(cx, eyeY - 4, cx, size * 0.615);
+    noseBridge.addColorStop(0, hexToRgba(lookInfo.skinHighlightHex, 0.45));
+    noseBridge.addColorStop(1, hexToRgba(lookInfo.skinHighlightHex, 0.14));
+    ctx.strokeStyle = noseBridge;
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx, eyeY - 2);
+    ctx.lineTo(cx, size * 0.6);
+    ctx.stroke();
+
+    ctx.fillStyle = hexToRgba(lookInfo.skinShadowHex, 0.34);
+    ctx.beginPath();
+    ctx.ellipse(cx, size * 0.616, 15, 5.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = hexToRgba(lookInfo.skinShadowHex, 0.55);
+    [-1, 1].forEach(function (s) {
+      ctx.beginPath();
+      ctx.ellipse(cx + s * 6.5, size * 0.62, 2.8, 1.6, s * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Freckles
+    if (lookInfo.freckles && lookInfo.freckles !== 'none') {
+      ctx.fillStyle = hexToRgba(lookInfo.skinShadowHex, 0.55);
+      const count = lookInfo.freckles === 'full-cheek' ? 32 : 16;
+      for (let i = 0; i < count; i++) {
+        const fx = cx + Math.sin(i * 7.3) * (lookInfo.freckles === 'light-nose' ? 28 : 66);
+        const fy = size * 0.555 + Math.cos(i * 4.1) * 14;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Beauty Mark / Mole
+    if (lookInfo.mole && lookInfo.mole !== 'none') {
+      ctx.fillStyle = '#331d19';
+      let mx = cx - 44;
+      let my = size * 0.57;
+      if (lookInfo.mole === 'lip-corner') {
+        mx = cx + 32;
+        my = size * 0.695;
+      } else if (lookInfo.mole === 'brow-arch') {
+        mx = cx + 48;
+        my = eyeY - 30;
+      }
+      ctx.beginPath();
+      ctx.arc(mx, my, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // High-Definition Living Eyes (Orbital Depth + Eyeshadow + Optical Iris + Distinct Pupil Shape)
+    const depth = typeof lookInfo.eyeDepth === 'number' ? lookInfo.eyeDepth : 0.55;
+    const tiltAngle = lookInfo.eyeShape === 'cat-eye' ? -0.14 : lookInfo.eyeShape === 'doe' ? 0.03 : -0.06;
+
+    [-1, 1].forEach(function (side) {
+      const ex = cx + side * eyeSep;
+      ctx.save();
+      ctx.translate(ex, eyeY);
+      ctx.rotate(side * tiltAngle);
+
+      // Orbital depth socket shadow + eyeshadow
+      const sock = ctx.createRadialGradient(0, -3, rx * 0.25, 0, -2, rx * 1.48);
+      sock.addColorStop(0, hexToRgba(lookInfo.shadowHex, Math.max(0.18 + depth * 0.34, lookInfo.shadowAlpha)));
+      sock.addColorStop(1, hexToRgba(lookInfo.skinHex, 0));
+      ctx.fillStyle = sock;
+      ctx.beginPath();
+      ctx.ellipse(0, -2, rx * 1.45, ry * 1.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Crease shadow arc
+      ctx.strokeStyle = hexToRgba(lookInfo.skinShadowHex, 0.35 + depth * 0.35);
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(-rx * 0.9, -ry * 0.72);
+      ctx.quadraticCurveTo(0, -ry * 1.55, rx * 0.95, -ry * 0.65);
+      ctx.stroke();
+
+      // Almond Eye Sclera Opening
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(-rx, 1);
+      ctx.bezierCurveTo(-rx * 0.48, -ry * 1.08, rx * 0.48, -ry * 1.08, rx, 0);
+      ctx.bezierCurveTo(rx * 0.46, ry * 0.92, -rx * 0.46, ry * 0.92, -rx, 1);
+      ctx.closePath();
+
+      const scleraGrad = ctx.createLinearGradient(0, -ry, 0, ry);
+      scleraGrad.addColorStop(0, '#cfc7ca');
+      scleraGrad.addColorStop(0.28, '#fffcf9');
+      scleraGrad.addColorStop(1, '#f1eae6');
+      ctx.fillStyle = scleraGrad;
+      ctx.fill();
+      ctx.clip();
+
+      // Tear duct pink corner
+      ctx.fillStyle = 'rgba(214, 130, 140, 0.55)';
+      ctx.beginPath();
+      ctx.arc(-side * rx * 0.88, 0.5, rx * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Multi-ring Optical Iris
+      const irisR = ry * 0.9;
+      const irisGrad = ctx.createRadialGradient(0, irisR * 0.12, irisR * 0.12, 0, 0, irisR);
+      irisGrad.addColorStop(0, lookInfo.eyeHex);
+      irisGrad.addColorStop(0.68, lookInfo.eyeHex);
+      irisGrad.addColorStop(0.9, '#1a121d');
+      irisGrad.addColorStop(1, '#0d0810');
+      ctx.fillStyle = irisGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, irisR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subtle Golden/Bright Iris Collarette Rim
+      ctx.strokeStyle = 'rgba(255, 240, 200, 0.25)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, irisR * 0.56, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Crisp CAS Pupil Shapes
+      ctx.fillStyle = '#090609';
+      const pShape = lookInfo.pupilShape;
+      if (pShape === 'feline-slit') {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, irisR * 0.22, irisR * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (pShape === 'almond-soft') {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, irisR * 0.36, irisR * 0.58, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (pShape === 'dilated') {
+        ctx.beginPath();
+        ctx.arc(0, 0, irisR * 0.62, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (pShape === 'pinpoint') {
+        ctx.beginPath();
+        ctx.arc(0, 0, irisR * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (pShape === 'starlight') {
+        ctx.beginPath();
+        for (let k = 0; k < 8; k++) {
+          const ang = (k / 8) * Math.PI * 2;
+          const rPt = k % 2 === 0 ? irisR * 0.58 : irisR * 0.28;
+          if (k === 0) ctx.moveTo(Math.cos(ang) * rPt, Math.sin(ang) * rPt);
+          else ctx.lineTo(Math.cos(ang) * rPt, Math.sin(ang) * rPt);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, irisR * 0.44, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Glossy Living Catchlights
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+      ctx.beginPath();
+      ctx.arc(-irisR * 0.34, -irisR * 0.34, irisR * 0.24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.62)';
+      ctx.beginPath();
+      ctx.arc(irisR * 0.28, irisR * 0.28, irisR * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // Upper Eyelash Line + Parisian Winged Eyeliner
+      ctx.strokeStyle = '#150d12';
+      ctx.lineWidth = lookInfo.eyeliner === 'none' ? 2.4 : 4.2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-rx, 1);
+      ctx.bezierCurveTo(-rx * 0.48, -ry * 1.12, rx * 0.48, -ry * 1.12, rx, 0);
+      if (lookInfo.eyeliner !== 'none') {
+        ctx.lineTo(rx + side * 8, -6);
+      }
+      ctx.stroke();
+
+      // Lower Lash Shadow
+      ctx.strokeStyle = 'rgba(42, 26, 30, 0.38)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(-rx * 0.72, ry * 0.42);
+      ctx.quadraticCurveTo(0, ry * 0.94, rx * 0.78, ry * 0.35);
+      ctx.stroke();
+
+      ctx.restore();
+
+      // Arched Feathered Eyebrows
+      ctx.strokeStyle = lookInfo.hairRootHex;
+      ctx.lineWidth = 4.6;
+      ctx.lineCap = 'round';
+      const browY = eyeY - ry * 1.75;
+      ctx.beginPath();
+      ctx.moveTo(ex - side * rx * 0.85, browY + 4);
+      ctx.quadraticCurveTo(
+        ex + side * rx * 0.1,
+        browY - (lookInfo.browStyle === 'soft-straight' ? 4 : 9),
+        ex + side * rx * 1.08,
+        browY + 2
+      );
+      ctx.stroke();
+    });
+
+    // Sculpted Cupid's Bow Couture Lips
+    const lipY = size * 0.71;
+    const lipW = 28 * (0.9 + lookInfo.lipFullness * 0.14);
+    const lipH = 10.5 * (0.82 + lookInfo.lipFullness * 0.28);
+
+    ctx.fillStyle = lookInfo.lipHex;
+    ctx.beginPath();
+    ctx.moveTo(cx - lipW, lipY);
+    ctx.quadraticCurveTo(cx - lipW * 0.42, lipY - lipH * 0.92, cx - lipW * 0.16, lipY - lipH * 0.76);
+    ctx.quadraticCurveTo(cx, lipY - lipH * 0.38, cx + lipW * 0.16, lipY - lipH * 0.76);
+    ctx.quadraticCurveTo(cx + lipW * 0.42, lipY - lipH * 0.92, cx + lipW, lipY);
+    ctx.quadraticCurveTo(cx, lipY + 2, cx - lipW, lipY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(cx - lipW * 0.92, lipY);
+    ctx.quadraticCurveTo(cx, lipY + lipH * 1.55, cx + lipW * 0.92, lipY);
+    ctx.quadraticCurveTo(cx, lipY + 1.2, cx - lipW * 0.92, lipY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(48, 18, 26, 0.44)';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(cx - lipW * 0.85, lipY);
+    ctx.quadraticCurveTo(cx, lipY + 2.2, cx + lipW * 0.85, lipY);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255, 242, 246, 0.48)';
+    ctx.beginPath();
+    ctx.ellipse(cx, lipY + lipH * 0.56, lipW * 0.36, lipH * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /**
+   * 512x512 tailored haute-couture bodice, bra/panties, or gown fabric texture.
+   */
+  function createCoutureFabricTexture(primaryHex, goldHex, trimHex, outfitId, role, skinHex) {
+    const THREE = window.THREE;
+    const size = 512;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+
+    if (role === 'royal' && outfitId === 'foundation-slip') {
+      // Crisp satin lacy bralette & high-cut panties painted directly on bare skin torso
+      ctx.fillStyle = skinHex || '#f0cbb4';
+      ctx.fillRect(0, 0, size, size);
+
+      // Bra band (v=0.60..0.76 -> canvas y from top: v=1 is top y=0, v=0 is bottom y=size)
+      const braTop = size * 0.22;
+      const braBot = size * 0.4;
+      ctx.fillStyle = primaryHex;
+      ctx.fillRect(0, braTop, size, braBot - braTop);
+      ctx.strokeStyle = goldHex;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(0, braTop, size, braBot - braTop);
+
+      // Satin briefs (v=0.0..0.20 -> bottom y=size*0.80..size)
+      ctx.fillStyle = primaryHex;
+      ctx.fillRect(0, size * 0.8, size, size * 0.2);
+      ctx.strokeStyle = goldHex;
+      ctx.strokeRect(0, size * 0.8, size, size * 0.2);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, size);
+    baseGrad.addColorStop(0, primaryHex);
+    baseGrad.addColorStop(0.55, primaryHex);
+    baseGrad.addColorStop(1, hexToRgba(primaryHex, 1));
+    ctx.fillStyle = baseGrad;
+    ctx.fillRect(0, 0, size, size);
+
+    // Subtle silk satin weave & vertical couture princess seams
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2.5;
+    for (let x = 16; x < size; x += 48) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + 8, size);
+      ctx.stroke();
+    }
+
+    if (role === 'royal') {
+      // Gold embroidered corset boning & Baroque floral damask
+      ctx.strokeStyle = hexToRgba(goldHex, 0.52);
+      ctx.lineWidth = 2.4;
+      for (let gx = 48; gx < size; gx += 96) {
+        for (let gy = 56; gy < size - 64; gy += 96) {
+          ctx.beginPath();
+          ctx.ellipse(gx, gy, 16, 26, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(gx, gy, 6, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      // Ornate gold & cream embroidered gown hem band
+      ctx.fillStyle = hexToRgba(goldHex, 0.88);
+      ctx.fillRect(0, size - 42, size, 14);
+      ctx.fillStyle = trimHex;
+      ctx.fillRect(0, size - 22, size, 8);
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /**
+   * Feathered Alpha-Card Silky Hair Strand Texture (replaces Play-Doh Tubes completely!)
+   */
+  function createHairStrandTexture(rootHex, tipHex, highlightHex) {
+    const THREE = window.THREE;
+    const size = 256;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+
+    ctx.clearRect(0, 0, size, size);
+
+    // Rich strand silhouette (rounded feathered tips along bottom!)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(size, 0);
+    ctx.lineTo(size, size * 0.78);
+    for (let x = size; x >= 0; x -= 16) {
+      const tipY = size * (0.82 + 0.16 * Math.abs(Math.sin(x * 0.08)));
+      ctx.lineTo(x, tipY);
+    }
+    ctx.closePath();
+    ctx.clip();
+
+    const grad = ctx.createLinearGradient(0, 0, 0, size);
+    grad.addColorStop(0, rootHex);
+    grad.addColorStop(0.38, tipHex);
+    grad.addColorStop(1, tipHex);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    // Crisp silk hair strands & specular highlights
+    for (let x = 2; x < size; x += 5) {
+      ctx.strokeStyle = x % 15 === 0 ? hexToRgba(highlightHex, 0.42) : 'rgba(20, 12, 16, 0.18)';
+      ctx.lineWidth = x % 15 === 0 ? 2.2 : 1.1;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.bezierCurveTo(x - 4, size * 0.35, x + 5, size * 0.7, x, size);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /**
+   * Builds a seamless sculpted anatomical head with delicate cheekbone/chin heart-taper,
+   * soft integrated nasal bridge & nose tip vertices (zero cone primitives!),
+   * and planar front-hemisphere UVs so every facial detail renders razor sharp.
+   */
+  function buildSculptedHeadGeometry() {
+    const THREE = window.THREE;
+    const latSegs = 24;
+    const lonSegs = 36;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let iy = 0; iy <= latSegs; iy++) {
+      const vFrac = iy / latSegs; // 0 = chin base (-0.122), 1 = crown (+0.126)
+      const phi = vFrac * Math.PI;
+      const yBase = -Math.cos(phi) * 0.124;
+
+      // Heart-tapered fashion doll jaw profile
+      const ringR = Math.sin(phi) * (0.095 + (vFrac < 0.35 ? -0.016 * (1 - vFrac / 0.35) : 0.008));
+
+      for (let ix = 0; ix <= lonSegs; ix++) {
+        const uFrac = ix / lonSegs;
+        const theta = (uFrac - 0.5) * Math.PI * 2; // 0 is front +Z
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+
+        let x = sinT * ringR * 0.92;
+        let y = yBase;
+        let z = cosT * ringR * 1.02;
+
+        // Soft integrated sculptural nose bridge & tip between y=-0.025..+0.02, |x| < 0.022, z > 0
+        if (cosT > 0.72) {
+          const centerAlign = Math.max(0, 1 - Math.abs(sinT) / 0.24);
+          const noseBand = Math.max(0, 1 - Math.abs(vFrac - 0.44) / 0.14);
+          const noseLift = centerAlign * noseBand * 0.014;
+          z += noseLift;
+
+          // Subtle sculpted lips mound below nose
+          const mouthBand = Math.max(0, 1 - Math.abs(vFrac - 0.28) / 0.075);
+          const lipAlign = Math.max(0, 1 - Math.abs(sinT) / 0.3);
+          z += mouthBand * lipAlign * 0.008;
+        }
+
+        // Front-hemisphere planar UV projection: 320px width strictly across the front face!
+        let u;
+        let v;
+        if (cosT > 0.08) {
+          u = THREE.MathUtils.clamp(0.5 + (x / 0.105) * 0.34, 0.14, 0.86);
+          v = THREE.MathUtils.clamp((y + 0.124) / 0.248, 0.04, 0.96);
+        } else {
+          // Back/sides map to pure smooth skin corner swatch -> zero smeared eyes on back of head!
+          u = 0.04;
+          v = 0.5;
+        }
+
+        positions.push(x, y, z);
+        uvs.push(u, v);
+      }
+    }
+
+    const row = lonSegs + 1;
+    for (let iy = 0; iy < latSegs; iy++) {
+      for (let ix = 0; ix < lonSegs; ix++) {
+        const a = iy * row + ix;
+        const b = a + 1;
+        const c = a + row;
+        const d = c + 1;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /**
+   * Builds a curved layered feathered hair-card shell draping seamlessly over cranium/back/shoulders.
+   */
+  function buildHairRibbonShell(opts) {
+    const THREE = window.THREE;
+    const rows = opts.rows || 10;
+    const cols = opts.cols || 16;
+    const startAngle = opts.startAngle;
+    const endAngle = opts.endAngle;
+    const topY = opts.topY;
+    const botY = opts.botY;
+    const topR = opts.topR;
+    const botR = opts.botR;
+    const zShiftBot = opts.zShiftBot || -0.02;
+    const waveAmp = opts.waveAmp || 0.014;
+
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let r = 0; r <= rows; r++) {
+      const vt = r / rows; // 0=top, 1=bottom tip
+      const y = topY + (botY - topY) * vt;
+      const rad = topR + (botR - topR) * Math.pow(vt, 0.75) + Math.sin(vt * Math.PI * 2.5) * waveAmp;
+      const zOff = zShiftBot * vt;
+
+      for (let c = 0; c <= cols; c++) {
+        const ut = c / cols;
+        const ang = startAngle + (endAngle - startAngle) * ut;
+        const x = Math.sin(ang) * rad * 0.96;
+        const z = Math.cos(ang) * rad + zOff;
+        positions.push(x, y, z);
+        uvs.push(ut, 1 - vt);
+      }
+    }
+
+    const stride = cols + 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const a = r * stride + c;
+        const b = a + 1;
+        const cc = a + stride;
+        const d = cc + 1;
+        indices.push(a, cc, b);
+        indices.push(b, cc, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /**
+   * Builds continuous seamless anatomical torso-to-collarbone lofted BufferGeometry
+   * driven directly by CAS body ratios (hourglass, pear, apple, rectangle, etc.).
+   */
+  function buildAnatomicalTorsoGeometry(scales) {
+    const THREE = window.THREE;
+    const radialSegs = 28;
+    const sh = scales.shoulders;
+    const bu = scales.bust;
+    const wa = scales.waist;
+    const hh = scales.highHip;
+    const hi = scales.hips;
+
+    const rings = [
+      [0.0, 0.138 * hi, 0.098 * hi, 0.0],
+      [0.06, 0.184 * hi, 0.122 * hi, -0.008],
+      [0.12, 0.168 * hh, 0.112 * hh, -0.004],
+      [0.19, 0.124 * wa, 0.088 * wa, 0.002],
+      [0.26, 0.118 * wa, 0.086 * wa, 0.004],
+      [0.34, 0.144 * bu, 0.102 * bu, 0.014],
+      [0.42, 0.152 * bu, 0.112 * bu, 0.022],
+      [0.50, 0.156 * sh, 0.092, 0.004],
+      [0.56, 0.115 * sh, 0.072, 0.0],
+      [0.60, 0.048, 0.048, 0.0],
+    ];
+
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let r = 0; r < rings.length; r++) {
+      const ring = rings[r];
+      const y = ring[0];
+      const rx = ring[1];
+      const rz = ring[2];
+      const zOff = ring[3];
+      const v = r / (rings.length - 1);
+
+      for (let s = 0; s <= radialSegs; s++) {
+        const u = s / radialSegs;
+        const theta = u * Math.PI * 2;
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+
+        let bustLift = 0;
+        if (r === 5 || r === 6) {
+          const frontFactor = Math.max(0, cosT);
+          const dualCurve = 0.72 + 0.28 * Math.sin(Math.abs(sinT) * Math.PI);
+          bustLift = frontFactor * dualCurve * 0.044 * bu;
+        }
+        let hipLift = 0;
+        if (r === 1 || r === 2) {
+          const backFactor = Math.max(0, -cosT);
+          hipLift = -backFactor * 0.03 * hi;
+        }
+
+        positions.push(sinT * rx, y, cosT * rz + zOff + bustLift + hipLift);
+        uvs.push(u, v);
+      }
+    }
+
+    const rowStride = radialSegs + 1;
+    for (let r = 0; r < rings.length - 1; r++) {
+      for (let s = 0; s < radialSegs; s++) {
+        const a = r * rowStride + s;
+        const b = a + 1;
+        const c = a + rowStride;
+        const d = c + 1;
+        indices.push(a, c, b);
+        indices.push(b, c, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /**
+   * Builds a pleated billowing couture ballgown skirt with soft sinusoidal vertical silk folds & slight back royal sweep.
+   */
+  function buildPleatedSkirtGeometry(waistW, hipW, lengthY, topY, numPleats) {
+    const THREE = window.THREE;
+    const rings = 9;
+    const segs = 36;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let r = 0; r <= rings; r++) {
+      const vt = r / rings; // 0 = waist, 1 = floor hem
+      const y = topY - vt * lengthY;
+      const baseR = waistW + (hipW - waistW) * Math.pow(vt, 0.78);
+      const backTrain = vt * 0.085;
+
+      for (let s = 0; s <= segs; s++) {
+        const ut = s / segs;
+        const theta = ut * Math.PI * 2;
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+        const pleat = Math.sin(theta * (numPleats || 14)) * 0.024 * vt;
+        const rad = baseR + pleat;
+        const x = sinT * rad * 1.03;
+        const z = cosT * rad * 0.94 - Math.max(0, -cosT) * backTrain;
+        positions.push(x, y, z);
+        uvs.push(ut * 2, 1 - vt);
+      }
+    }
+
+    const stride = segs + 1;
+    for (let r = 0; r < rings; r++) {
+      for (let s = 0; s < segs; s++) {
+        const a = r * stride + s;
+        const b = a + 1;
+        const c = a + stride;
+        const d = c + 1;
+        indices.push(a, c, b);
+        indices.push(b, c, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  /**
+   * Seamless continuous lofted arm + flexed elbow + slender forearm + delicate hand (zero shoulder balls!)
+   */
+  function buildContinuousArmGeometry(side, armR) {
+    const THREE = window.THREE;
+    const segs = 12;
+    // [xCenter, yCenter, zCenter, rx, rz] from shoulder socket down to fingertips
+    const rings = [
+      [0.0, 0.015, 0.0, armR * 0.72, armR * 0.72],
+      [side * 0.012, -0.04, 0.0, armR * 0.92, armR * 0.88],
+      [side * 0.025, -0.14, -0.004, armR * 0.82, armR * 0.8],
+      [side * 0.036, -0.25, 0.006, armR * 0.72, armR * 0.72], // subtle flexed elbow
+      [side * 0.044, -0.37, 0.028, armR * 0.64, armR * 0.6], // tapered forearm
+      [side * 0.048, -0.47, 0.046, armR * 0.46, armR * 0.4], // delicate wrist
+      [side * 0.05, -0.525, 0.058, armR * 0.56, armR * 0.34], // graceful flat palm
+      [side * 0.049, -0.585, 0.068, armR * 0.34, armR * 0.16], // tapered fingertips
+      [side * 0.048, -0.60, 0.07, armR * 0.1, armR * 0.06],
+    ];
+
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let r = 0; r < rings.length; r++) {
+      const ring = rings[r];
+      for (let s = 0; s <= segs; s++) {
+        const theta = (s / segs) * Math.PI * 2;
+        positions.push(
+          ring[0] + Math.sin(theta) * ring[3],
+          ring[1],
+          ring[2] + Math.cos(theta) * ring[4]
+        );
+        uvs.push(s / segs, r / (rings.length - 1));
+      }
+    }
+
+    const stride = segs + 1;
+    for (let r = 0; r < rings.length - 1; r++) {
+      for (let s = 0; s < segs; s++) {
+        const a = r * stride + s;
+        const b = a + 1;
+        const c = a + stride;
+        const d = c + 1;
+        indices.push(a, c, b);
+        indices.push(b, c, d);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function buildSculptedThighGeometry(thighR, thighLen) {
+    const THREE = window.THREE;
+    const pts = [
+      new THREE.Vector2(thighR * 0.56, -thighLen - 0.025),
+      new THREE.Vector2(thighR * 0.62, -thighLen * 0.85),
+      new THREE.Vector2(thighR * 0.82, -thighLen * 0.48),
+      new THREE.Vector2(thighR * 0.96, -thighLen * 0.16),
+      new THREE.Vector2(thighR * 0.86, 0.01),
+    ];
+    return new THREE.LatheGeometry(pts, 16);
+  }
+
+  function buildSculptedShinGeometry(thighR, shinLen) {
+    const THREE = window.THREE;
+    const pts = [
+      new THREE.Vector2(thighR * 0.36, -shinLen + 0.068),
+      new THREE.Vector2(thighR * 0.42, -shinLen * 0.72),
+      new THREE.Vector2(thighR * 0.66, -shinLen * 0.36),
+      new THREE.Vector2(thighR * 0.56, -shinLen * 0.06),
+      new THREE.Vector2(thighR * 0.52, 0.032),
+    ];
+    return new THREE.LatheGeometry(pts, 16);
+  }
+
+  /**
+   * True ExtrudeGeometry Stiletto Court Pump (sleek arched heel, pointed toe, zero pancake spheres!)
+   */
+  function buildCouturePumpMesh(shoeMat, isBoot, shinLen) {
+    const THREE = window.THREE;
+    const footGroup = new THREE.Group();
+
+    const shape = new THREE.Shape();
+    shape.moveTo(-0.042, 0.004);
+    shape.lineTo(-0.042, 0.072);
+    shape.lineTo(-0.022, 0.072);
+    shape.lineTo(-0.016, 0.026); // sleek stiletto stem
+    shape.quadraticCurveTo(0.022, 0.045, 0.068, 0.022); // graceful instep arch
+    shape.lineTo(0.118, 0.008);
+    shape.quadraticCurveTo(0.128, 0.002, 0.116, 0.0); // pointed court toe
+    shape.lineTo(0.056, 0.0);
+    shape.quadraticCurveTo(0.015, 0.032, -0.02, 0.004);
+    shape.closePath();
+
+    const extrudeGeo = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.052,
+      bevelEnabled: true,
+      bevelThickness: 0.006,
+      bevelSize: 0.005,
+      bevelSegments: 2,
+    });
+    // Orient Shape's X -> +Z forward, Y -> +Y up, depth -> X width centered
+    extrudeGeo.rotateY(-Math.PI / 2);
+    extrudeGeo.translate(0.026, -shinLen, 0.0);
+
+    const pumpMesh = new THREE.Mesh(extrudeGeo, shoeMat);
+    pumpMesh.castShadow = true;
+    footGroup.add(pumpMesh);
+
+    if (isBoot) {
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.041, shinLen * 0.78, 14), shoeMat);
+      cuff.position.set(0, -shinLen * 0.56, 0.004);
+      cuff.castShadow = true;
+      footGroup.add(cuff);
+    }
+
+    return footGroup;
+  }
+
+  function buildRoyalCharacterMesh(character, options) {
+    const THREE = window.THREE;
+    if (!THREE) return null;
+    const opts = options || {};
+    const role = opts.role || 'royal';
+    const B = window.CrownBodies;
+    const A = window.CrownAccessories;
+    const char = character || {};
+    const body = (char.body && char.body.sliders) || (B ? B.createDefaultBody('hourglass').sliders : {});
+    const lookInfo = resolveLookData(char.look);
+    const acc = A ? A.clampAccessories(char.accessories || A.createDefaultAccessories()) : char.accessories || {};
+    const outfitPal = resolveOutfitPalette(char.wardrobe);
+
+    const root = new THREE.Group();
+    root.name = opts.name || 'royal-character';
+
+    const heightScale = body.height || 1.0;
+    const legScale = body.legLength || 1.0;
+    const shoulderScale = body.shoulders || (role === 'guard' ? 1.1 : 0.92);
+    const bustScale = body.bust || (role === 'guard' ? 0.96 : 1.05);
+    const waistScale = body.waist || (role === 'guard' ? 0.94 : 0.78);
+    const highHipScale = body.highHip || (role === 'guard' ? 0.94 : 1.04);
+    const hipScale = Math.max(body.hips || (role === 'guard' ? 0.94 : 1.12), highHipScale);
+    const armScale = body.arms || 0.9;
+
+    const dressHex = opts.dressHex || (role === 'maid' ? '#242129' : role === 'guard' ? '#911d2c' : outfitPal.primary);
+    const goldHex = opts.trimHex || (role === 'maid' ? '#faf6f0' : role === 'guard' ? '#d9b04e' : outfitPal.secondary);
+    const trimHex = role === 'maid' || role === 'guard' ? '#faf6f0' : outfitPal.trim || '#fffaf2';
+
+    const skinColor = new THREE.Color(lookInfo.skinHex);
+    const dressPrimary = new THREE.Color(dressHex);
+    const dressGold = new THREE.Color(goldHex);
+    const dressTrim = new THREE.Color(trimHex);
+
+    const textures = [];
+    function keepTex(t) {
+      textures.push(t);
+      return t;
+    }
+
+    const faceTex = keepTex(createRoyalFaceTexture(lookInfo));
+    const fabricTex = keepTex(
+      createCoutureFabricTexture(dressHex, goldHex, trimHex, outfitPal.outfitId, role, lookInfo.skinHex)
+    );
+    const hairTex = keepTex(
+      createHairStrandTexture(lookInfo.hairRootHex, lookInfo.hairTipHex, lookInfo.hairHighlightHex)
+    );
+
+    const skinMat = new THREE.MeshPhysicalMaterial({
+      color: skinColor,
+      roughness: 0.52,
+      metalness: 0.02,
+      sheen: 0.25,
+      sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
+    });
+
+    const headFaceMat = new THREE.MeshPhysicalMaterial({
+      map: faceTex,
+      roughness: 0.48,
+      metalness: 0.02,
+      clearcoat: 0.14,
+      clearcoatRoughness: 0.6,
+    });
+
+    const fabricMat = new THREE.MeshPhysicalMaterial({
+      map: fabricTex,
+      roughness: 0.36,
+      metalness: 0.08,
+      sheen: 0.72,
+      sheenRoughness: 0.4,
+      sheenColor: dressGold,
+      side: THREE.DoubleSide,
+    });
+
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: dressTrim,
+      roughness: 0.36,
+      metalness: 0.08,
+    });
+
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: dressGold,
+      roughness: 0.2,
+      metalness: 0.88,
+    });
+
+    const hairCardMat = new THREE.MeshPhysicalMaterial({
+      map: hairTex,
+      roughness: 0.38,
+      metalness: 0.05,
+      sheen: 0.65,
+      sheenColor: new THREE.Color(lookInfo.hairHighlightHex),
+      alphaTest: 0.28,
+      side: THREE.DoubleSide,
+    });
+
+    const hairSolidMat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(lookInfo.hairRootHex),
+      roughness: 0.42,
+      sheen: 0.5,
+      sheenColor: new THREE.Color(lookInfo.hairHighlightHex),
+    });
+
+    const gloveMat =
+      role === 'guard'
+        ? trimMat
+        : acc.gloves === 'noir-satin'
+          ? new THREE.MeshStandardMaterial({ color: 0x221d24, roughness: 0.36 })
+          : acc.gloves === 'ivory-opera'
+            ? new THREE.MeshStandardMaterial({ color: 0xf7f1e8, roughness: 0.36 })
+            : acc.gloves === 'lace-mittens'
+              ? goldMat
+              : skinMat;
+
+    const shoeColor =
+      role === 'guard' || role === 'maid'
+        ? new THREE.Color('#1d191e')
+        : acc.shoes === 'barefoot'
+          ? skinColor
+          : acc.shoes === 'riding-boots'
+            ? new THREE.Color('#2a1e1a')
+            : dressGold.clone().lerp(new THREE.Color('#23181d'), 0.34);
+
+    const shoeMat = new THREE.MeshStandardMaterial({
+      color: shoeColor,
+      roughness: acc.shoes === 'barefoot' && role === 'royal' ? 0.58 : 0.24,
+      metalness: acc.shoes === 'barefoot' && role === 'royal' ? 0.02 : 0.38,
+    });
+
+    // Ground Contact Shadow
+    const shadowGeo = new THREE.CircleGeometry(0.45 * hipScale, 22);
+    shadowGeo.rotateX(-Math.PI / 2);
+    const contactShadow = new THREE.Mesh(
+      shadowGeo,
+      new THREE.MeshBasicMaterial({ color: 0x1e1318, transparent: true, opacity: 0.32, depthWrite: false })
+    );
+    contactShadow.position.y = 0.026;
+    root.add(contactShadow);
+
+    const rig = new THREE.Group();
+    rig.scale.set(1, heightScale, 1);
+    root.add(rig);
+
+    // 7.5-Head Couture Fashion Proportions
+    const legLen = 0.94 * legScale;
+    const pelvisY = legLen;
+
+    // 1. Articulated Sculpted Thigh + Knee Joint + Calf + ExtrudeGeometry Court Pumps / Boots
+    const thighR = 0.062 * Math.min(1.24, Math.max(0.84, body.thighs || hipScale));
+    const thighLen = legLen * 0.48;
+    const shinLen = legLen - thighLen;
+    const isTrousers =
+      role === 'guard' ||
+      outfitPal.outfitId === 'parisian-trench-chic' ||
+      outfitPal.outfitId === 'equestrian-tailored';
+    const isBoot = role === 'guard' || acc.shoes === 'riding-boots';
+
+    function makeLeg(side) {
+      const hipPivot = new THREE.Group();
+      hipPivot.position.set(side * 0.088 * Math.max(0.92, hipScale * 0.9), pelvisY, 0);
+
+      const legMat = role === 'guard' ? trimMat : isTrousers ? fabricMat : skinMat;
+      const thighMesh = new THREE.Mesh(buildSculptedThighGeometry(thighR, thighLen), legMat);
+      thighMesh.castShadow = true;
+      hipPivot.add(thighMesh);
+
+      const kneePivot = new THREE.Group();
+      kneePivot.position.set(0, -thighLen, 0);
+      hipPivot.add(kneePivot);
+
+      const shinMesh = new THREE.Mesh(buildSculptedShinGeometry(thighR, shinLen), legMat);
+      shinMesh.castShadow = true;
+      kneePivot.add(shinMesh);
+
+      kneePivot.add(buildCouturePumpMesh(shoeMat, isBoot, shinLen));
+      return { hip: hipPivot, knee: kneePivot };
+    }
+
+    const leftLegObj = makeLeg(-1);
+    const rightLegObj = makeLeg(1);
+    const leftLeg = leftLegObj.hip;
+    const rightLeg = rightLegObj.hip;
+    const leftKnee = leftLegObj.knee;
+    const rightKnee = rightLegObj.knee;
+    rig.add(leftLeg);
+    rig.add(rightLeg);
+
+    // 2. Sculpted Seamless Anatomical Torso + Pleated Couture Gown
+    const bodyGroup = new THREE.Group();
+    bodyGroup.position.y = pelvisY;
+    rig.add(bodyGroup);
+
+    const isLingerie = role === 'royal' && outfitPal.outfitId === 'foundation-slip';
+    const torsoGeo = buildAnatomicalTorsoGeometry({
+      shoulders: shoulderScale,
+      bust: bustScale,
+      waist: waistScale,
+      highHip: highHipScale,
+      hips: hipScale,
+    });
+    const torsoMesh = new THREE.Mesh(torsoGeo, fabricMat);
+    torsoMesh.castShadow = true;
+    torsoMesh.receiveShadow = true;
+    bodyGroup.add(torsoMesh);
+
+    const isBallgown =
+      role === 'royal' &&
+      outfitPal.category === 'gowns' &&
+      outfitPal.outfitId !== 'midnight-opera-slip';
+    const isCasualSkirt =
+      role === 'maid' ||
+      outfitPal.outfitId === 'riviera-resort-midi' ||
+      outfitPal.outfitId === 'riviera-crop-skirt' ||
+      outfitPal.outfitId === 'lace-nightgown' ||
+      outfitPal.outfitId === 'velvet-morning-robe';
+
+    let skirtMesh = null;
+    if (isBallgown) {
+      const skirtGeo = buildPleatedSkirtGeometry(0.132 * waistScale, 0.52 * hipScale, legLen + 0.1, 0.19, 14);
+      skirtMesh = new THREE.Mesh(skirtGeo, fabricMat);
+      skirtMesh.castShadow = true;
+      skirtMesh.receiveShadow = true;
+      bodyGroup.add(skirtMesh);
+
+      const peplumPts = [
+        new THREE.Vector2(0.25 * hipScale, -0.18),
+        new THREE.Vector2(0.23 * hipScale, 0.02),
+        new THREE.Vector2(0.134 * waistScale, 0.195),
+      ];
+      const peplum = new THREE.Mesh(new THREE.LatheGeometry(peplumPts, 24, -0.2, Math.PI + 0.4), goldMat);
+      peplum.rotation.y = Math.PI * 0.5;
+      peplum.scale.set(1.04, 1, 0.94);
+      bodyGroup.add(peplum);
+    } else if (isCasualSkirt || (role === 'royal' && outfitPal.outfitId === 'midnight-opera-slip')) {
+      const skirtLen =
+        role === 'maid'
+          ? legLen * 0.68
+          : outfitPal.outfitId === 'midnight-opera-slip'
+            ? legLen * 0.94
+            : legLen * 0.58;
+      const flare = outfitPal.outfitId === 'midnight-opera-slip' ? 0.24 * hipScale : 0.34 * hipScale;
+      const skirtGeo = buildPleatedSkirtGeometry(0.13 * waistScale, flare, skirtLen, 0.19, 10);
+      skirtMesh = new THREE.Mesh(skirtGeo, fabricMat);
+      skirtMesh.castShadow = true;
+      bodyGroup.add(skirtMesh);
+
+      if (role === 'maid') {
+        const apron = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.135 * waistScale, 0.28 * hipScale, skirtLen * 0.82, 16, 1, false, -0.7, 1.4),
+          trimMat
+        );
+        apron.position.y = 0.17 - skirtLen * 0.42;
+        bodyGroup.add(apron);
+      }
+    }
+
+    if (!isLingerie && role !== 'guard') {
+      const belt = new THREE.Mesh(new THREE.TorusGeometry(0.128 * waistScale, 0.014, 10, 26), goldMat);
+      belt.rotation.x = Math.PI / 2;
+      belt.scale.set(1.02, 0.78, 1);
+      belt.position.set(0, 0.2, 0.004);
+      bodyGroup.add(belt);
+    }
+
+    if (role === 'guard') {
+      const sash = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.42, 12, 1, true, -0.35, 0.7), trimMat);
+      sash.position.set(0, 0.34, 0.015);
+      sash.rotation.z = 0.42;
+      bodyGroup.add(sash);
+    }
+
+    // Slender Sculpted Neck & Collarbone Necklace
+    const neckPts = [
+      new THREE.Vector2(0.052, 0.565),
+      new THREE.Vector2(0.039, 0.64),
+      new THREE.Vector2(0.041, 0.705),
+    ];
+    bodyGroup.add(new THREE.Mesh(new THREE.LatheGeometry(neckPts, 14), skinMat));
+
+    if (role === 'royal' && acc.necklace && acc.necklace !== 'none') {
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.009, 8, 20), goldMat);
+      collar.rotation.x = Math.PI * 0.44;
+      collar.position.set(0, 0.585, 0.012);
+      bodyGroup.add(collar);
+    }
+
+    // 3. Continuous Seamless Arms + Hands (zero spherical joint seams!)
+    const shoulderSpan = 0.144 * shoulderScale;
+    const armR = 0.032 * armScale;
+    const hasSleeves =
+      role === 'guard' ||
+      role === 'maid' ||
+      outfitPal.outfitId === 'riviera-sky-gown' ||
+      outfitPal.outfitId === 'parisian-trench-chic' ||
+      outfitPal.outfitId === 'equestrian-tailored';
+
+    function makeArm(side) {
+      const armPivot = new THREE.Group();
+      armPivot.position.set(side * shoulderSpan, 0.525, 0.004);
+
+      const armMat =
+        role === 'guard' || hasSleeves
+          ? fabricMat
+          : acc.gloves === 'ivory-opera' || acc.gloves === 'noir-satin'
+            ? gloveMat
+            : skinMat;
+
+      const armMesh = new THREE.Mesh(buildContinuousArmGeometry(side, armR), armMat);
+      armMesh.castShadow = true;
+      armPivot.add(armMesh);
+
+      if (role === 'royal' && outfitPal.outfitId === 'versailles-ivory-gown') {
+        const cuff = new THREE.Mesh(new THREE.TorusGeometry(armR * 1.15, 0.013, 8, 16), trimMat);
+        cuff.rotation.x = Math.PI / 2;
+        cuff.position.set(side * 0.015, -0.055, 0);
+        armPivot.add(cuff);
+      }
+
+      if (role === 'guard' && side === 1) {
+        const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.85, 8), goldMat);
+        staff.position.set(0.055, -0.1, 0.075);
+        armPivot.add(staff);
+        const spearHead = new THREE.Mesh(new THREE.ConeGeometry(0.048, 0.2, 6), goldMat);
+        spearHead.position.set(0.055, 0.9, 0.075);
+        armPivot.add(spearHead);
+      }
+
+      return armPivot;
+    }
+
+    const leftArm = makeArm(-1);
+    const rightArm = makeArm(1);
+    bodyGroup.add(leftArm);
+    bodyGroup.add(rightArm);
+
+    // 3B. Handheld Interactive 3D Props (toggled dynamically per pose in anim.js)
+    const heldProps = {};
+
+    // Open Leather-Bound Gilded Royal Book (held between both hands during 'read' / 'sit_read')
+    const bookGroup = new THREE.Group();
+    bookGroup.name = 'held-book';
+    bookGroup.visible = false;
+    bookGroup.position.set(0, 0.25, 0.34);
+    bookGroup.rotation.set(-0.68, 0, 0);
+
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width = 128;
+    pageCanvas.height = 128;
+    const pCtx = pageCanvas.getContext('2d');
+    pCtx.fillStyle = '#fbf3df';
+    pCtx.fillRect(0, 0, 128, 128);
+    pCtx.strokeStyle = '#c5993b';
+    pCtx.lineWidth = 4;
+    pCtx.strokeRect(8, 8, 112, 112);
+    pCtx.fillStyle = '#9e2b3e';
+    pCtx.fillRect(18, 18, 26, 26);
+    pCtx.fillStyle = '#3c2e28';
+    for (let ln = 0; ln < 9; ln++) {
+      const yLn = 22 + ln * 10;
+      const xStart = ln < 3 ? 50 : 18;
+      pCtx.fillRect(xStart, yLn, 110 - xStart - ((ln % 3) * 8), 3);
+    }
+    const pageTex = new THREE.CanvasTexture(pageCanvas);
+    pageTex.colorSpace = THREE.SRGBColorSpace;
+    textures.push(pageTex);
+
+    const bookCoverMat = new THREE.MeshStandardMaterial({ color: 0x7b1f32, roughness: 0.45, metalness: 0.12 });
+    const bookPageMat = new THREE.MeshStandardMaterial({ map: pageTex, roughness: 0.84 });
+    const bookSpine = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.24, 0.025), goldMat);
+    bookGroup.add(bookSpine);
+    [-1, 1].forEach(function (side) {
+      const leaf = new THREE.Group();
+      leaf.position.set(side * 0.012, 0, 0);
+      leaf.rotation.y = side * -0.34;
+      const cover = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.245, 0.012), bookCoverMat);
+      cover.position.set(side * 0.075, 0, -0.008);
+      cover.castShadow = true;
+      leaf.add(cover);
+      const pageBlock = new THREE.Mesh(new THREE.BoxGeometry(0.138, 0.228, 0.016), bookPageMat);
+      pageBlock.position.set(side * 0.072, 0, 0.004);
+      leaf.add(pageBlock);
+      bookGroup.add(leaf);
+    });
+    const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.27, 0.005), goldMat);
+    ribbon.position.set(0.01, -0.02, 0.012);
+    ribbon.rotation.z = 0.08;
+    bookGroup.add(ribbon);
+    bodyGroup.add(bookGroup);
+    heldProps.book = bookGroup;
+
+    // Porcelain Teacup & Saucer (attached to right hand during 'eat' / tea poses)
+    const teacupGroup = new THREE.Group();
+    teacupGroup.name = 'held-teacup';
+    teacupGroup.visible = false;
+    teacupGroup.position.set(0.048, -0.535, 0.068);
+    teacupGroup.rotation.x = Math.PI * 0.44;
+    const chinaMat = new THREE.MeshPhysicalMaterial({ color: 0xfefaf5, roughness: 0.14, clearcoat: 0.9 });
+    const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.035, 0.014, 16), chinaMat);
+    teacupGroup.add(saucer);
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.024, 0.048, 14), chinaMat);
+    cup.position.y = 0.028;
+    teacupGroup.add(cup);
+    const cupRim = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.003, 6, 16), goldMat);
+    cupRim.rotation.x = Math.PI * 0.5;
+    cupRim.position.y = 0.052;
+    teacupGroup.add(cupRim);
+    const teaFill = new THREE.Mesh(new THREE.CircleGeometry(0.032, 12), new THREE.MeshStandardMaterial({ color: 0x9b4d2b, roughness: 0.2 }));
+    teaFill.rotation.x = -Math.PI * 0.5;
+    teaFill.position.y = 0.046;
+    teacupGroup.add(teaFill);
+    rightArm.add(teacupGroup);
+    heldProps.teacup = teacupGroup;
+
+    // Artist Paintbrush (right hand) & Palette (left hand) for 'paint'
+    const brushGroup = new THREE.Group();
+    brushGroup.visible = false;
+    brushGroup.position.set(0.048, -0.545, 0.072);
+    brushGroup.rotation.x = Math.PI * 0.45;
+    const brushHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.005, 0.008, 0.26, 8),
+      new THREE.MeshStandardMaterial({ color: 0x5c2f1c, roughness: 0.5 })
+    );
+    brushHandle.position.y = 0.06;
+    brushGroup.add(brushHandle);
+    const brushTip = new THREE.Mesh(
+      new THREE.ConeGeometry(0.009, 0.034, 8),
+      new THREE.MeshStandardMaterial({ color: 0xc84b6b, roughness: 0.6 })
+    );
+    brushTip.position.y = 0.205;
+    brushGroup.add(brushTip);
+    rightArm.add(brushGroup);
+    heldProps.brush = brushGroup;
+
+    const paletteGroup = new THREE.Group();
+    paletteGroup.visible = false;
+    paletteGroup.position.set(-0.048, -0.53, 0.075);
+    paletteGroup.rotation.set(Math.PI * 0.46, 0, -0.15);
+    const board = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.11, 0.11, 0.012, 16),
+      new THREE.MeshStandardMaterial({ color: 0xa47449, roughness: 0.65 })
+    );
+    board.scale.set(1.18, 1, 0.88);
+    paletteGroup.add(board);
+    [0xc93b52, 0xe8b948, 0x3f6ba8, 0x4b8f5c].forEach(function (hex, pi) {
+      const dab = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), new THREE.MeshStandardMaterial({ color: hex, roughness: 0.35 }));
+      const a = -0.9 + pi * 0.58;
+      dab.scale.set(1, 0.45, 1);
+      dab.position.set(Math.cos(a) * 0.068, 0.008, Math.sin(a) * 0.052);
+      paletteGroup.add(dab);
+    });
+    leftArm.add(paletteGroup);
+    heldProps.palette = paletteGroup;
+
+    // Brass & Oak Kitchen Stirring Spoon ('cook')
+    const ladleGroup = new THREE.Group();
+    ladleGroup.visible = false;
+    ladleGroup.position.set(0.048, -0.545, 0.07);
+    ladleGroup.rotation.x = Math.PI * 0.48;
+    const ladleShaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.007, 0.008, 0.34, 8),
+      new THREE.MeshStandardMaterial({ color: 0x7c4e2d, roughness: 0.6 })
+    );
+    ladleShaft.position.y = 0.1;
+    ladleGroup.add(ladleShaft);
+    const ladleBowl = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), goldMat);
+    ladleBowl.scale.set(1, 0.55, 1.15);
+    ladleBowl.position.y = 0.27;
+    ladleGroup.add(ladleBowl);
+    rightArm.add(ladleGroup);
+    heldProps.ladle = ladleGroup;
+
+    // 4. Sculpted Planar-UV Royal Head + Feathered Layered Hair Cards
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 0.775, 0.008);
+    bodyGroup.add(headGroup);
+
+    const headMesh = new THREE.Mesh(buildSculptedHeadGeometry(), headFaceMat);
+    headMesh.castShadow = true;
+    headGroup.add(headMesh);
+
+    // Delicate Sculpted Ears
+    [-1, 1].forEach(function (side) {
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), skinMat);
+      ear.scale.set(0.42, 1.28, 0.72);
+      ear.position.set(side * 0.088, -0.004, -0.004);
+      headGroup.add(ear);
+    });
+
+    if (role === 'royal' && acc.eyewear && acc.eyewear !== 'none') {
+      const lensMat = new THREE.MeshPhysicalMaterial({ color: 0x1e1928, transparent: true, opacity: 0.68, clearcoat: 1 });
+      [-1, 1].forEach(function (side) {
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.021, 0.0028, 6, 16), goldMat);
+        rim.position.set(side * 0.032, 0.01, 0.098);
+        headGroup.add(rim);
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.02, 14), lensMat);
+        lens.position.set(side * 0.032, 0.01, 0.098);
+        headGroup.add(lens);
+      });
+    }
+
+    // Hair Crown Skull Cap + Sweeping Parted Bangs + Feathered Hair-Card Tresses (Zero Play-Doh Tubes!)
+    const hairCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.108, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.58),
+      hairSolidMat
+    );
+    hairCap.scale.set(0.95, 1.06, 1.04);
+    hairCap.position.set(0, 0.018, -0.008);
+    hairCap.castShadow = true;
+    headGroup.add(hairCap);
+
+    // Soft feathered front-temple curtain bangs hugging face sides cleanly
+    [-1, 1].forEach(function (side) {
+      const a0 = side < 0 ? -Math.PI * 0.22 : Math.PI * 0.22;
+      const a1 = side < 0 ? -Math.PI * 0.65 : Math.PI * 0.65;
+      const bangGeo = buildHairRibbonShell({
+        rows: 7,
+        cols: 8,
+        startAngle: Math.min(a0, a1),
+        endAngle: Math.max(a0, a1),
+        topY: 0.11,
+        botY: -0.14,
+        topR: 0.104,
+        botR: 0.112,
+        zShiftBot: -0.012,
+        waveAmp: 0.008,
+      });
+      const bang = new THREE.Mesh(bangGeo, hairCardMat);
+      bang.castShadow = true;
+      headGroup.add(bang);
+    });
+
+    const isUpdo =
+      role === 'maid' ||
+      lookInfo.hairStyle === 'marie-updo' ||
+      lookInfo.hairStyle === 'braided-crown' ||
+      lookInfo.hairStyle === 'sleek-ponytail' ||
+      lookInfo.hairStyle === 'romantic-bun' ||
+      lookInfo.hairStyle === 'milkmaid-braids';
+    const isShort =
+      role === 'guard' ||
+      lookInfo.hairStyle === 'riviera-bob' ||
+      lookInfo.hairStyle === 'couture-lob' ||
+      lookInfo.hairStyle === 'wavy-curtain-shag' ||
+      lookInfo.hairStyle === 'pixie-coiffure' ||
+      lookInfo.hairStyle === 'slick-gala';
+
+    if (isUpdo) {
+      const chignon = new THREE.Mesh(new THREE.SphereGeometry(0.072, 16, 12), hairSolidMat);
+      chignon.scale.set(1.05, 0.9, 0.85);
+      chignon.position.set(0, 0.068, -0.102);
+      chignon.castShadow = true;
+      headGroup.add(chignon);
+
+      const napeWisps = new THREE.Mesh(
+        buildHairRibbonShell({
+          rows: 6,
+          cols: 12,
+          startAngle: Math.PI * 0.55,
+          endAngle: Math.PI * 1.45,
+          topY: 0.06,
+          botY: -0.12,
+          topR: 0.106,
+          botR: 0.095,
+          zShiftBot: -0.01,
+          waveAmp: 0.005,
+        }),
+        hairCardMat
+      );
+      headGroup.add(napeWisps);
+    } else if (isShort) {
+      const bobShell = new THREE.Mesh(
+        buildHairRibbonShell({
+          rows: 8,
+          cols: 16,
+          startAngle: Math.PI * 0.42,
+          endAngle: Math.PI * 1.58,
+          topY: 0.09,
+          botY: -0.15,
+          topR: 0.106,
+          botR: 0.126,
+          zShiftBot: -0.015,
+          waveAmp: 0.01,
+        }),
+        hairCardMat
+      );
+      bobShell.castShadow = true;
+      headGroup.add(bobShell);
+    } else {
+      // Multi-layered flowing feathered silk hair-card cape draping down upper back
+      const innerLayer = new THREE.Mesh(
+        buildHairRibbonShell({
+          rows: 10,
+          cols: 16,
+          startAngle: Math.PI * 0.46,
+          endAngle: Math.PI * 1.54,
+          topY: 0.095,
+          botY: -0.34,
+          topR: 0.105,
+          botR: 0.145,
+          zShiftBot: -0.04,
+          waveAmp: 0.016,
+        }),
+        hairCardMat
+      );
+      innerLayer.castShadow = true;
+      headGroup.add(innerLayer);
+
+      const outerLayer = new THREE.Mesh(
+        buildHairRibbonShell({
+          rows: 10,
+          cols: 14,
+          startAngle: Math.PI * 0.58,
+          endAngle: Math.PI * 1.42,
+          topY: 0.09,
+          botY: -0.39,
+          topR: 0.114,
+          botR: 0.16,
+          zShiftBot: -0.055,
+          waveAmp: 0.022,
+        }),
+        hairCardMat
+      );
+      outerLayer.castShadow = true;
+      headGroup.add(outerLayer);
+    }
+
+    // Headgear: Jeweled Tiara / Guard Busby / Maid Lace Cap
+    if (role === 'guard') {
+      const shako = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.11, 0.21, 16),
+        new THREE.MeshStandardMaterial({ color: 0x1b1921, roughness: 0.75 })
+      );
+      shako.position.set(0, 0.17, 0);
+      headGroup.add(shako);
+      const plume = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 8), goldMat);
+      plume.position.set(0, 0.31, 0.025);
+      headGroup.add(plume);
+    } else if (role === 'maid') {
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.104, 14, 10), trimMat);
+      cap.scale.set(1.04, 0.44, 0.92);
+      cap.position.set(0, 0.118, -0.01);
+      headGroup.add(cap);
+    } else if (!acc.crown || acc.crown !== 'none') {
+      const tiaraGroup = new THREE.Group();
+      tiaraGroup.position.set(0, 0.116, 0.012);
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.008, 8, 22), goldMat);
+      band.rotation.x = Math.PI * 0.48;
+      tiaraGroup.add(band);
+      for (let i = -2; i <= 2; i++) {
+        const ang = i * 0.32;
+        const hPeak = i === 0 ? 0.058 : Math.abs(i) === 1 ? 0.038 : 0.024;
+        const spire = new THREE.Mesh(new THREE.ConeGeometry(0.009, hPeak, 6), goldMat);
+        spire.position.set(Math.sin(ang) * 0.074, hPeak * 0.5, Math.cos(ang) * 0.074);
+        tiaraGroup.add(spire);
+      }
+      const gem = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.014, 0),
+        new THREE.MeshPhysicalMaterial({ color: dressPrimary, roughness: 0.08, clearcoat: 1 })
+      );
+      gem.position.set(0, 0.034, 0.078);
+      tiaraGroup.add(gem);
+      headGroup.add(tiaraGroup);
+    }
+
+    // Active Player Plumbob
+    let plumbob = null;
+    if (opts.showPlumbob) {
+      const pbMat = new THREE.MeshPhysicalMaterial({
+        color: 0x3ad17a,
+        emissive: 0x1e8f4e,
+        emissiveIntensity: 0.42,
+        roughness: 0.12,
+        metalness: 0.22,
+        clearcoat: 1.0,
+      });
+      const pbGeo = new THREE.OctahedronGeometry(0.095, 0);
+      pbGeo.scale(0.75, 1.55, 0.75);
+      plumbob = new THREE.Mesh(pbGeo, pbMat);
+      plumbob.position.set(0, pelvisY + 1.24, 0);
+      rig.add(plumbob);
+    }
+
+    return {
+      root: root,
+      rig: rig,
+      leftLeg: leftLeg,
+      rightLeg: rightLeg,
+      leftKnee: leftKnee,
+      rightKnee: rightKnee,
+      leftArm: leftArm,
+      rightArm: rightArm,
+      bodyGroup: bodyGroup,
+      headGroup: headGroup,
+      skirtMesh: skirtMesh,
+      heldProps: heldProps,
+      contactShadow: contactShadow,
+      plumbob: plumbob,
+      baseLeg: pelvisY,
+      dispose: function () {
+        textures.forEach(function (t) {
+          t.dispose();
+        });
+        root.traverse(function (obj) {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(function (m) {
+                m.dispose();
+              });
+            } else {
+              obj.material.dispose();
+            }
+          }
+        });
+      },
+    };
+  }
+
+  function buildRoyalHorseMesh(options) {
+    const THREE = window.THREE;
+    if (!THREE) return null;
+    const opts = options || {};
+    const coatHex = opts.coatHex || '#f5f1ea';
+    const maneHex = opts.maneHex || '#d8d2c6';
+    const blanketHex = opts.blanketHex || '#911d2c';
+
+    const root = new THREE.Group();
+    const coatMat = new THREE.MeshStandardMaterial({ color: coatHex, roughness: 0.52, metalness: 0.05 });
+    const maneMat = new THREE.MeshStandardMaterial({ color: maneHex, roughness: 0.65 });
+    const hoofMat = new THREE.MeshStandardMaterial({ color: 0x1c181a, roughness: 0.4 });
+    const saddleMat = new THREE.MeshStandardMaterial({ color: 0x4b2a19, roughness: 0.45 });
+    const blanketMat = new THREE.MeshStandardMaterial({ color: blanketHex, roughness: 0.55 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xd9b04e, roughness: 0.22, metalness: 0.85 });
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.95, 16),
+      new THREE.MeshBasicMaterial({ color: 0x1e1318, transparent: true, opacity: 0.28, depthWrite: false })
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.03;
+    root.add(shadow);
+
+    const barrelPts = [
+      new THREE.Vector2(0.01, -0.82),
+      new THREE.Vector2(0.36, -0.58),
+      new THREE.Vector2(0.34, 0),
+      new THREE.Vector2(0.38, 0.55),
+      new THREE.Vector2(0.01, 0.82),
+    ];
+    const barrel = new THREE.Mesh(new THREE.LatheGeometry(barrelPts, 16), coatMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.scale.set(0.84, 1, 1.05);
+    barrel.position.set(0, 1.15, 0);
+    barrel.castShadow = true;
+    root.add(barrel);
+
+    const blanket = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.37, 0.65, 16, 1, false, -1.2, 2.4), blanketMat);
+    blanket.rotation.z = Math.PI / 2;
+    blanket.rotation.y = Math.PI / 2;
+    blanket.position.set(0, 1.18, -0.02);
+    root.add(blanket);
+
+    const saddle = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8), saddleMat);
+    saddle.scale.set(1.05, 0.45, 1.3);
+    saddle.position.set(0, 1.48, -0.02);
+    root.add(saddle);
+
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 1.28, 0.68);
+    root.add(headGroup);
+
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.24, 0.78, 12), coatMat);
+    neck.position.set(0, 0.34, 0.18);
+    neck.rotation.x = 0.52;
+    neck.castShadow = true;
+    headGroup.add(neck);
+
+    const maneCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.08, -0.04),
+      new THREE.Vector3(0, 0.42, 0.14),
+      new THREE.Vector3(0, 0.72, 0.32),
+    ]);
+    const mane = new THREE.Mesh(new THREE.TubeGeometry(maneCurve, 10, 0.065, 8, false), maneMat);
+    headGroup.add(mane);
+
+    const headPts = [
+      new THREE.Vector2(0.06, -0.26),
+      new THREE.Vector2(0.11, 0.0),
+      new THREE.Vector2(0.13, 0.24),
+    ];
+    const head = new THREE.Mesh(new THREE.LatheGeometry(headPts, 12), coatMat);
+    head.position.set(0, 0.64, 0.44);
+    head.rotation.x = -Math.PI * 0.35;
+    head.castShadow = true;
+    headGroup.add(head);
+
+    [-1, 1].forEach(function (side) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.036, 0.14, 6), coatMat);
+      ear.position.set(side * 0.075, 0.82, 0.32);
+      headGroup.add(ear);
+    });
+
+    const tailCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 1.25, -0.82),
+      new THREE.Vector3(0, 0.95, -1.04),
+      new THREE.Vector3(0, 0.52, -1.1),
+    ]);
+    const tail = new THREE.Mesh(new THREE.TubeGeometry(tailCurve, 10, 0.075, 8, false), maneMat);
+    root.add(tail);
+
+    const legs = [];
+    [
+      [-0.19, 0.56],
+      [0.19, 0.56],
+      [-0.19, -0.56],
+      [0.19, -0.56],
+    ].forEach(function (pt) {
+      const legPivot = new THREE.Group();
+      legPivot.position.set(pt[0], 0.98, pt[1]);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.048, 0.92, 10), coatMat);
+      leg.position.y = -0.46;
+      leg.castShadow = true;
+      legPivot.add(leg);
+      const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.064, 0.08, 10), hoofMat);
+      hoof.position.y = -0.94;
+      legPivot.add(hoof);
+      root.add(legPivot);
+      legs.push(legPivot);
+    });
+
+    return {
+      root: root,
+      legs: legs,
+      headGroup: headGroup,
+      tail: tail,
+      goldMat: goldMat,
+      dispose: function () {
+        root.traverse(function (obj) {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) obj.material.dispose();
+        });
+      },
+    };
+  }
+
+  function createPlayerController(scene, worldApi, character, initialWorldState) {
+    const THREE = window.THREE;
+    if (!THREE) return null;
+
+    const actor = buildRoyalCharacterMesh(character, {
+      name: 'player-princess',
+      showPlumbob: true,
+    });
+
+    const startPos = (initialWorldState && initialWorldState.playerPos) || { x: 2.8, y: 0, z: 18 };
+    const sx = typeof startPos.x === 'number' ? startPos.x : 2.8;
+    const sz = typeof startPos.z === 'number' ? startPos.z : 18;
+    const sy = worldApi.groundHeightAt(sx, sz, typeof startPos.y === 'number' ? startPos.y : 0);
+    actor.root.position.set(sx, sy, sz);
+    actor.root.rotation.y =
+      typeof (initialWorldState && initialWorldState.playerYaw) === 'number'
+        ? initialWorldState.playerYaw
+        : Math.PI;
+    scene.add(actor.root);
+
+    const keys = {};
+    const joyVec = { x: 0, y: 0, active: false };
+    let walkPhase = 0;
+    let speedMag = 0;
+
+    function onKeyDown(ev) {
+      keys[ev.code] = true;
+    }
+    function onKeyUp(ev) {
+      keys[ev.code] = false;
+    }
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+
+    function setJoystick(nx, ny, isActive) {
+      joyVec.x = THREE.MathUtils.clamp(nx || 0, -1, 1);
+      joyVec.y = THREE.MathUtils.clamp(ny || 0, -1, 1);
+      joyVec.active = Boolean(isActive);
+    }
+
+    const _moveDir = new THREE.Vector3();
+    let currentActivity = null; // { pose, x, y, z, yaw, floorY, rigOffsetY, onCancel }
+
+    function setActivityPose(spec) {
+      if (!spec) {
+        clearActivityPose();
+        return;
+      }
+      currentActivity = Object.assign({}, spec);
+      speedMag = 0;
+      if (typeof spec.x === 'number' && typeof spec.z === 'number') {
+        const yPos = typeof spec.y === 'number' ? spec.y : worldApi.groundHeightAt(spec.x, spec.z, actor.root.position.y);
+        actor.root.position.set(spec.x, yPos, spec.z);
+      }
+      if (typeof spec.yaw === 'number') {
+        actor.root.rotation.y = spec.yaw;
+      }
+    }
+
+    function clearActivityPose(restoreStandPos) {
+      if (!currentActivity) return;
+      const prev = currentActivity;
+      currentActivity = null;
+      if (restoreStandPos !== false) {
+        const floorRef = typeof prev.floorY === 'number' ? prev.floorY : actor.root.position.y;
+        const rawX = typeof prev.exitX === 'number' ? prev.exitX : actor.root.position.x;
+        const rawZ = typeof prev.exitZ === 'number' ? prev.exitZ : actor.root.position.z;
+        const safe = worldApi.resolveCollision ? worldApi.resolveCollision(rawX, rawZ, 0.48, floorRef) : { x: rawX, z: rawZ };
+        const sy = worldApi.groundHeightAt(safe.x, safe.z, floorRef);
+        actor.root.position.set(safe.x, sy, safe.z);
+        if (typeof prev.exitYaw === 'number') {
+          actor.root.rotation.y = prev.exitYaw;
+        }
+      }
+      if (actor.contactShadow) {
+        actor.contactShadow.visible = true;
+      }
+    }
+
+    function getActivity() {
+      return currentActivity;
+    }
+
+    function update(delta, cameraYaw, elapsedSec) {
+      const dt = Math.min(Math.max(delta || 0.016, 0.001), 0.1);
+
+      let inputX = 0;
+      let inputZ = 0;
+      if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
+      if (keys.KeyD || keys.ArrowRight) inputX += 1;
+      if (keys.KeyW || keys.ArrowUp) inputZ -= 1;
+      if (keys.KeyS || keys.ArrowDown) inputZ += 1;
+
+      if (joyVec.active) {
+        inputX += joyVec.x;
+        inputZ += joyVec.y;
+      }
+
+      const len = Math.hypot(inputX, inputZ);
+      if (currentActivity && len > 0.2) {
+        const onCancel = currentActivity.onCancel;
+        clearActivityPose(true);
+        if (typeof onCancel === 'function') {
+          onCancel();
+        }
+      }
+
+      const baseLeg =
+        actor.baseLeg ||
+        0.94 * ((character && character.body && character.body.sliders && character.body.sliders.legLength) || 1);
+
+      if (currentActivity && window.CrownAnim) {
+        window.CrownAnim.applyPose(actor, currentActivity.pose, dt, elapsedSec || 0, currentActivity);
+      } else {
+        const isSprinting = Boolean(keys.ShiftLeft || keys.ShiftRight || len > 0.88);
+        const maxSpeed = isSprinting ? 7.6 : 4.8;
+
+        if (len > 0.08) {
+          const clampedLen = Math.min(1, len);
+          const nx = inputX / len;
+          const nz = inputZ / len;
+
+          const sinY = Math.sin(cameraYaw);
+          const cosY = Math.cos(cameraYaw);
+          _moveDir.set(nx * cosY + nz * sinY, 0, -nx * sinY + nz * cosY).normalize();
+
+          const targetSpeed = maxSpeed * clampedLen;
+          speedMag += (targetSpeed - speedMag) * (1 - Math.exp(-12 * dt));
+
+          const nextX = actor.root.position.x + _moveDir.x * speedMag * dt;
+          const nextZ = actor.root.position.z + _moveDir.z * speedMag * dt;
+          const resolved = worldApi.resolveCollision(nextX, nextZ, 0.52, actor.root.position.y);
+
+          actor.root.position.x = resolved.x;
+          actor.root.position.z = resolved.z;
+
+          const targetYaw = Math.atan2(_moveDir.x, _moveDir.z);
+          let diff = targetYaw - actor.root.rotation.y;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          actor.root.rotation.y += diff * (1 - Math.exp(-14 * dt));
+
+          walkPhase += dt * (speedMag * 2.15);
+        } else {
+          speedMag += (0 - speedMag) * (1 - Math.exp(-10 * dt));
+        }
+
+        actor.root.position.y = worldApi.groundHeightAt(
+          actor.root.position.x,
+          actor.root.position.z,
+          actor.root.position.y
+        );
+
+        const moveWeight = Math.min(1, speedMag / 4.2);
+        if (window.CrownAnim) {
+          window.CrownAnim.applyLocomotion(actor, dt, elapsedSec || 0, walkPhase, moveWeight, baseLeg);
+        } else {
+          const swing = Math.sin(walkPhase) * 0.5 * moveWeight;
+          actor.leftLeg.rotation.x = swing;
+          actor.rightLeg.rotation.x = -swing;
+          if (actor.leftKnee) actor.leftKnee.rotation.x = Math.max(0, Math.sin(walkPhase + 0.4) * 0.45 * moveWeight);
+          if (actor.rightKnee) actor.rightKnee.rotation.x = Math.max(0, Math.sin(-walkPhase + 0.4) * 0.45 * moveWeight);
+          actor.leftArm.rotation.x = -swing * 0.6;
+          actor.rightArm.rotation.x = swing * 0.6;
+          actor.bodyGroup.position.y =
+            baseLeg +
+            Math.abs(Math.sin(walkPhase * 2)) * 0.02 * moveWeight +
+            Math.sin((elapsedSec || 0) * 2.1) * 0.008 * (1 - moveWeight);
+          actor.bodyGroup.rotation.z = Math.sin(walkPhase) * 0.028 * moveWeight;
+          actor.headGroup.rotation.y = Math.sin((elapsedSec || 0) * 0.85) * 0.06 * (1 - moveWeight);
+          if (actor.skirtMesh) {
+            actor.skirtMesh.rotation.z = Math.sin(walkPhase) * 0.032 * moveWeight;
+          }
+        }
+      }
+
+      if (actor.plumbob) {
+        const t = elapsedSec || 0;
+        actor.plumbob.rotation.y = t * 1.4;
+        actor.plumbob.position.y = baseLeg + 1.24 + Math.sin(t * 2.2) * 0.035;
+      }
+
+      if (window.CrownGame && window.CrownGame.world) {
+        if (!window.CrownGame.world.playerPos) window.CrownGame.world.playerPos = {};
+        window.CrownGame.world.playerPos.x = Number(actor.root.position.x.toFixed(2));
+        window.CrownGame.world.playerPos.y = Number(actor.root.position.y.toFixed(2));
+        window.CrownGame.world.playerPos.z = Number(actor.root.position.z.toFixed(2));
+        window.CrownGame.world.playerYaw = Number(actor.root.rotation.y.toFixed(3));
+      }
+
+      return {
+        position: actor.root.position,
+        yaw: actor.root.rotation.y,
+        speed: speedMag,
+        activity: currentActivity,
+      };
+    }
+
+    function teleport(x, z, yaw, floorY) {
+      if (currentActivity) {
+        clearActivityPose(false);
+      }
+      const targetY = worldApi.groundHeightAt(x, z, typeof floorY === 'number' ? floorY : actor.root.position.y);
+      actor.root.position.set(x, targetY, z);
+      if (typeof yaw === 'number') actor.root.rotation.y = yaw;
+    }
+
+    function dispose() {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      scene.remove(actor.root);
+      actor.dispose();
+    }
+
+    return {
+      actor: actor,
+      setJoystick: setJoystick,
+      setActivityPose: setActivityPose,
+      clearActivityPose: clearActivityPose,
+      getActivity: getActivity,
+      update: update,
+      teleport: teleport,
+      dispose: dispose,
+    };
+  }
+
+  window.CrownPlayer = {
+    buildRoyalCharacterMesh: buildRoyalCharacterMesh,
+    buildRoyalHorseMesh: buildRoyalHorseMesh,
+    createController: createPlayerController,
+  };
+})();

@@ -1,0 +1,6 @@
+{
+  "name": "Crown & Scandal",
+  "description": "An 18+ royal life sim and court-gossip game set in a grand Versailles-inspired palace and Riviera town.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
