@@ -60,17 +60,71 @@
       Math.abs(Math.sin(walkPhase * 2)) * 0.02 * moveWeight +
       Math.sin(t * 2.1) * 0.008 * (1 - moveWeight);
     actor.bodyGroup.position.y = damp(actor.bodyGroup.position.y, targetBodyY, 16, dt);
-    actor.bodyGroup.rotation.x = damp(actor.bodyGroup.rotation.x, 0, s, dt);
+    actor.bodyGroup.rotation.x = damp(actor.bodyGroup.rotation.x, Math.sin(t * 1.9) * 0.015 * (1 - moveWeight), s, dt);
     actor.bodyGroup.rotation.z = damp(actor.bodyGroup.rotation.z, Math.sin(walkPhase) * 0.028 * moveWeight, 14, dt);
 
-    actor.headGroup.rotation.x = damp(actor.headGroup.rotation.x, 0, s, dt);
-    actor.headGroup.rotation.y = damp(actor.headGroup.rotation.y, Math.sin(t * 0.85) * 0.06 * (1 - moveWeight), 10, dt);
+    actor.headGroup.rotation.x = damp(actor.headGroup.rotation.x, Math.sin(t * 1.1) * 0.025 * (1 - moveWeight), s, dt);
+    actor.headGroup.rotation.y = damp(actor.headGroup.rotation.y, Math.sin(t * 0.85) * 0.08 * (1 - moveWeight), 10, dt);
 
     if (actor.skirtMesh) {
       actor.skirtMesh.rotation.x = damp(actor.skirtMesh.rotation.x, 0, 12, dt);
       actor.skirtMesh.rotation.z = damp(actor.skirtMesh.rotation.z, Math.sin(walkPhase) * 0.032 * moveWeight, 14, dt);
       actor.skirtMesh.scale.x = damp(actor.skirtMesh.scale.x, 1, 12, dt);
       actor.skirtMesh.scale.z = damp(actor.skirtMesh.scale.z, 1, 12, dt);
+    }
+  }
+
+  function applySwimLocomotion(actor, dt, elapsedSec, swimPhase, moveWeight, baseLeg) {
+    if (!actor) return;
+    const t = elapsedSec || 0;
+    const s = 10;
+    setHeldProp(actor, null);
+    if (actor.contactShadow) {
+      actor.contactShadow.visible = false;
+    }
+
+    const mv = Math.min(1, Math.max(0, moveWeight || 0));
+    const rigRotX = -Math.PI * 0.43 * mv;
+    const rigY = (-baseLeg * 0.44 + Math.sin(t * 2.4) * 0.035) * (1 - mv) + (0.14 + Math.sin(swimPhase) * 0.04) * mv;
+    const tread = t * 3.4;
+
+    actor.rig.position.x = damp(actor.rig.position.x, 0, s, dt);
+    actor.rig.position.y = damp(actor.rig.position.y, rigY, s, dt);
+    actor.rig.position.z = damp(actor.rig.position.z, 0, s, dt);
+    actor.rig.rotation.x = damp(actor.rig.rotation.x, rigRotX, s, dt);
+    actor.rig.rotation.y = damp(actor.rig.rotation.y, 0, s, dt);
+    actor.rig.rotation.z = damp(actor.rig.rotation.z, 0, s, dt);
+
+    const kick = mv > 0.1 ? Math.sin(swimPhase * 2.0) * 0.34 : Math.sin(tread) * 0.28;
+    actor.leftLeg.rotation.x = damp(actor.leftLeg.rotation.x, kick, 14, dt);
+    actor.leftLeg.rotation.z = damp(actor.leftLeg.rotation.z, -0.05, s, dt);
+    actor.rightLeg.rotation.x = damp(actor.rightLeg.rotation.x, -kick, 14, dt);
+    actor.rightLeg.rotation.z = damp(actor.rightLeg.rotation.z, 0.05, s, dt);
+
+    if (actor.leftKnee) actor.leftKnee.rotation.x = damp(actor.leftKnee.rotation.x, 0.25, 12, dt);
+    if (actor.rightKnee) actor.rightKnee.rotation.x = damp(actor.rightKnee.rotation.x, 0.25, 12, dt);
+
+    const armLX = mv > 0.1 ? -2.3 + Math.cos(swimPhase) * 0.55 : -1.05 + Math.sin(tread) * 0.18;
+    const armRX = mv > 0.1 ? -2.3 + Math.cos(swimPhase + Math.PI) * 0.55 : -1.05 - Math.sin(tread) * 0.18;
+    const armSpread = mv > 0.1 ? 0.22 + Math.abs(Math.sin(swimPhase)) * 0.42 : 0.45 + Math.cos(tread) * 0.16;
+
+    actor.leftArm.rotation.x = damp(actor.leftArm.rotation.x, armLX, 12, dt);
+    actor.leftArm.rotation.z = damp(actor.leftArm.rotation.z, -armSpread, 12, dt);
+    actor.rightArm.rotation.x = damp(actor.rightArm.rotation.x, armRX, 12, dt);
+    actor.rightArm.rotation.z = damp(actor.rightArm.rotation.z, armSpread, 12, dt);
+
+    actor.bodyGroup.position.y = damp(actor.bodyGroup.position.y, baseLeg, 12, dt);
+    actor.bodyGroup.rotation.x = damp(actor.bodyGroup.rotation.x, 0, s, dt);
+    actor.bodyGroup.rotation.z = damp(actor.bodyGroup.rotation.z, Math.sin(swimPhase) * 0.08 * mv, s, dt);
+
+    actor.headGroup.rotation.x = damp(actor.headGroup.rotation.x, 0.62 * mv - 0.05 * (1 - mv), s, dt);
+    actor.headGroup.rotation.y = damp(actor.headGroup.rotation.y, Math.sin(t * 0.9) * 0.12 * (1 - mv), s, dt);
+
+    if (actor.skirtMesh) {
+      actor.skirtMesh.rotation.x = damp(actor.skirtMesh.rotation.x, 0.08, s, dt);
+      actor.skirtMesh.rotation.z = damp(actor.skirtMesh.rotation.z, 0, s, dt);
+      actor.skirtMesh.scale.x = damp(actor.skirtMesh.scale.x, 0.86, s, dt);
+      actor.skirtMesh.scale.z = damp(actor.skirtMesh.scale.z, 0.52, s, dt);
     }
   }
 
@@ -119,12 +173,12 @@
     if (poseName === 'sleep' || poseName === 'nap' || poseName === 'daydream') {
       if (actor.contactShadow) actor.contactShadow.visible = false;
       rigRotX = -Math.PI * 0.5;
-      rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : 0.24;
+      rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : 0.09;
       const breath = Math.sin(t * (poseName === 'daydream' ? 2.2 : 1.35));
-      hipLX = -0.04 + breath * 0.012;
-      hipRX = -0.09 - breath * 0.012;
-      kneeLX = 0.08;
-      kneeRX = 0.14;
+      hipLX = -0.04 + breath * 0.01;
+      hipRX = -0.08 - breath * 0.01;
+      kneeLX = 0.06;
+      kneeRX = 0.1;
       if (poseName === 'daydream') {
         rigRotX = -Math.PI * 0.36;
         rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : 0.34;
@@ -135,19 +189,20 @@
         armRZ = 0.35;
         skirtScaleX = 0.88;
         skirtScaleZ = 0.52;
+        skirtRotX = 0.04;
       } else {
-        // Arms folded comfortably across abdomen above coverlet; head propped slightly upward on pillow
-        armLX = -0.34 + breath * 0.025;
-        armRX = -0.38 - breath * 0.025;
+        // Arms relaxed gently along waist/collar cuff inside hollow blanket dome; head propped on pillow
+        armLX = -0.26 + breath * 0.018;
+        armRX = -0.28 - breath * 0.018;
         armLZ = 0.14;
         armRZ = -0.14;
-        headRotX = 0.12;
-        headRotY = poseName === 'sleep' ? 0.2 : 0.08;
-        skirtScaleX = 0.82;
-        skirtScaleZ = 0.42;
+        headRotX = 0.14;
+        headRotY = poseName === 'sleep' ? 0.14 : 0.06;
+        skirtScaleX = 0.68;
+        skirtScaleZ = 0.22;
+        skirtRotX = 0.02;
       }
       bodyRotZ = breath * 0.015;
-      skirtRotX = 0.04;
     } else if (poseName === 'bath') {
       if (actor.contactShadow) actor.contactShadow.visible = false;
       rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : -baseLeg * 0.56;
@@ -396,6 +451,46 @@
       armLX = -0.45;
       headRotX = -0.14;
       headRotY = Math.sin(t * 1.1) * 0.08;
+    } else if (poseName === 'drive') {
+      if (actor.contactShadow) actor.contactShadow.visible = false;
+      const steer = cfg.steer || 0;
+      rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : -baseLeg * 0.62;
+      hipLX = -1.42;
+      hipRX = -1.42;
+      hipLZ = -0.04;
+      hipRZ = 0.04;
+      kneeLX = 1.25;
+      kneeRX = 1.25;
+      armLX = -1.06 - steer * 0.24;
+      armRX = -1.06 + steer * 0.24;
+      armLZ = -0.14;
+      armRZ = 0.14;
+      bodyRotX = 0.03;
+      headRotY = -steer * 0.28;
+      skirtRotX = -1.16;
+      skirtScaleX = 0.84;
+      skirtScaleZ = 0.58;
+    } else if (poseName === 'ride_horse') {
+      if (actor.contactShadow) actor.contactShadow.visible = false;
+      const gp = cfg.gallopPhase || 0;
+      const hSpd = cfg.horseSpeed || 0;
+      const bob = hSpd > 0.25 ? Math.abs(Math.sin(gp)) * 0.045 : Math.sin(t * 2.1) * 0.01;
+      rigY = (typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : -baseLeg * 0.34) + bob;
+      hipLX = -0.58;
+      hipRX = -0.58;
+      hipLZ = -0.34;
+      hipRZ = 0.34;
+      kneeLX = 1.05;
+      kneeRX = 1.05;
+      armLX = -0.86 - Math.sin(gp) * 0.04 * (hSpd > 0.2 ? 1 : 0);
+      armRX = -0.86 + Math.sin(gp) * 0.04 * (hSpd > 0.2 ? 1 : 0);
+      armLZ = -0.18;
+      armRZ = 0.18;
+      bodyRotX = hSpd > 1.5 ? 0.14 : 0.04;
+      headRotX = hSpd > 1.5 ? -0.05 : 0;
+      skirtRotX = -0.95;
+      skirtScaleX = 1.08;
+      skirtScaleZ = 0.72;
     } else if (poseName === 'stargaze') {
       if (actor.contactShadow) actor.contactShadow.visible = true;
       bodyRotX = 0.14;
@@ -405,6 +500,18 @@
       armRZ = 0.14;
       headRotX = -0.22 + Math.sin(t * 0.9) * 0.05;
       headRotY = Math.sin(t * 0.55) * 0.12;
+    } else if (poseName === 'converse') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const gWave = Math.sin(t * 3.1);
+      const nod = Math.sin(t * 2.2) * 0.07;
+      bodyRotX = 0.03;
+      bodyRotZ = Math.sin(t * 1.1) * 0.025;
+      armLX = -0.52 + Math.max(0, -gWave) * 0.42;
+      armRX = -0.68 + Math.max(0, gWave) * 0.48;
+      armLZ = -0.18 - Math.abs(Math.sin(t * 1.9)) * 0.1;
+      armRZ = 0.18 + Math.abs(Math.cos(t * 2.1)) * 0.12;
+      headRotX = nod;
+      headRotY = Math.sin(t * 1.35) * 0.11;
     }
 
     const s = 10;
@@ -445,6 +552,7 @@
 
   window.CrownAnim = {
     applyLocomotion: applyLocomotion,
+    applySwimLocomotion: applySwimLocomotion,
     applyPose: applyPose,
   };
 })();

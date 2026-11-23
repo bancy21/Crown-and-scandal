@@ -21,6 +21,8 @@
     const placeBed = ctx.placeBed;
     const placeToilet = ctx.placeToilet;
     const placeVanitySink = ctx.placeVanitySink;
+    const placeTub = ctx.placeTub;
+    const placeShower = ctx.placeShower;
     const placeSofa = ctx.placeSofa;
     const placeArmchair = ctx.placeArmchair;
     const tagInteractable = ctx.tagInteractable;
@@ -222,11 +224,13 @@
     addHorizontalStairFlight(f4G, f4C, y4, 12.5, 19.5, -22.2);
 
     // 4F Gala Salon & Crown Jewel Vault
-    const rug4 = new THREE.Mesh(new THREE.PlaneGeometry(11.0, 6.2), blushRugMat);
-    rug4.rotation.x = -Math.PI / 2;
+    const rug4 = typeof kit.buildRug === 'function'
+      ? kit.buildRug(11.0, 6.2, 'champagne')
+      : new THREE.Mesh(new THREE.PlaneGeometry(11.0, 6.2), blushRugMat);
+    if (!rug4.isGroup) rug4.rotation.x = -Math.PI / 2;
     rug4.position.set(0, y4 + 0.02, -31.8);
     f4G.add(rug4);
-    const ch4 = kit.buildChandelier(1.1);
+    const ch4 = kit.buildChandelier(1.15, true);
     ch4.position.set(0, y4 + 4.1, -31.8);
     f4G.add(ch4);
 
@@ -264,11 +268,47 @@
       ],
     });
 
-    placeSofa(f4G, f4C, { id: 'sofa_4f', title: '4F Gala Salon Sofa', floor: 4, x: 0, y: y4 + 0.02, z: -34.2, yaw: 0, tone: 'crimson', w: 2.8 });
+    placeSofa(f4G, f4C, { id: 'sofa_4f', title: '4F Gala Salon Sofa', floor: 4, x: 0, y: y4 + 0.02, z: -34.2, yaw: 0, tone: 'creamTufted', w: 2.8 });
+    placeArmchair(f4G, f4C, { id: 'chair_4f_w', title: '4F Gala Salon West Chair', floor: 4, x: -2.5, y: y4 + 0.02, z: -31.8, yaw: Math.PI * 0.5, tone: 'champagne' });
+    placeArmchair(f4G, f4C, { id: 'chair_4f_e', title: '4F Gala Salon East Chair', floor: 4, x: 2.5, y: y4 + 0.02, z: -31.8, yaw: -Math.PI * 0.5, tone: 'champagne' });
+    if (typeof kit.buildSideTableLamp === 'function') {
+      [-2.1, 2.1].forEach(function (lx) {
+        const sl4 = kit.buildSideTableLamp('creamTufted');
+        sl4.position.set(lx, y4 + 0.02, -34.2);
+        f4G.add(sl4);
+        addCircle(f4C, lx, -34.2, 0.3);
+      });
+    }
+    if (typeof kit.buildFlutedColumn === 'function') {
+      [-5.2, 5.2].forEach(function (cx) {
+        const col4 = kit.buildFlutedColumn(4.7, false);
+        col4.position.set(cx, y4 + 0.02, -37.8);
+        f4G.add(col4);
+        addCircle(f4C, cx, -37.8, 0.36);
+      });
+    }
+    if (typeof kit.buildCoffeeTable === 'function') {
+      const ct4 = kit.buildCoffeeTable(false, true);
+      ct4.position.set(0, y4 + 0.02, -31.8);
+      f4G.add(ct4);
+      addBox(f4C, 0, -31.8, 1.95, 1.18);
+    }
     placeBed(f4G, f4C, { id: 'bed_16', title: 'Bedroom #16 (Ruby Regency 4F)', floor: 4, canopy: true, x: 14.8, y: y4 + 0.02, z: -34.2, yaw: 0, tone: 'crimson', w: 2.3, d: 2.8 });
     placeBed(f4G, f4C, { id: 'bed_17', title: 'Bedroom #17 (Diamond State 4F)', floor: 4, x: 26.8, y: y4 + 0.02, z: -34.2, yaw: 0, tone: 'champagne', w: 2.1, d: 2.7 });
+    if (kit.palette && kit.palette.blueBorderMarble) {
+      const b4Floor = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 11.4), kit.palette.blueBorderMarble);
+      b4Floor.rotation.x = -Math.PI / 2;
+      b4Floor.position.set(-27.2, y4 + 0.012, -31.8);
+      f4G.add(b4Floor);
+    }
+    if (kit.palette && kit.palette.slateBluePanel) {
+      kit.addMesh(f4G, kit.g.box1, kit.palette.slateBluePanel, 0.06, 3.8, 11.8, -30.18, y4 + 2.0, -31.8);
+    }
     placeToilet(f4G, f4C, { id: 'toilet_8', title: '4F Treasury Suite Toilet #8', floor: 4, x: -28.6, y: y4 + 0.02, z: -36.0, yaw: Math.PI * 0.5 });
-    placeVanitySink(f4G, f4C, { id: 'sink_8', title: '4F Treasury Vanity', floor: 4, x: -28.6, y: y4 + 0.02, z: -32.8, yaw: Math.PI * 0.5 });
+    placeVanitySink(f4G, f4C, { id: 'sink_8', title: '4F Treasury Vanity', floor: 4, style: 'slate', x: -28.6, y: y4 + 0.02, z: -32.8, yaw: Math.PI * 0.5 });
+    if (typeof placeTub === 'function') {
+      placeTub(f4G, f4C, { id: 'tub_4f', title: '4F Treasury Porcelain Bathtub', floor: 4, style: 'slate', x: -28.4, y: y4 + 0.02, z: -29.2, yaw: Math.PI * 0.5 });
+    }
 
     // -----------------------------------------------------------
     // FLOOR 5 (y = 20.65): AMBASSADORS' WING & ROYAL SPA CONSERVATORY (Beds #18-#19, Toilet #9)
@@ -293,15 +333,22 @@
     // Stair 5F -> 6F (West Gallery: x = -13.5 up to -20.5, z = -22.2)
     addHorizontalStairFlight(f5G, f5C, y5, -13.5, -20.5, -22.2);
 
-    // 5F Rosewater Spa Thermal Plunge Pool (x = -21.5, z = -33.2)
+    // 5F Rosewater Spa Thermal Plunge Pool (Image 7 Limestone Colonnade, Classical Statue Niche & Turquoise Mosaic)
     const spaGrp = new THREE.Group();
     spaGrp.position.set(-21.5, y5 + 0.02, -33.2);
     kit.addMesh(spaGrp, kit.g.cushion, kit.palette.creamMarble, 5.4, 0.56, 4.2, 0, 0.28, 0);
-    const spaWaterMat = kit.keepMat(new THREE.MeshPhysicalMaterial({ color: 0x6cd8e8, roughness: 0.1, transparent: true, opacity: 0.78, clearcoat: 0.9 }));
+    if (kit.palette && kit.palette.poolMosaic) {
+      kit.addMesh(spaGrp, kit.g.box1, kit.palette.poolMosaic, 4.6, 0.04, 3.4, 0, 0.49, 0);
+    }
+    if (kit.palette && kit.palette.warmCoveGlow) {
+      kit.addMesh(spaGrp, kit.g.box1, kit.palette.warmCoveGlow, 4.66, 0.03, 0.05, 0, 0.52, -1.68);
+      kit.addMesh(spaGrp, kit.g.box1, kit.palette.warmCoveGlow, 4.66, 0.03, 0.05, 0, 0.52, 1.68);
+    }
+    const spaWaterMat = kit.keepMat(new THREE.MeshPhysicalMaterial({ color: 0x5cd8ea, roughness: 0.08, transparent: true, opacity: 0.62, clearcoat: 0.9 }));
     kit.addMesh(spaGrp, kit.g.box1, spaWaterMat, 4.6, 0.08, 3.4, 0, 0.55, 0);
     f5G.add(spaGrp);
     tagInteractable(spaGrp, 'spa_pool_5f');
-    addBox(f5C, -21.5, -33.2, 5.4, 4.2);
+    const spaPoolZone = { minX: -23.9, maxX: -19.1, minZ: -35.0, maxZ: -31.4, y: y5 + 0.16 };
     registerSpot({
       id: 'spa_pool_5f',
       title: '5F Rosewater Thermal Spa Plunge',
@@ -309,19 +356,52 @@
       category: 'toilets',
       shortcut: true,
       x: -21.5, y: y5, z: -33.2,
-      radius: 4.5,
+      bounds: { minX: -24.2, maxX: -18.8, minZ: -35.3, maxZ: -31.1 },
+      radius: 2.5,
       actions: [
         {
           id: 'swim_spa_5f',
           label: 'Soak & Swim in Thermal Spa',
-          hint: '+18 Hygiene/s & +10 Energy/s',
-          pose: 'swim',
-          anchor: { x: -21.5, y: y5 + 0.28, z: -33.2, yaw: Math.PI * 0.5, rigOffsetY: 0.14, floorY: y5, exitX: -21.5, exitZ: -29.8, exitYaw: 0 },
-          rates: { hygiene: 18, energy: 10, composure: 9 },
-          statusText: 'Floating blissfully in the 5F mineral spa pool...',
+          hint: '+18 Hygiene/s & +10 Energy/s (swim freely inside!)',
+          instant: true,
+          onInstant: function (actCtx) {
+            actCtx.playerCtrl.teleport(-21.5, -33.2, Math.PI * 0.5, y5 + 0.16);
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ hygiene: 18, energy: 10, composure: 9 });
+            actCtx.toast('Stepped into the warm 5F mineral spa pool!');
+          },
         },
       ],
     });
+    if (typeof kit.buildFlutedColumn === 'function') {
+      [[-25.4, -36.4], [-17.6, -36.4], [-25.4, -29.8], [-17.6, -29.8]].forEach(function (cp) {
+        const col5 = kit.buildFlutedColumn(4.6, false);
+        col5.position.set(cp[0], y5 + 0.02, cp[1]);
+        f5G.add(col5);
+        addCircle(f5C, cp[0], cp[1], 0.36);
+      });
+    }
+    if (typeof kit.buildClassicalStatue === 'function') {
+      const spaStatue = kit.buildClassicalStatue(1.9);
+      spaStatue.position.set(-21.5, y5 + 0.02, -37.6);
+      f5G.add(spaStatue);
+      if (kit.palette && kit.palette.warmCoveGlow) {
+        kit.addMesh(f5G, kit.g.box1, kit.palette.warmCoveGlow, 1.0, 0.04, 1.0, -21.5, y5 + 0.03, -37.6);
+      }
+      addCircle(f5C, -21.5, -37.6, 0.45);
+    }
+    if (typeof kit.buildPoolLounger === 'function') {
+      [-34.6, -31.6].forEach(function (lz) {
+        const chLounger = kit.buildPoolLounger('creamTufted');
+        chLounger.position.set(-15.0, y5 + 0.02, lz);
+        chLounger.rotation.y = -Math.PI * 0.5;
+        f5G.add(chLounger);
+        addBox(f5C, -15.0, lz, 1.9, 0.85);
+      });
+    }
+    const spaPlant2 = kit.buildPedestalPlant(true);
+    spaPlant2.position.set(-14.0, y5 + 0.02, -29.0);
+    f5G.add(spaPlant2);
+    addCircle(f5C, -14.0, -29.0, 0.34);
 
     // 5F Diplomatic Council Chamber & Palm Conservatory
     const confTable = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.12, 24), kit.palette.mahogany);
@@ -344,6 +424,9 @@
     placeBed(f5G, f5C, { id: 'bed_18', title: 'Bedroom #18 (Ambassador Gold 5F)', floor: 5, x: 18.0, y: y5 + 0.02, z: -34.2, yaw: 0, tone: 'emerald', w: 2.3, d: 2.8 });
     placeBed(f5G, f5C, { id: 'bed_19', title: 'Bedroom #19 (Versailles Rose 5F)', floor: 5, x: 26.8, y: y5 + 0.02, z: -34.2, yaw: 0, tone: 'rose', w: 2.1, d: 2.7 });
     placeToilet(f5G, f5C, { id: 'toilet_9', title: '5F Spa Toilet #9', floor: 5, x: -28.8, y: y5 + 0.02, z: -36.5, yaw: Math.PI * 0.5 });
+    if (typeof placeShower === 'function') {
+      placeShower(f5G, f5C, { id: 'shower_5f', title: '5F Spa Cascade Shower', floor: 5, x: -28.8, y: y5 + 0.02, z: -29.2, yaw: 0 });
+    }
 
     // -----------------------------------------------------------
     // FLOOR 6 (y = 25.65): GRAND THEATRE STAGE & MUSIC CONSERVATORY (Beds #20-#21, Toilet #10)
@@ -366,7 +449,13 @@
     // Stair 6F -> 7F (East Gallery: x = +12.5 up to +19.5, z = -22.2)
     addHorizontalStairFlight(f6G, f6C, y6, 12.5, 19.5, -22.2);
 
-    // 6F Royal Theatre Stage & Velvet Curtains (West Hall x = -18, z = -34)
+    // 6F Royal Theatre Cinema Hall, Portoro Marble Floor, Dark Fluted Columns & Ottoman Seating (Image 2)
+    if (kit.palette && kit.palette.portoroMarble) {
+      const p6Floor = new THREE.Mesh(new THREE.PlaneGeometry(17.6, 12.6), kit.palette.portoroMarble);
+      p6Floor.rotation.x = -Math.PI / 2;
+      p6Floor.position.set(-18.0, y6 + 0.014, -31.8);
+      f6G.add(p6Floor);
+    }
     const stageGrp = new THREE.Group();
     stageGrp.position.set(-18.0, y6 + 0.02, -34.2);
     kit.addMesh(stageGrp, kit.g.cushion, kit.palette.mahogany, 10.5, 0.45, 5.2, 0, 0.22, 0);
@@ -375,6 +464,30 @@
     stageCurtain.position.set(0, 0.45, -2.0);
     stageGrp.add(stageCurtain);
     f6G.add(stageGrp);
+    if (typeof kit.buildCinemaScreenWall === 'function') {
+      const cinemaWall = kit.buildCinemaScreenWall(8.6, 3.6);
+      cinemaWall.position.set(-18.0, y6 + 0.45, -37.9);
+      f6G.add(cinemaWall);
+    }
+    if (typeof kit.buildFlutedColumn === 'function') {
+      [[-24.2, -36.8], [-11.8, -36.8], [-24.2, -28.0], [-11.8, -28.0]].forEach(function (cp) {
+        const col6 = kit.buildFlutedColumn(4.7, true);
+        col6.position.set(cp[0], y6 + 0.02, cp[1]);
+        f6G.add(col6);
+        addCircle(f6C, cp[0], cp[1], 0.36);
+      });
+    }
+    if (typeof kit.buildClassicalStatue === 'function') {
+      [-25.8, -10.2].forEach(function (sx) {
+        const st6 = kit.buildClassicalStatue(1.9);
+        st6.position.set(sx, y6 + 0.02, -33.2);
+        f6G.add(st6);
+        addCircle(f6C, sx, -33.2, 0.42);
+      });
+    }
+    const ch6 = kit.buildChandelier(1.28, true);
+    ch6.position.set(-18.0, y6 + 4.35, -31.0);
+    f6G.add(ch6);
     tagInteractable(stageGrp, 'theatre_stage_6f');
     registerSpot({
       id: 'theatre_stage_6f',
@@ -396,14 +509,18 @@
         },
       ],
     });
-    // Audience Velvet Chairs
+    // Audience Cream Tufted Cinema Armchairs + Ottomans
     [-21.0, -18.0, -15.0].forEach(function (ax, ai) {
-      placeArmchair(f6G, f6C, { id: 'theatre_seat_' + ai, title: 'Royal Theatre Velvet Seat', floor: 6, x: ax, y: y6 + 0.02, z: -28.6, yaw: Math.PI, tone: 'crimson' });
+      placeArmchair(f6G, f6C, { id: 'theatre_seat_' + ai, title: 'Royal Theatre Velvet Seat', floor: 6, ottoman: true, x: ax, y: y6 + 0.02, z: -28.6, yaw: Math.PI, tone: 'creamTufted' });
     });
 
     placeBed(f6G, f6C, { id: 'bed_20', title: 'Bedroom #20 (Prima Donna Suite 6F)', floor: 6, x: 14.5, y: y6 + 0.02, z: -34.2, yaw: 0, tone: 'lavender', w: 2.3, d: 2.8 });
     placeBed(f6G, f6C, { id: 'bed_21', title: 'Bedroom #21 (Sapphire Loggia 6F)', floor: 6, x: 26.5, y: y6 + 0.02, z: -34.2, yaw: 0, tone: 'sapphire', w: 2.1, d: 2.7 });
     placeToilet(f6G, f6C, { id: 'toilet_10', title: '6F Theatre Dressing Toilet #10', floor: 6, x: -28.8, y: y6 + 0.02, z: -36.5, yaw: Math.PI * 0.5 });
+    placeVanitySink(f6G, f6C, { id: 'sink_10', title: '6F Dressing Room Vanity', floor: 6, x: -28.8, y: y6 + 0.02, z: -33.2, yaw: Math.PI * 0.5 });
+    if (typeof placeShower === 'function') {
+      placeShower(f6G, f6C, { id: 'shower_6f', title: '6F Theatre Rain Shower', floor: 6, x: -28.8, y: y6 + 0.02, z: -29.2, yaw: 0 });
+    }
 
     // -----------------------------------------------------------
     // FLOOR 7 (y = 30.65): CROWN HEIRESS SKY PENTHOUSE & STARLIGHT OBSERVATORY (Bed #22, Toilet #11)
@@ -422,7 +539,7 @@
     addWallX(f7G, f7C, y7, 4.0, -25.2, -30.4, -10.5, -20.5, 2.8, 0.28, ivoryMat);
     addWallZ(f7G, f7C, y7, 4.0, -10.5, -38.4, -25.2, null, 0, 0.28, ivoryMat);
 
-    const ch7 = kit.buildChandelier(1.3);
+    const ch7 = kit.buildChandelier(1.3, true);
     ch7.position.set(0, y7 + 3.6, -31.8);
     f7G.add(ch7);
 
@@ -458,11 +575,41 @@
       ],
     });
 
-    placeBed(f7G, f7C, { id: 'bed_22', title: 'Bedroom #22 (7F Sky Penthouse Canopy)', floor: 7, canopy: true, shortcut: true, x: -20.5, y: y7 + 0.02, z: -34.2, yaw: 0, tone: 'rose', w: 2.6, d: 3.0 });
-    placeSofa(f7G, f7C, { id: 'sofa_7f', title: '7F Penthouse Sky Lounge Sofa', floor: 7, x: 9.0, y: y7 + 0.02, z: -33.2, yaw: 0, tone: 'champagne', w: 2.8 });
+    placeBed(f7G, f7C, { id: 'bed_22', title: 'Bedroom #22 (7F Sky Penthouse Canopy)', floor: 7, canopy: true, circularRug: true, shortcut: true, x: -20.5, y: y7 + 0.02, z: -34.2, yaw: 0, tone: 'plum', w: 2.6, d: 3.0 });
+    if (typeof kit.buildBedWindowLounge === 'function') {
+      const lounge7 = kit.buildBedWindowLounge('plum');
+      lounge7.position.set(-13.8, y7 + 0.02, -30.5);
+      lounge7.rotation.y = -Math.PI * 0.35;
+      f7G.add(lounge7);
+      addBox(f7C, -13.8, -30.5, 2.2, 2.2);
+    }
+    if (typeof kit.buildSideTableLamp === 'function') {
+      const sLamp7 = kit.buildSideTableLamp('plum');
+      sLamp7.position.set(-23.2, y7 + 0.02, -36.5);
+      f7G.add(sLamp7);
+      addCircle(f7C, -23.2, -36.5, 0.3);
+    }
+    placeSofa(f7G, f7C, { id: 'sofa_7f', title: '7F Penthouse Sky Lounge Sofa', floor: 7, x: 9.0, y: y7 + 0.02, z: -33.2, yaw: 0, tone: 'creamTufted', w: 2.8 });
+    if (typeof kit.buildRug === 'function') {
+      const r7 = kit.buildRug(6.0, 4.2, 'champagne');
+      r7.position.set(9.0, y7 + 0.02, -31.2);
+      f7G.add(r7);
+    }
+    if (typeof kit.buildCoffeeTable === 'function') {
+      const ct7 = kit.buildCoffeeTable(false, true);
+      ct7.position.set(9.0, y7 + 0.02, -31.0);
+      f7G.add(ct7);
+      addBox(f7C, 9.0, -31.0, 1.95, 1.18);
+    }
     placeArmchair(f7G, f7C, { id: 'chair_7f', title: '7F Observatory Reading Chair', floor: 7, x: -4.2, y: y7 + 0.02, z: -31.8, yaw: Math.PI * 0.5, tone: 'rose' });
+    if (kit.palette && kit.palette.mahoganyPanel) {
+      kit.addMesh(f7G, kit.g.box1, kit.palette.mahoganyPanel, 0.06, 3.6, 11.4, -30.18, y7 + 1.85, -31.8);
+    }
     placeToilet(f7G, f7C, { id: 'toilet_11', title: '7F Penthouse Bath Toilet #11', floor: 7, x: -28.6, y: y7 + 0.02, z: -36.5, yaw: Math.PI * 0.5 });
-    placeVanitySink(f7G, f7C, { id: 'sink_11', title: '7F Sky Penthouse Marble Vanity', floor: 7, x: -28.6, y: y7 + 0.02, z: -32.8, yaw: Math.PI * 0.5 });
+    placeVanitySink(f7G, f7C, { id: 'sink_11', title: '7F Sky Penthouse Marble Vanity', floor: 7, style: 'baroque', x: -28.6, y: y7 + 0.02, z: -32.8, yaw: Math.PI * 0.5 });
+    if (typeof placeTub === 'function') {
+      placeTub(f7G, f7C, { id: 'tub_7f', title: '7F Penthouse Gold Soaking Tub', floor: 7, style: 'baroque', x: -28.4, y: y7 + 0.02, z: -29.0, yaw: Math.PI * 0.5 });
+    }
 
     // Ground height helper strictly for stairs 3->4, 4->5, 5->6, 6->7 + floors 4..7
     function groundHeightAtUpper(x, z, yNow) {
@@ -491,7 +638,12 @@
         if (Math.abs(yNow - stair5Y) < 2.5) return stair5Y;
       }
       // Floor 5 (y = 20.65)
-      if (yNow >= 18.2 && Math.abs(x) <= 30.6 && z <= -17.2 && z >= -38.6) return 20.65;
+      if (yNow >= 18.2 && Math.abs(x) <= 30.6 && z <= -17.2 && z >= -38.6) {
+        if (x >= spaPoolZone.minX && x <= spaPoolZone.maxX && z >= spaPoolZone.minZ && z <= spaPoolZone.maxZ) {
+          return y5 + 0.16;
+        }
+        return 20.65;
+      }
 
       // Stair 3F -> 4F (x: -13.5 [10.65] -> -20.5 [15.65], z in [-23.4 .. -21.0])
       if (x <= -13.2 && x >= -20.8 && z <= -20.9 && z >= -23.5 && yNow >= 8.2 && yNow < 18.2) {
@@ -503,6 +655,17 @@
       if (yNow >= 13.2 && Math.abs(x) <= 30.6 && z <= -17.2 && z >= -38.6) return 15.65;
 
       return null;
+    }
+
+    function isInUpperPool(pos) {
+      return (
+        pos.y >= 18.2 &&
+        pos.y < 23.2 &&
+        pos.x >= spaPoolZone.minX &&
+        pos.x <= spaPoolZone.maxX &&
+        pos.z >= spaPoolZone.minZ &&
+        pos.z <= spaPoolZone.maxZ
+      );
     }
 
     function getColliderFloor(yNow) {
@@ -538,6 +701,7 @@
       getColliderFloor: getColliderFloor,
       setUpperCutaway: setUpperCutaway,
       detectUpperZone: detectUpperZone,
+      isInUpperPool: isInUpperPool,
     };
   }
 

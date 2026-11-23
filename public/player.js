@@ -936,6 +936,15 @@
     if (!THREE) return null;
     const opts = options || {};
     const role = opts.role || 'royal';
+    const isTailoredCoat =
+      role === 'guard' ||
+      role === 'butler' ||
+      role === 'chauffeur' ||
+      role === 'chef' ||
+      role === 'doctor' ||
+      role === 'er_doctor' ||
+      role === 'surgeon' ||
+      role === 'anesthesiologist';
     const B = window.CrownBodies;
     const A = window.CrownAccessories;
     const char = character || {};
@@ -949,16 +958,44 @@
 
     const heightScale = body.height || 1.0;
     const legScale = body.legLength || 1.0;
-    const shoulderScale = body.shoulders || (role === 'guard' ? 1.1 : 0.92);
-    const bustScale = body.bust || (role === 'guard' ? 0.96 : 1.05);
-    const waistScale = body.waist || (role === 'guard' ? 0.94 : 0.78);
-    const highHipScale = body.highHip || (role === 'guard' ? 0.94 : 1.04);
-    const hipScale = Math.max(body.hips || (role === 'guard' ? 0.94 : 1.12), highHipScale);
+    const shoulderScale = body.shoulders || (isTailoredCoat ? 1.06 : 0.92);
+    const bustScale = body.bust || (isTailoredCoat ? 0.94 : 1.05);
+    const waistScale = body.waist || (isTailoredCoat ? 0.9 : 0.78);
+    const highHipScale = body.highHip || (isTailoredCoat ? 0.94 : 1.04);
+    const hipScale = Math.max(body.hips || (isTailoredCoat ? 0.94 : 1.12), highHipScale);
     const armScale = body.arms || 0.9;
 
-    const dressHex = opts.dressHex || (role === 'maid' ? '#242129' : role === 'guard' ? '#911d2c' : outfitPal.primary);
-    const goldHex = opts.trimHex || (role === 'maid' ? '#faf6f0' : role === 'guard' ? '#d9b04e' : outfitPal.secondary);
-    const trimHex = role === 'maid' || role === 'guard' ? '#faf6f0' : outfitPal.trim || '#fffaf2';
+    const defaultRoleDress =
+      role === 'maid'
+        ? '#242129'
+        : role === 'guard'
+          ? '#911d2c'
+          : role === 'butler'
+            ? '#1b1d26'
+            : role === 'chauffeur'
+              ? '#1e2738'
+              : role === 'chef'
+                ? '#faf7f2'
+                : role === 'surgeon'
+                  ? '#1e6e8c'
+                  : role === 'anesthesiologist'
+                    ? '#235a6e'
+                    : role === 'doctor' || role === 'er_doctor' || role === 'nurse'
+                      ? '#f4f8fc'
+                      : outfitPal.primary;
+    const defaultRoleGold =
+      role === 'maid' || role === 'chef' || role === 'nurse' || role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist'
+        ? '#faf6f0'
+        : role === 'guard' || role === 'butler' || role === 'chauffeur'
+          ? '#d9b04e'
+          : outfitPal.secondary;
+
+    const dressHex = opts.dressHex || defaultRoleDress;
+    const goldHex = opts.trimHex || defaultRoleGold;
+    const trimHex =
+      role === 'maid' || role === 'guard' || role === 'butler' || role === 'chef' || role === 'chauffeur' || role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist' || role === 'nurse'
+        ? '#faf6f0'
+        : outfitPal.trim || '#fffaf2';
 
     const skinColor = new THREE.Color(lookInfo.skinHex);
     const dressPrimary = new THREE.Color(dressHex);
@@ -981,18 +1018,23 @@
 
     const skinMat = new THREE.MeshPhysicalMaterial({
       color: skinColor,
-      roughness: 0.52,
-      metalness: 0.02,
-      sheen: 0.25,
+      roughness: 0.44,
+      metalness: 0.01,
+      sheen: 0.42,
+      sheenRoughness: 0.45,
       sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
+      clearcoat: 0.14,
+      clearcoatRoughness: 0.56,
     });
 
     const headFaceMat = new THREE.MeshPhysicalMaterial({
       map: faceTex,
-      roughness: 0.48,
-      metalness: 0.02,
-      clearcoat: 0.14,
-      clearcoatRoughness: 0.6,
+      roughness: 0.4,
+      metalness: 0.01,
+      sheen: 0.32,
+      sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
+      clearcoat: 0.18,
+      clearcoatRoughness: 0.52,
     });
 
     const fabricMat = new THREE.MeshPhysicalMaterial({
@@ -1046,13 +1088,15 @@
               : skinMat;
 
     const shoeColor =
-      role === 'guard' || role === 'maid'
+      role === 'guard' || role === 'maid' || role === 'butler' || role === 'chauffeur' || role === 'chef'
         ? new THREE.Color('#1d191e')
-        : acc.shoes === 'barefoot'
-          ? skinColor
-          : acc.shoes === 'riding-boots'
-            ? new THREE.Color('#2a1e1a')
-            : dressGold.clone().lerp(new THREE.Color('#23181d'), 0.34);
+        : role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist' || role === 'nurse'
+          ? new THREE.Color('#eef3f8')
+          : acc.shoes === 'barefoot'
+            ? skinColor
+            : acc.shoes === 'riding-boots'
+              ? new THREE.Color('#2a1e1a')
+              : dressGold.clone().lerp(new THREE.Color('#23181d'), 0.34);
 
     const shoeMat = new THREE.MeshStandardMaterial({
       color: shoeColor,
@@ -1083,16 +1127,21 @@
     const thighLen = legLen * 0.48;
     const shinLen = legLen - thighLen;
     const isTrousers =
-      role === 'guard' ||
+      isTailoredCoat ||
       outfitPal.outfitId === 'parisian-trench-chic' ||
       outfitPal.outfitId === 'equestrian-tailored';
-    const isBoot = role === 'guard' || acc.shoes === 'riding-boots';
+    const isBoot = role === 'guard' || role === 'chauffeur' || acc.shoes === 'riding-boots';
 
     function makeLeg(side) {
       const hipPivot = new THREE.Group();
       hipPivot.position.set(side * 0.088 * Math.max(0.92, hipScale * 0.9), pelvisY, 0);
 
-      const legMat = role === 'guard' ? trimMat : isTrousers ? fabricMat : skinMat;
+      const legMat =
+        role === 'guard'
+          ? trimMat
+          : isTrousers
+            ? fabricMat
+            : skinMat;
       const thighMesh = new THREE.Mesh(buildSculptedThighGeometry(thighR, thighLen), legMat);
       thighMesh.castShadow = true;
       hipPivot.add(thighMesh);
@@ -1142,10 +1191,12 @@
       outfitPal.outfitId !== 'midnight-opera-slip';
     const isCasualSkirt =
       role === 'maid' ||
-      outfitPal.outfitId === 'riviera-resort-midi' ||
-      outfitPal.outfitId === 'riviera-crop-skirt' ||
-      outfitPal.outfitId === 'lace-nightgown' ||
-      outfitPal.outfitId === 'velvet-morning-robe';
+      role === 'nurse' ||
+      ((role === 'royal' || role === 'friend' || role === 'citizen' || role === 'staff') &&
+        (outfitPal.outfitId === 'riviera-resort-midi' ||
+          outfitPal.outfitId === 'riviera-crop-skirt' ||
+          outfitPal.outfitId === 'lace-nightgown' ||
+          outfitPal.outfitId === 'velvet-morning-robe'));
 
     let skirtMesh = null;
     if (isBallgown) {
@@ -1166,8 +1217,8 @@
       bodyGroup.add(peplum);
     } else if (isCasualSkirt || (role === 'royal' && outfitPal.outfitId === 'midnight-opera-slip')) {
       const skirtLen =
-        role === 'maid'
-          ? legLen * 0.68
+        role === 'maid' || role === 'nurse'
+          ? legLen * 0.64
           : outfitPal.outfitId === 'midnight-opera-slip'
             ? legLen * 0.94
             : legLen * 0.58;
@@ -1184,10 +1235,31 @@
         );
         apron.position.y = 0.17 - skirtLen * 0.42;
         bodyGroup.add(apron);
+
+        const bib = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.22, 0.03), trimMat);
+        bib.position.set(0, 0.36, 0.11);
+        bodyGroup.add(bib);
+
+        const collarRing = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.015, 8, 18), trimMat);
+        collarRing.rotation.x = Math.PI * 0.46;
+        collarRing.position.set(0, 0.56, 0.014);
+        bodyGroup.add(collarRing);
+
+        const bowBack = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.04), trimMat);
+        bowBack.position.set(0, 0.19, -0.14);
+        bodyGroup.add(bowBack);
       }
     }
 
-    if (!isLingerie && role !== 'guard') {
+    if (
+      !isLingerie &&
+      role !== 'guard' &&
+      role !== 'doctor' &&
+      role !== 'er_doctor' &&
+      role !== 'surgeon' &&
+      role !== 'anesthesiologist' &&
+      role !== 'nurse'
+    ) {
       const belt = new THREE.Mesh(new THREE.TorusGeometry(0.128 * waistScale, 0.014, 10, 26), goldMat);
       belt.rotation.x = Math.PI / 2;
       belt.scale.set(1.02, 0.78, 1);
@@ -1200,6 +1272,96 @@
       sash.position.set(0, 0.34, 0.015);
       sash.rotation.z = 0.42;
       bodyGroup.add(sash);
+    }
+
+    // Distinct 3D Role Uniform Details (Butlers, Chauffeurs, Chefs, Doctors & Nurses)
+    const medicalRedMat = new THREE.MeshStandardMaterial({ color: 0xc82b3f, roughness: 0.35 });
+    const ebonyMat = new THREE.MeshStandardMaterial({ color: 0x181920, roughness: 0.45 });
+    if (role === 'butler' || role === 'chauffeur') {
+      const shirtBib = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.26, 0.04), trimMat);
+      shirtBib.position.set(0, 0.41, 0.095);
+      bodyGroup.add(shirtBib);
+
+      if (role === 'butler') {
+        const tieLeft = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.048, 6), ebonyMat);
+        tieLeft.rotation.z = -Math.PI * 0.5;
+        tieLeft.position.set(-0.024, 0.545, 0.085);
+        bodyGroup.add(tieLeft);
+        const tieRight = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.048, 6), ebonyMat);
+        tieRight.rotation.z = Math.PI * 0.5;
+        tieRight.position.set(0.024, 0.545, 0.085);
+        bodyGroup.add(tieRight);
+        const tailCoatL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.36, 0.025), fabricMat);
+        tailCoatL.position.set(-0.068, 0.02, -0.108);
+        tailCoatL.rotation.x = 0.08;
+        bodyGroup.add(tailCoatL);
+        const tailCoatR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.36, 0.025), fabricMat);
+        tailCoatR.position.set(0.068, 0.02, -0.108);
+        tailCoatR.rotation.x = 0.08;
+        bodyGroup.add(tailCoatR);
+      } else {
+        const tie = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.22, 0.02), ebonyMat);
+        tie.position.set(0, 0.42, 0.116);
+        bodyGroup.add(tie);
+      }
+
+      [-1, 1].forEach(function (side) {
+        for (let bi = 0; bi < 3; bi++) {
+          const btn = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), goldMat);
+          btn.position.set(side * 0.042, 0.25 + bi * 0.075, 0.114);
+          bodyGroup.add(btn);
+        }
+      });
+    } else if (role === 'chef') {
+      const kerchief = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.014, 8, 18), medicalRedMat);
+      kerchief.rotation.x = Math.PI * 0.46;
+      kerchief.position.set(0, 0.555, 0.014);
+      bodyGroup.add(kerchief);
+      [-1, 1].forEach(function (side) {
+        for (let bi = 0; bi < 3; bi++) {
+          const btn = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), ebonyMat);
+          btn.position.set(side * 0.048, 0.27 + bi * 0.075, 0.112);
+          bodyGroup.add(btn);
+        }
+      });
+      const waistApron = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.138 * waistScale, 0.185 * hipScale, 0.42, 14, 1, false, -0.68, 1.36),
+        trimMat
+      );
+      waistApron.position.set(0, -0.02, 0.018);
+      bodyGroup.add(waistApron);
+    } else if (role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist' || role === 'nurse') {
+      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.056, 0.016), medicalRedMat);
+      crossV.position.set(-0.078, 0.44, 0.118);
+      bodyGroup.add(crossV);
+      const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.018, 0.016), medicalRedMat);
+      crossH.position.set(-0.078, 0.44, 0.118);
+      bodyGroup.add(crossH);
+
+      if (role === 'surgeon' || role === 'anesthesiologist') {
+        const pocketMat = new THREE.MeshStandardMaterial({ color: role === 'surgeon' ? 0x16536a : 0x184252, roughness: 0.45 });
+        const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.085, 0.02), pocketMat);
+        pocket.position.set(0.072, 0.42, 0.112);
+        bodyGroup.add(pocket);
+      }
+
+      const stethMat = new THREE.MeshStandardMaterial({ color: 0x26313d, roughness: 0.35, metalness: 0.25 });
+      const stethCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.068, 0.42, 0.102),
+        new THREE.Vector3(-0.066, 0.555, 0.04),
+        new THREE.Vector3(0, 0.575, -0.055),
+        new THREE.Vector3(0.066, 0.555, 0.04),
+        new THREE.Vector3(0.062, 0.39, 0.108),
+      ]);
+      const stethTube = new THREE.Mesh(new THREE.TubeGeometry(stethCurve, 18, 0.008, 8, false), stethMat);
+      bodyGroup.add(stethTube);
+      const stethBell = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018, 0.018, 0.012, 12),
+        new THREE.MeshStandardMaterial({ color: 0xd0d6de, roughness: 0.18, metalness: 0.85 })
+      );
+      stethBell.rotation.x = Math.PI * 0.5;
+      stethBell.position.set(0.062, 0.375, 0.114);
+      bodyGroup.add(stethBell);
     }
 
     // Slender Sculpted Neck & Collarbone Necklace
@@ -1223,6 +1385,14 @@
     const hasSleeves =
       role === 'guard' ||
       role === 'maid' ||
+      role === 'butler' ||
+      role === 'chef' ||
+      role === 'chauffeur' ||
+      role === 'doctor' ||
+      role === 'er_doctor' ||
+      role === 'surgeon' ||
+      role === 'anesthesiologist' ||
+      role === 'nurse' ||
       outfitPal.outfitId === 'riviera-sky-gown' ||
       outfitPal.outfitId === 'parisian-trench-chic' ||
       outfitPal.outfitId === 'equestrian-tailored';
@@ -1241,6 +1411,23 @@
       const armMesh = new THREE.Mesh(buildContinuousArmGeometry(side, armR), armMat);
       armMesh.castShadow = true;
       armPivot.add(armMesh);
+
+      if (role === 'butler' || role === 'chauffeur' || role === 'surgeon' || role === 'anesthesiologist') {
+        const handGloveMat = role === 'butler'
+          ? trimMat
+          : role === 'chauffeur'
+            ? ebonyMat
+            : new THREE.MeshStandardMaterial({ color: 0xccebf7, roughness: 0.34 });
+        const gloveHand = new THREE.Mesh(new THREE.SphereGeometry(armR * 0.72, 10, 8), handGloveMat);
+        gloveHand.scale.set(0.85, 1.55, 0.65);
+        gloveHand.position.set(side * 0.049, -0.545, 0.061);
+        armPivot.add(gloveHand);
+      } else if (role === 'maid') {
+        const cuffLace = new THREE.Mesh(new THREE.TorusGeometry(armR * 0.92, 0.012, 8, 14), trimMat);
+        cuffLace.rotation.x = Math.PI / 2;
+        cuffLace.position.set(side * 0.014, -0.045, 0);
+        armPivot.add(cuffLace);
+      }
 
       if (role === 'royal' && outfitPal.outfitId === 'versailles-ivory-gown') {
         const cuff = new THREE.Mesh(new THREE.TorusGeometry(armR * 1.15, 0.013, 8, 16), trimMat);
@@ -1419,6 +1606,19 @@
       headGroup.add(ear);
     });
 
+    // Natural 3D Blinking Eyelid Caps (sits smoothly over eye sockets during blink cycles)
+    const lidGeo = new THREE.SphereGeometry(0.019, 10, 6);
+    const leftLid = new THREE.Mesh(lidGeo, skinMat);
+    leftLid.position.set(-0.032, 0.016, 0.092);
+    leftLid.scale.set(1.15, 0.12, 0.42);
+    leftLid.visible = false;
+    headGroup.add(leftLid);
+    const rightLid = new THREE.Mesh(lidGeo, skinMat);
+    rightLid.position.set(0.032, 0.016, 0.092);
+    rightLid.scale.set(1.15, 0.12, 0.42);
+    rightLid.visible = false;
+    headGroup.add(rightLid);
+
     if (role === 'royal' && acc.eyewear && acc.eyewear !== 'none') {
       const lensMat = new THREE.MeshPhysicalMaterial({ color: 0x1e1928, transparent: true, opacity: 0.68, clearcoat: 1 });
       [-1, 1].forEach(function (side) {
@@ -1557,7 +1757,7 @@
       headGroup.add(outerLayer);
     }
 
-    // Headgear: Jeweled Tiara / Guard Busby / Maid Lace Cap
+    // Headgear: Guards (Shako), Maids (Lace Cap), Chefs (Toque), Chauffeurs (Visor Cap), Nurses (Cross Cap), Royals (Tiara ONLY!)
     if (role === 'guard') {
       const shako = new THREE.Mesh(
         new THREE.CylinderGeometry(0.1, 0.11, 0.21, 16),
@@ -1573,7 +1773,54 @@
       cap.scale.set(1.04, 0.44, 0.92);
       cap.position.set(0, 0.118, -0.01);
       headGroup.add(cap);
-    } else if (!acc.crown || acc.crown !== 'none') {
+      const frill = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.011, 6, 18), trimMat);
+      frill.rotation.x = Math.PI * 0.48;
+      frill.position.set(0, 0.118, -0.006);
+      headGroup.add(frill);
+    } else if (role === 'chef') {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.092, 0.085, 16), trimMat);
+      band.position.set(0, 0.135, -0.005);
+      headGroup.add(band);
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 10), trimMat);
+      puff.scale.set(1.06, 0.78, 1.06);
+      puff.position.set(0, 0.215, -0.008);
+      headGroup.add(puff);
+    } else if (role === 'chauffeur') {
+      const navyCapMat = new THREE.MeshStandardMaterial({ color: 0x1a2233, roughness: 0.45 });
+      const capCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.106, 0.096, 0.075, 16), navyCapMat);
+      capCrown.position.set(0, 0.128, -0.006);
+      headGroup.add(capCrown);
+      const capBand = new THREE.Mesh(new THREE.CylinderGeometry(0.098, 0.098, 0.018, 16), goldMat);
+      capBand.position.set(0, 0.1, -0.006);
+      headGroup.add(capBand);
+      const visor = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.095, 0.1, 0.014, 12, 1, false, -0.95, 1.9),
+        new THREE.MeshStandardMaterial({ color: 0x101218, roughness: 0.2 })
+      );
+      visor.rotation.x = 0.28;
+      visor.position.set(0, 0.088, 0.056);
+      headGroup.add(visor);
+    } else if (role === 'surgeon' || role === 'anesthesiologist') {
+      const capMat = new THREE.MeshStandardMaterial({ color: role === 'surgeon' ? 0x2682a4 : 0x2c6e82, roughness: 0.62 });
+      const scrubCap = new THREE.Mesh(new THREE.SphereGeometry(0.108, 16, 10), capMat);
+      scrubCap.scale.set(1.06, 0.62, 1.08);
+      scrubCap.position.set(0, 0.088, -0.005);
+      headGroup.add(scrubCap);
+      const maskMat = new THREE.MeshStandardMaterial({ color: 0xbde6f5, roughness: 0.72 });
+      const mask = new THREE.Mesh(new THREE.BoxGeometry(0.112, 0.058, 0.036), maskMat);
+      mask.position.set(0, -0.048, 0.095);
+      headGroup.add(mask);
+    } else if (role === 'nurse') {
+      const nurseCap = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.072, 0.085), trimMat);
+      nurseCap.position.set(0, 0.132, -0.01);
+      headGroup.add(nurseCap);
+      const cV = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.036, 0.014), medicalRedMat);
+      cV.position.set(0, 0.132, 0.034);
+      headGroup.add(cV);
+      const cH = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.012, 0.014), medicalRedMat);
+      cH.position.set(0, 0.132, 0.034);
+      headGroup.add(cH);
+    } else if (role === 'royal' && (!acc.crown || acc.crown !== 'none')) {
       const tiaraGroup = new THREE.Group();
       tiaraGroup.position.set(0, 0.116, 0.012);
       const band = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.008, 8, 22), goldMat);
@@ -1613,6 +1860,16 @@
       rig.add(plumbob);
     }
 
+    // Pool Swimming Water Ripple Ring
+    const swimRipple = new THREE.Mesh(
+      new THREE.RingGeometry(0.28, 0.48, 24),
+      new THREE.MeshBasicMaterial({ color: 0xe6fbff, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
+    );
+    swimRipple.rotation.x = -Math.PI / 2;
+    swimRipple.position.y = 0.22;
+    swimRipple.visible = false;
+    root.add(swimRipple);
+
     return {
       root: root,
       rig: rig,
@@ -1624,6 +1881,9 @@
       rightArm: rightArm,
       bodyGroup: bodyGroup,
       headGroup: headGroup,
+      leftLid: leftLid,
+      rightLid: rightLid,
+      swimRipple: swimRipple,
       skirtMesh: skirtMesh,
       heldProps: heldProps,
       contactShadow: contactShadow,
@@ -1817,9 +2077,81 @@
     }
 
     const _moveDir = new THREE.Vector3();
+    const _seatOff = new THREE.Vector3();
     let currentActivity = null; // { pose, x, y, z, yaw, floorY, rigOffsetY, onCancel }
+    let transport = null; // { kind: 'car'|'horse', entity, speed, steer, wheelAngle, gallopPhase, boost }
+    let inWater = false;
+    let swimPhase = 0;
+    let transportListener = null;
+    let movementLocked = false;
+
+    function setMovementLocked(locked) {
+      movementLocked = Boolean(locked);
+      if (movementLocked) speedMag = 0;
+    }
+
+    function notifyTransport() {
+      if (typeof transportListener === 'function') {
+        transportListener(transport);
+      }
+    }
+
+    function setTransportListener(fn) {
+      transportListener = fn;
+    }
+
+    function updateLivingSkin(act, elapsedSec, needsObj, isSwim, spd, isSleep) {
+      const t = elapsedSec || 0;
+      if (act.leftLid && act.rightLid) {
+        if (isSleep) {
+          act.leftLid.visible = true;
+          act.rightLid.visible = true;
+          act.leftLid.scale.set(1.18, 0.96, 0.52);
+          act.rightLid.scale.set(1.18, 0.96, 0.52);
+        } else {
+          const cycle = (t * 0.28 + (act.root.id || 0) * 0.37) % 1;
+          const blink = cycle > 0.945 ? Math.sin(((cycle - 0.945) / 0.055) * Math.PI) : 0;
+          const openBlink = blink > 0.06;
+          act.leftLid.visible = openBlink;
+          act.rightLid.visible = openBlink;
+          if (openBlink) {
+            const sy = 0.14 + blink * 0.72;
+            act.leftLid.scale.set(1.15, sy, 0.45);
+            act.rightLid.scale.set(1.15, sy, 0.45);
+          }
+        }
+      }
+      if (act.swimRipple) {
+        act.swimRipple.visible = Boolean(isSwim);
+        if (isSwim) {
+          const pulse = 0.85 + Math.sin(t * 4.5) * 0.18 + Math.min(0.35, (spd || 0) * 0.08);
+          act.swimRipple.scale.set(pulse, pulse, 1);
+          act.swimRipple.material.opacity = 0.55 + Math.sin(t * 4.5) * 0.2;
+        }
+      }
+      if (act.plumbob && act.plumbob.material && needsObj) {
+        const minNeed = Math.min(
+          needsObj.energy ?? 100,
+          needsObj.hunger ?? 100,
+          needsObj.hygiene ?? 100,
+          needsObj.fun ?? 100,
+          needsObj.composure ?? 100
+        );
+        if (minNeed < 25) {
+          act.plumbob.material.color.setHex(0xeb5a5a);
+          act.plumbob.material.emissive.setHex(0x8c2222);
+        } else if (minNeed < 50) {
+          act.plumbob.material.color.setHex(0xe8bf48);
+          act.plumbob.material.emissive.setHex(0x8e6a15);
+        } else {
+          act.plumbob.material.color.setHex(0x3ad17a);
+          act.plumbob.material.emissive.setHex(0x1e8f4e);
+        }
+      }
+    }
 
     function setActivityPose(spec) {
+      if (transport) exitTransport();
       if (!spec) {
         clearActivityPose();
         return;
@@ -1859,8 +2191,97 @@
       return currentActivity;
     }
 
+    function enterCar(carDef) {
+      if (!carDef || !carDef.group) return;
+      if (currentActivity) clearActivityPose(false);
+      if (transport) exitTransport();
+      transport = {
+        kind: 'car',
+        entity: carDef,
+        speed: 0,
+        steer: 0,
+        wheelAngle: 0,
+      };
+      inWater = false;
+      speedMag = 0;
+      notifyTransport();
+    }
+
+    function mountHorse(horseDef) {
+      if (!horseDef || !horseDef.group) return;
+      if (currentActivity) clearActivityPose(false);
+      if (transport) exitTransport();
+      transport = {
+        kind: 'horse',
+        entity: horseDef,
+        speed: 0,
+        steer: 0,
+        gallopPhase: 0,
+        boost: false,
+      };
+      inWater = false;
+      speedMag = 0;
+      notifyTransport();
+    }
+
+    function exitTransport() {
+      if (!transport) return;
+      const ent = transport.entity;
+      const wasKind = transport.kind;
+      transport = null;
+      speedMag = 0;
+      const sideOff = wasKind === 'car' ? -1.65 : -1.25;
+      const grpPos = ent && ent.group ? ent.group.position : actor.root.position;
+      const yaw = ent && ent.group ? ent.group.rotation.y : actor.root.rotation.y;
+      const rawX = grpPos.x + Math.cos(yaw) * sideOff;
+      const rawZ = grpPos.z - Math.sin(yaw) * sideOff;
+      const safe = worldApi.resolveCollision ? worldApi.resolveCollision(rawX, rawZ, 0.52, 0) : { x: rawX, z: rawZ };
+      const sy = worldApi.groundHeightAt(safe.x, safe.z, 0);
+      actor.root.position.set(safe.x, sy, safe.z);
+      actor.root.rotation.y = yaw;
+      if (ent && ent.group && ent.group.userData && ent.group.userData.rig && wasKind === 'horse') {
+        const legs = ent.group.userData.rig.legs || [];
+        for (let i = 0; i < legs.length; i++) legs[i].rotation.x = 0;
+        ent.group.position.y = ent.baseY || 0.03;
+      }
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      notifyTransport();
+    }
+
+    function setCanterBoost(val) {
+      if (transport && transport.kind === 'horse') {
+        transport.boost = Boolean(val);
+      }
+    }
+
+    function exitPool() {
+      if (currentActivity && currentActivity.pose === 'swim') {
+        clearActivityPose(true);
+        return true;
+      }
+      if (!inWater) return false;
+      inWater = false;
+      const px = actor.root.position.x;
+      const pz = actor.root.position.z;
+      const py = actor.root.position.y;
+      let ex = px;
+      let ez = pz + 4.6;
+      if (Math.abs(px - 82) < 12 && pz < 26) {
+        ex = 82;
+        ez = 19.2;
+      } else if (py > 10) {
+        ex = -21.5;
+        ez = -29.2;
+      }
+      const sy = worldApi.groundHeightAt(ex, ez, py);
+      actor.root.position.set(ex, sy, ez);
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      return true;
+    }
+
     function update(delta, cameraYaw, elapsedSec) {
       const dt = Math.min(Math.max(delta || 0.016, 0.001), 0.1);
+      const tNow = elapsedSec || 0;
 
       let inputX = 0;
       let inputZ = 0;
@@ -1874,8 +2295,8 @@
         inputZ += joyVec.y;
       }
 
-      const len = Math.hypot(inputX, inputZ);
-      if (currentActivity && len > 0.2) {
+      const len = movementLocked ? 0 : Math.hypot(inputX, inputZ);
+      if (currentActivity && !movementLocked && len > 0.2) {
         const onCancel = currentActivity.onCancel;
         clearActivityPose(true);
         if (typeof onCancel === 'function') {
@@ -1887,11 +2308,156 @@
         actor.baseLeg ||
         0.94 * ((character && character.body && character.body.sliders && character.body.sliders.legLength) || 1);
 
-      if (currentActivity && window.CrownAnim) {
-        window.CrownAnim.applyPose(actor, currentActivity.pose, dt, elapsedSec || 0, currentActivity);
+      if (transport && transport.kind === 'car' && transport.entity && transport.entity.group) {
+        const car = transport.entity;
+        const grp = car.group;
+        const maxCarSpeed = (keys.ShiftLeft || keys.ShiftRight || len > 0.88) ? 16.0 : 12.2;
+        if (len > 0.08) {
+          const clamped = Math.min(1, len);
+          const nx = inputX / len;
+          const nz = inputZ / len;
+          const sinY = Math.sin(cameraYaw);
+          const cosY = Math.cos(cameraYaw);
+          _moveDir.set(nx * cosY + nz * sinY, 0, -nx * sinY + nz * cosY).normalize();
+
+          const targetYaw = Math.atan2(_moveDir.x, _moveDir.z);
+          let angDiff = targetYaw - grp.rotation.y;
+          while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+          while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+
+          transport.steer += (THREE.MathUtils.clamp(angDiff, -0.7, 0.7) - transport.steer) * (1 - Math.exp(-10 * dt));
+          grp.rotation.y += angDiff * (1 - Math.exp(-5.4 * dt));
+          const targetSpd = maxCarSpeed * clamped * Math.max(0.25, Math.cos(Math.min(1.3, Math.abs(angDiff))));
+          transport.speed += (targetSpd - transport.speed) * (1 - Math.exp(-5.5 * dt));
+        } else {
+          transport.steer += (0 - transport.steer) * (1 - Math.exp(-8 * dt));
+          transport.speed += (0 - transport.speed) * (1 - Math.exp(-7 * dt));
+        }
+
+        const fwdX = Math.sin(grp.rotation.y);
+        const fwdZ = Math.cos(grp.rotation.y);
+        const nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -158, 158);
+        const nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, -52.0, 50.2);
+        const resolved = worldApi.resolveCollision(nextX, nextZ, 1.35, 0, {
+          ignoreEntityId: car.id,
+          excludePools: true,
+        });
+        grp.position.x = resolved.x;
+        grp.position.z = resolved.z;
+        grp.position.y = 0.02;
+        car.x = resolved.x;
+        car.z = resolved.z;
+        car.yaw = grp.rotation.y;
+
+        transport.wheelAngle += transport.speed * dt * 3.1;
+        const ud = grp.userData || {};
+        if (Array.isArray(ud.wheels)) {
+          for (let w = 0; w < ud.wheels.length; w++) ud.wheels[w].rotation.x = transport.wheelAngle;
+        }
+        if (Array.isArray(ud.frontSteer)) {
+          for (let fs = 0; fs < ud.frontSteer.length; fs++) ud.frontSteer[fs].rotation.y = transport.steer * 0.45;
+        }
+
+        const cosRot = Math.cos(grp.rotation.y);
+        const sinRot = Math.sin(grp.rotation.y);
+        const sx = ud.seatX || -0.35;
+        const sy = ud.seatY || 0.44;
+        const sz = ud.seatZ || -0.26;
+        actor.root.position.set(
+          grp.position.x + sx * cosRot + sz * sinRot,
+          grp.position.y + sy - 0.28,
+          grp.position.z - sx * sinRot + sz * cosRot
+        );
+        actor.root.rotation.y = grp.rotation.y;
+        speedMag = transport.speed;
+
+        if (window.CrownAnim) {
+          window.CrownAnim.applyPose(actor, 'drive', dt, tNow, { steer: transport.steer, rigOffsetY: -baseLeg * 0.62 });
+        }
+        updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, false, speedMag);
+      } else if (transport && transport.kind === 'horse' && transport.entity && transport.entity.group) {
+        const hr = transport.entity;
+        const grp = hr.group;
+        const isFast = transport.boost || Boolean(keys.ShiftLeft || keys.ShiftRight || len > 0.88);
+        const maxHorseSpd = isFast ? 12.2 : 8.2;
+
+        if (len > 0.08) {
+          const clamped = Math.min(1, len);
+          const nx = inputX / len;
+          const nz = inputZ / len;
+          const sinY = Math.sin(cameraYaw);
+          const cosY = Math.cos(cameraYaw);
+          _moveDir.set(nx * cosY + nz * sinY, 0, -nx * sinY + nz * cosY).normalize();
+
+          const targetYaw = Math.atan2(_moveDir.x, _moveDir.z);
+          let angDiff = targetYaw - grp.rotation.y;
+          while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+          while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+
+          grp.rotation.y += angDiff * (1 - Math.exp(-7.5 * dt));
+          transport.speed += (maxHorseSpd * clamped - transport.speed) * (1 - Math.exp(-7.0 * dt));
+          transport.gallopPhase += dt * (transport.speed * 1.85 + 2.5);
+        } else {
+          transport.speed += (0 - transport.speed) * (1 - Math.exp(-8.5 * dt));
+        }
+
+        const fwdX = Math.sin(grp.rotation.y);
+        const fwdZ = Math.cos(grp.rotation.y);
+        const nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -158, 158);
+        const nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, -52.0, 50.2);
+        const resolved = worldApi.resolveCollision(nextX, nextZ, 0.72, 0, {
+          ignoreEntityId: hr.id,
+        });
+        const baseY = worldApi.groundHeightAt(resolved.x, resolved.z, 0);
+        const bob = transport.speed > 0.35 ? Math.abs(Math.sin(transport.gallopPhase)) * 0.05 : 0;
+        grp.position.set(resolved.x, baseY + bob, resolved.z);
+        hr.x = resolved.x;
+        hr.z = resolved.z;
+        hr.yaw = grp.rotation.y;
+
+        const rig = grp.userData && grp.userData.rig;
+        if (rig && rig.legs && rig.legs.length >= 4) {
+          const swingAmp = Math.min(1, transport.speed / 5.5) * 0.68;
+          const gp = transport.gallopPhase;
+          rig.legs[0].rotation.x = Math.sin(gp) * swingAmp;
+          rig.legs[3].rotation.x = Math.sin(gp + 0.35) * swingAmp;
+          rig.legs[1].rotation.x = -Math.sin(gp) * swingAmp;
+          rig.legs[2].rotation.x = -Math.sin(gp + 0.35) * swingAmp;
+          if (rig.headPivot) {
+            rig.headPivot.rotation.x = transport.speed > 0.35 ? Math.sin(gp * 2) * 0.09 + 0.06 : Math.sin(tNow * 1.6) * 0.04;
+          }
+          if (rig.tailPivot) {
+            rig.tailPivot.rotation.x = transport.speed > 0.35 ? -0.34 + Math.sin(gp) * 0.14 : Math.sin(tNow * 2.2) * 0.06;
+          }
+        }
+
+        actor.root.position.set(grp.position.x, grp.position.y + 1.48, grp.position.z);
+        actor.root.rotation.y = grp.rotation.y;
+        speedMag = transport.speed;
+
+        if (window.CrownAnim) {
+          window.CrownAnim.applyPose(actor, 'ride_horse', dt, tNow, {
+            gallopPhase: transport.gallopPhase,
+            horseSpeed: transport.speed,
+            rigOffsetY: -baseLeg * 0.34,
+          });
+        }
+        updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, false, speedMag);
+      } else if (currentActivity && window.CrownAnim) {
+        window.CrownAnim.applyPose(actor, currentActivity.pose, dt, tNow, currentActivity);
+        updateLivingSkin(
+          actor,
+          tNow,
+          window.CrownGame && window.CrownGame.needs,
+          currentActivity.pose === 'swim',
+          0,
+          currentActivity.pose === 'sleep' || currentActivity.pose === 'nap'
+        );
       } else {
+        const wasWater = inWater;
+        inWater = Boolean(worldApi.isInPool && worldApi.isInPool(actor.root.position));
         const isSprinting = Boolean(keys.ShiftLeft || keys.ShiftRight || len > 0.88);
-        const maxSpeed = isSprinting ? 7.6 : 4.8;
+        const maxSpeed = inWater ? 3.4 : isSprinting ? 7.6 : 4.8;
 
         if (len > 0.08) {
           const clampedLen = Math.min(1, len);
@@ -1919,6 +2485,7 @@
           actor.root.rotation.y += diff * (1 - Math.exp(-14 * dt));
 
           walkPhase += dt * (speedMag * 2.15);
+          swimPhase += dt * (speedMag * 2.5 + 1.4);
         } else {
           speedMag += (0 - speedMag) * (1 - Math.exp(-10 * dt));
         }
@@ -1929,33 +2496,23 @@
           actor.root.position.y
         );
 
-        const moveWeight = Math.min(1, speedMag / 4.2);
-        if (window.CrownAnim) {
-          window.CrownAnim.applyLocomotion(actor, dt, elapsedSec || 0, walkPhase, moveWeight, baseLeg);
-        } else {
-          const swing = Math.sin(walkPhase) * 0.5 * moveWeight;
-          actor.leftLeg.rotation.x = swing;
-          actor.rightLeg.rotation.x = -swing;
-          if (actor.leftKnee) actor.leftKnee.rotation.x = Math.max(0, Math.sin(walkPhase + 0.4) * 0.45 * moveWeight);
-          if (actor.rightKnee) actor.rightKnee.rotation.x = Math.max(0, Math.sin(-walkPhase + 0.4) * 0.45 * moveWeight);
-          actor.leftArm.rotation.x = -swing * 0.6;
-          actor.rightArm.rotation.x = swing * 0.6;
-          actor.bodyGroup.position.y =
-            baseLeg +
-            Math.abs(Math.sin(walkPhase * 2)) * 0.02 * moveWeight +
-            Math.sin((elapsedSec || 0) * 2.1) * 0.008 * (1 - moveWeight);
-          actor.bodyGroup.rotation.z = Math.sin(walkPhase) * 0.028 * moveWeight;
-          actor.headGroup.rotation.y = Math.sin((elapsedSec || 0) * 0.85) * 0.06 * (1 - moveWeight);
-          if (actor.skirtMesh) {
-            actor.skirtMesh.rotation.z = Math.sin(walkPhase) * 0.032 * moveWeight;
-          }
+        inWater = Boolean(worldApi.isInPool && worldApi.isInPool(actor.root.position));
+        if (inWater && !wasWater && window.CrownNeeds) {
+          window.CrownNeeds.applyBoost({ fun: 4, hygiene: 4 });
         }
+
+        const moveWeight = Math.min(1, speedMag / (inWater ? 2.4 : 4.2));
+        if (inWater && window.CrownAnim && typeof window.CrownAnim.applySwimLocomotion === 'function') {
+          window.CrownAnim.applySwimLocomotion(actor, dt, tNow, swimPhase, moveWeight, baseLeg);
+        } else if (window.CrownAnim) {
+          window.CrownAnim.applyLocomotion(actor, dt, tNow, walkPhase, moveWeight, baseLeg);
+        }
+        updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, inWater, speedMag);
       }
 
       if (actor.plumbob) {
-        const t = elapsedSec || 0;
-        actor.plumbob.rotation.y = t * 1.4;
-        actor.plumbob.position.y = baseLeg + 1.24 + Math.sin(t * 2.2) * 0.035;
+        actor.plumbob.rotation.y = tNow * 1.4;
+        actor.plumbob.position.y = baseLeg + 1.24 + Math.sin(tNow * 2.2) * 0.035;
       }
 
       if (window.CrownGame && window.CrownGame.world) {
@@ -1971,13 +2528,17 @@
         yaw: actor.root.rotation.y,
         speed: speedMag,
         activity: currentActivity,
+        transport: transport,
+        inWater: inWater,
       };
     }
 
     function teleport(x, z, yaw, floorY) {
+      if (transport) exitTransport();
       if (currentActivity) {
         clearActivityPose(false);
       }
+      inWater = false;
       const targetY = worldApi.groundHeightAt(x, z, typeof floorY === 'number' ? floorY : actor.root.position.y);
       actor.root.position.set(x, targetY, z);
       if (typeof yaw === 'number') actor.root.rotation.y = yaw;
@@ -1996,6 +2557,16 @@
       setActivityPose: setActivityPose,
       clearActivityPose: clearActivityPose,
       getActivity: getActivity,
+      enterCar: enterCar,
+      mountHorse: mountHorse,
+      exitTransport: exitTransport,
+      getTransport: function () { return transport; },
+      setTransportListener: setTransportListener,
+      setCanterBoost: setCanterBoost,
+      isSwimming: function () { return inWater || Boolean(currentActivity && currentActivity.pose === 'swim'); },
+      setMovementLocked: setMovementLocked,
+      exitPool: exitPool,
+      updateLivingSkin: updateLivingSkin,
       update: update,
       teleport: teleport,
       dispose: dispose,

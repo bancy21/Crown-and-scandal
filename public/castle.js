@@ -174,24 +174,32 @@
       ctx.lineWidth = 3;
       ctx.strokeRect(26, 26, size - 52, size - 52);
     } else if (kind === 'grass') {
-      ctx.fillStyle = '#5c8a44';
+      ctx.fillStyle = '#5c9348';
       ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = '#527e3c';
-      for (let i = 0; i < size; i += 28) {
-        ctx.fillRect(i, 0, 14, size);
+      for (let i = 0; i < 420; i++) {
+        const gx = (i * 73) % size;
+        const gy = (i * 139) % size;
+        ctx.fillStyle = i % 3 === 0 ? 'rgba(116, 174, 78, 0.34)' : i % 3 === 1 ? 'rgba(72, 122, 52, 0.28)' : 'rgba(140, 192, 92, 0.22)';
+        ctx.beginPath();
+        ctx.arc(gx, gy, 4 + (i % 7), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let f = 0; f < 46; f++) {
+        ctx.fillStyle = f % 2 === 0 ? 'rgba(255, 246, 198, 0.52)' : 'rgba(255, 224, 232, 0.48)';
+        ctx.fillRect((f * 97 + 19) % size, (f * 61 + 11) % size, 2, 2);
       }
     } else if (kind === 'gravel-walk') {
-      ctx.fillStyle = '#e9decb';
+      ctx.fillStyle = '#efe4d0';
       ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = 'rgba(170, 142, 102, 0.18)';
-      for (let i = 0; i < 180; i++) {
+      ctx.fillStyle = 'rgba(176, 148, 108, 0.22)';
+      for (let i = 0; i < 220; i++) {
         ctx.fillRect((i * 73) % size, (i * 41) % size, 3, 3);
       }
     } else if (kind === 'water') {
       const grad = ctx.createLinearGradient(0, 0, size, size);
-      grad.addColorStop(0, '#368ab0');
-      grad.addColorStop(0.5, '#59b2d4');
-      grad.addColorStop(1, '#2b7596');
+      grad.addColorStop(0, '#3296c2');
+      grad.addColorStop(0.5, '#5cc5e6');
+      grad.addColorStop(1, '#267da3');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, size, size);
       ctx.strokeStyle = 'rgba(235, 250, 255, 0.35)';
@@ -272,9 +280,29 @@
     const goldMatteMat = new THREE.MeshStandardMaterial({ color: 0xc99c42, roughness: 0.34, metalness: 0.72 });
     const wroughtIronMat = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.42, metalness: 0.65 });
     const boxwoodMat = new THREE.MeshStandardMaterial({ color: 0x4c6e32, roughness: 0.86, metalness: 0.02 });
-    const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.9 });
+    const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.88 });
     const gravelMat = new THREE.MeshStandardMaterial({ map: gravelTex, roughness: 0.78 });
-    const waterMat = new THREE.MeshPhysicalMaterial({ map: waterTex, color: 0x58badb, roughness: 0.1, metalness: 0.12, clearcoat: 0.9 });
+    const waterUniforms = { uWaterTime: { value: 0 } };
+    const waterMat = new THREE.MeshPhysicalMaterial({
+      map: waterTex,
+      color: 0x5bc8ea,
+      roughness: 0.08,
+      metalness: 0.1,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.06,
+      envMapIntensity: 1.35,
+    });
+    const seaWaterMat = waterMat.clone();
+    if (!isSoftwareGl) {
+      seaWaterMat.onBeforeCompile = function (shader) {
+        shader.uniforms.uWaterTime = waterUniforms.uWaterTime;
+        shader.vertexShader = 'uniform float uWaterTime;\n' + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n  transformed.z += sin(position.x * 0.45 + uWaterTime * 1.9) * 0.025 + cos(position.y * 0.5 + uWaterTime * 1.4) * 0.02;'
+        );
+      };
+    }
     const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x3a4f66, roughness: 0.08, metalness: 0.18, transparent: true, opacity: 0.46 });
     const mirrorGlassMat = new THREE.MeshPhysicalMaterial({ color: 0xeaf4fc, roughness: 0.05, metalness: 0.88, clearcoat: 1.0 });
     const pinkVelvetMat = new THREE.MeshPhysicalMaterial({ color: 0xd98fa0, roughness: 0.65, sheen: 0.85, sheenColor: new THREE.Color(0xffe0e8) });
@@ -332,12 +360,20 @@
       { x: -26.5, z: 12.5, w: 10.0, d: 28.0 }, { x: 26.5, z: 12.5, w: 10.0, d: 28.0 },
     ];
 
-    // Walkable Height across Courtyard, Grass Parterres, 1F, Stair 1->2, 2F, Stair 2->3, and 3F Mansard Suites
+    let upperFloors = null;
+    let townMod = null;
+
+    // Walkable Height across Courtyard, Grass Parterres, 1F-7F Palace Suites, Town Lots, Pool & Hotel
     function groundHeightAt(x, z, currentY) {
       const yNow = typeof currentY === 'number' ? currentY : 0;
 
+      if (upperFloors) {
+        const upH = upperFloors.groundHeightAtUpper(x, z, yNow);
+        if (typeof upH === 'number') return upH;
+      }
+
       // Staircase 2F -> 3F (x in [4.1 .. 6.7], z from -28.6 [5.65] to -37.0 [10.65])
-      if (x >= 4.0 && x <= 6.85 && z <= -28.4 && z >= -37.2 && yNow >= 4.2) {
+      if (x >= 4.0 && x <= 6.85 && z <= -28.4 && z >= -37.2 && yNow >= 4.2 && yNow < 13.2) {
         const t3 = THREE.MathUtils.clamp((-28.8 - z) / 8.0, 0, 1);
         const stair3Y = 5.65 + t3 * 5.0;
         if (Math.abs(yNow - stair3Y) < 2.2) {
@@ -346,7 +382,7 @@
       }
 
       // Floor 3 Mansard Grand Suites (y = 10.65)
-      if (yNow >= 8.2 && Math.abs(x) <= 30.6 && z <= -17.2 && z >= -38.6) {
+      if (yNow >= 8.2 && yNow < 13.2 && Math.abs(x) <= 30.6 && z <= -17.2 && z >= -38.6) {
         return 10.65;
       }
 
@@ -360,18 +396,23 @@
       }
 
       // Floor 2 Interior & Upper Terrace Balcony (y = 5.65)
-      if (yNow >= 3.2 && Math.abs(x) <= 30.6 && z <= -14.2 && z >= -38.6) {
+      if (yNow >= 3.2 && yNow < 8.2 && Math.abs(x) <= 30.6 && z <= -14.2 && z >= -38.6) {
         return 5.65;
       }
 
       // Courtyard Grand Entrance Steps (z = -13.2 to -17.5, x = -9.2 to 9.2)
-      if (Math.abs(x) <= 9.2 && z <= -13.2 && z >= -17.5) {
+      if (Math.abs(x) <= 9.2 && z <= -13.2 && z >= -17.5 && yNow < 2.5) {
         return THREE.MathUtils.clamp((-13.2 - z) / 4.3, 0, 1) * 0.65;
       }
 
       // Palace Terrace Plinth & Floor 1 Interior (y = 0.65)
-      if (Math.abs(x) <= 32.5 && z <= -17.0 && z >= -39.0) {
+      if (Math.abs(x) <= 32.5 && z <= -17.0 && z >= -39.0 && yNow < 3.2) {
         return 0.65;
+      }
+
+      if (townMod) {
+        const tH = townMod.groundHeightAtTown(x, z, yNow);
+        if (typeof tH === 'number') return tH;
       }
 
       // Enterable Commoner Cottage slightly raised plank floors (y = 0.08)
@@ -390,6 +431,14 @@
             return 0.14;
           }
         }
+      }
+
+      // Riviera Timber Yacht Pier & Golden Sandy Beach
+      if (yNow < 2.0 && Math.abs(x) <= 2.6 && z >= 51.8 && z <= 67.0) {
+        return 0.26;
+      }
+      if (yNow < 2.0 && z >= 51.8 && z <= 59.4) {
+        return 0.03;
       }
 
       return 0;
@@ -430,18 +479,40 @@
       return { x: x, z: z };
     }
 
-    function resolveCollision(nx, nz, radius, currentY) {
+    function resolveCollision(nx, nz, radius, currentY, opts) {
       const yNow = typeof currentY === 'number' ? currentY : 0;
-      let rx = THREE.MathUtils.clamp(nx, -92, 92);
-      let rz = THREE.MathUtils.clamp(nz, -46, 52.5);
+      const cfg = opts || {};
+      const maxZBound = cfg.ignoreEntityId
+        ? 50.2
+        : Math.abs(nx) <= 2.2
+          ? 66.2
+          : 58.6;
+      let rx = THREE.MathUtils.clamp(nx, -162, 162);
+      let rz = THREE.MathUtils.clamp(nz, -56, maxZBound);
 
-      if (yNow >= 8.2) {
+      if (upperFloors && yNow >= 13.2 && Math.abs(nx) <= 34 && nz <= -13) {
+        const upCol = upperFloors.getColliderFloor(yNow);
+        if (upCol) {
+          rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
+          rz = THREE.MathUtils.clamp(rz, -38.0, -17.6);
+          return resolveList(upCol.list, rx, rz, radius);
+        }
+      }
+
+      if (yNow >= 8.2 && Math.abs(nx) <= 34 && nz <= -13) {
         rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
         rz = THREE.MathUtils.clamp(rz, -38.0, -17.6);
         return resolveList(floor3Colliders, rx, rz, radius);
       }
 
-      if (yNow >= 3.2) {
+      // Hotel 2F Honeymoon Suite slab bounds (x: 133.6 ± 8, z: 10.5 ± 6.1)
+      if (yNow >= 3.2 && nx >= 125.6 && nx <= 141.6 && nz >= 4.4 && nz <= 16.6) {
+        rx = THREE.MathUtils.clamp(rx, 126.2, 141.0);
+        rz = THREE.MathUtils.clamp(rz, 5.0, 16.0);
+        return { x: rx, z: rz };
+      }
+
+      if (yNow >= 3.2 && Math.abs(nx) <= 34 && nz <= -12) {
         rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
         rz = THREE.MathUtils.clamp(rz, -38.0, -14.8);
         return resolveList(floor2Colliders, rx, rz, radius);
@@ -449,6 +520,59 @@
 
       let res = resolveList(sharedColliders, rx, rz, radius);
       res = resolveList(floor1Colliders, res.x, res.z, radius);
+
+      if (townMod) {
+        if (Array.isArray(townMod.vehicles)) {
+          for (let v = 0; v < townMod.vehicles.length; v++) {
+            const vh = townMod.vehicles[v];
+            if (cfg.ignoreEntityId && vh.id === cfg.ignoreEntityId) continue;
+            const dx = res.x - vh.x;
+            const dz = res.z - vh.z;
+            const minDist = (vh.radius || 1.4) + radius;
+            const dSq = dx * dx + dz * dz;
+            if (dSq < minDist * minDist && dSq > 0.0001) {
+              const dist = Math.sqrt(dSq);
+              res.x = vh.x + (dx / dist) * minDist;
+              res.z = vh.z + (dz / dist) * minDist;
+            }
+          }
+        }
+        if (Array.isArray(townMod.horses)) {
+          for (let h = 0; h < townMod.horses.length; h++) {
+            const hr = townMod.horses[h];
+            if (cfg.ignoreEntityId && hr.id === cfg.ignoreEntityId) continue;
+            const dx = res.x - hr.x;
+            const dz = res.z - hr.z;
+            const minDist = (hr.radius || 0.85) + radius;
+            const dSq = dx * dx + dz * dz;
+            if (dSq < minDist * minDist && dSq > 0.0001) {
+              const dist = Math.sqrt(dSq);
+              res.x = hr.x + (dx / dist) * minDist;
+              res.z = hr.z + (dz / dist) * minDist;
+            }
+          }
+        }
+        if (cfg.excludePools && Array.isArray(townMod.poolZones)) {
+          for (let p = 0; p < townMod.poolZones.length; p++) {
+            const pz = townMod.poolZones[p];
+            const cx = THREE.MathUtils.clamp(res.x, pz.minX, pz.maxX);
+            const cz = THREE.MathUtils.clamp(res.z, pz.minZ, pz.maxZ);
+            const dx = res.x - cx;
+            const dz = res.z - cz;
+            const dSq = dx * dx + dz * dz;
+            if (dSq < radius * radius) {
+              if (dSq > 0.00001) {
+                const dist = Math.sqrt(dSq);
+                res.x = cx + (dx / dist) * radius;
+                res.z = cz + (dz / dist) * radius;
+              } else {
+                res.z = pz.maxZ + radius;
+              }
+            }
+          }
+        }
+      }
+
       return res;
     }
 
@@ -464,6 +588,8 @@
           const cxA = x0 + wA * 0.5;
           const mA = new THREE.Mesh(new THREE.BoxGeometry(wA, wallH, t), wMat);
           mA.position.set(cxA, floorY + wallH * 0.5, z);
+          mA.castShadow = true;
+          mA.receiveShadow = true;
           group.add(mA);
           addBox(colList, cxA, z, wA, t + 0.1);
         }
@@ -472,6 +598,8 @@
           const cxB = g1 + wB * 0.5;
           const mB = new THREE.Mesh(new THREE.BoxGeometry(wB, wallH, t), wMat);
           mB.position.set(cxB, floorY + wallH * 0.5, z);
+          mB.castShadow = true;
+          mB.receiveShadow = true;
           group.add(mB);
           addBox(colList, cxB, z, wB, t + 0.1);
         }
@@ -479,12 +607,15 @@
         const lintelH = Math.max(0.5, wallH - 2.6);
         const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, t), goldMatteMat);
         lintel.position.set(doorCenter, floorY + wallH - lintelH * 0.5, z);
+        lintel.castShadow = true;
         group.add(lintel);
       } else {
         const wAll = Math.abs(x1 - x0);
         const cxAll = (x0 + x1) * 0.5;
         const mAll = new THREE.Mesh(new THREE.BoxGeometry(wAll, wallH, t), wMat);
         mAll.position.set(cxAll, floorY + wallH * 0.5, z);
+        mAll.castShadow = true;
+        mAll.receiveShadow = true;
         group.add(mAll);
         addBox(colList, cxAll, z, wAll, t + 0.1);
       }
@@ -504,6 +635,8 @@
           const czA = lo + dA * 0.5;
           const mA = new THREE.Mesh(new THREE.BoxGeometry(t, wallH, dA), wMat);
           mA.position.set(x, floorY + wallH * 0.5, czA);
+          mA.castShadow = true;
+          mA.receiveShadow = true;
           group.add(mA);
           addBox(colList, x, czA, t + 0.1, dA);
         }
@@ -512,18 +645,23 @@
           const czB = g1 + dB * 0.5;
           const mB = new THREE.Mesh(new THREE.BoxGeometry(t, wallH, dB), wMat);
           mB.position.set(x, floorY + wallH * 0.5, czB);
+          mB.castShadow = true;
+          mB.receiveShadow = true;
           group.add(mB);
           addBox(colList, x, czB, t + 0.1, dB);
         }
         const lintelH = Math.max(0.5, wallH - 2.6);
         const lintel = new THREE.Mesh(new THREE.BoxGeometry(t, lintelH, doorW), goldMatteMat);
         lintel.position.set(x, floorY + wallH - lintelH * 0.5, doorCenter);
+        lintel.castShadow = true;
         group.add(lintel);
       } else {
         const dAll = hi - lo;
         const czAll = (lo + hi) * 0.5;
         const mAll = new THREE.Mesh(new THREE.BoxGeometry(t, wallH, dAll), wMat);
         mAll.position.set(x, floorY + wallH * 0.5, czAll);
+        mAll.castShadow = true;
+        mAll.receiveShadow = true;
         group.add(mAll);
         addBox(colList, x, czAll, t + 0.1, dAll);
       }
@@ -539,6 +677,7 @@
         tone: opts.tone,
         canopy: opts.canopy,
         cottage: isCottage,
+        circularRug: opts.circularRug,
         interactId: opts.id,
         w: wBed,
         d: dBed,
@@ -556,7 +695,7 @@
       }
 
       // Align head precisely centered on the sculpted pillow (-0.36 * dBed) while lying smoothly inside hollow duvet
-      const sleepLz = Math.min(dBed * 0.45, -dBed * 0.36 + 1.68);
+      const sleepLz = Math.min(dBed * 0.45, -dBed * 0.36 + 1.71);
       const sleepPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0, sleepLz);
       const exitLx = typeof opts.exitSide === 'number' ? opts.exitSide : -(wBed * 0.5 + 0.62);
       const exitPos = localToWorld(opts.x, opts.z, opts.yaw || 0, exitLx, 0.25);
@@ -579,7 +718,7 @@
             hint: '+14 Energy/s & +4 Poise/s',
             pose: 'sleep',
             anchor: {
-              x: sleepPos.x, y: mattY, z: sleepPos.z, yaw: opts.yaw || 0, rigOffsetY: 0.24,
+              x: sleepPos.x, y: mattY, z: sleepPos.z, yaw: opts.yaw || 0, rigOffsetY: 0.09,
               floorY: opts.y, exitX: exitPos.x, exitZ: exitPos.z, exitYaw: (opts.yaw || 0) - Math.PI * 0.5,
             },
             rates: { energy: 14, composure: 4 },
@@ -591,7 +730,7 @@
             hint: '+11 Energy/s',
             pose: 'nap',
             anchor: {
-              x: sleepPos.x, y: mattY, z: sleepPos.z, yaw: opts.yaw || 0, rigOffsetY: 0.24,
+              x: sleepPos.x, y: mattY, z: sleepPos.z, yaw: opts.yaw || 0, rigOffsetY: 0.09,
               floorY: opts.y, exitX: exitPos.x, exitZ: exitPos.z, exitYaw: (opts.yaw || 0) - Math.PI * 0.5,
             },
             rates: { energy: 11, composure: 2.5 },
@@ -622,7 +761,7 @@
                 label: 'Beauty Sleep',
                 statusText: 'Waking refreshed in ' + opts.title,
                 anchor: {
-                  x: sleepPos.x, y: mattY, z: sleepPos.z, yaw: opts.yaw || 0, rigOffsetY: 0.24,
+                  x: sleepPos.x, y: mattY, z: sleepPos.z, yaw: opts.yaw || 0, rigOffsetY: 0.09,
                   floorY: opts.y, exitX: exitPos.x, exitZ: exitPos.z, exitYaw: (opts.yaw || 0) - Math.PI * 0.5,
                 },
                 rates: { energy: 4, composure: 2 },
@@ -674,12 +813,17 @@
 
     function placeVanitySink(parent, colList, opts) {
       if (!kit) return;
-      const mesh = kit.buildVanitySink(opts.id, opts.rustic);
+      const mesh = kit.buildVanitySink(opts.id, opts.rustic, opts.style);
       mesh.position.set(opts.x, opts.y, opts.z);
       mesh.rotation.y = opts.yaw || 0;
       parent.add(mesh);
       tagInteractable(mesh, opts.id);
-      if (colList) addBox(colList, opts.x, opts.z, 0.95, 0.65);
+      if (colList) {
+        const rotated = opts.yaw && Math.abs(Math.sin(opts.yaw)) > 0.5;
+        const vw = opts.style ? 1.88 : 0.95;
+        const vd = 0.66;
+        addBox(colList, opts.x, opts.z, rotated ? vd : vw, rotated ? vw : vd);
+      }
 
       const standPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0, 0.72);
       registerSpot({
@@ -762,14 +906,22 @@
 
     function placeArmchair(parent, colList, opts) {
       if (!kit) return;
-      const mesh = kit.buildArmchair({ tone: opts.tone, cottage: opts.cottage, interactId: opts.id });
+      const mesh = kit.buildArmchair({ tone: opts.tone, cottage: opts.cottage, ottoman: opts.ottoman, interactId: opts.id });
       mesh.position.set(opts.x, opts.y, opts.z);
       mesh.rotation.y = opts.yaw || 0;
       parent.add(mesh);
       tagInteractable(mesh, opts.id);
-      if (colList) addCircle(colList, opts.x, opts.z, 0.45);
+      if (colList) {
+        addCircle(colList, opts.x, opts.z, 0.45);
+        if (opts.ottoman) {
+          const ottPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0, 0.86);
+          addBox(colList, ottPos.x, ottPos.z, 0.68, 0.64);
+        }
+      }
       const sitPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0, 0.06);
-      const exitPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0, 0.96);
+      const exitPos = opts.ottoman
+        ? localToWorld(opts.x, opts.z, opts.yaw || 0, 0.78, 0.42)
+        : localToWorld(opts.x, opts.z, opts.yaw || 0, 0, 0.96);
       registerSpot({
         id: opts.id,
         title: opts.title,
@@ -808,33 +960,133 @@
       });
     }
 
+    function placeTub(parent, colList, opts) {
+      if (!kit || typeof kit.buildBathtub !== 'function') return;
+      const mesh = kit.buildBathtub(opts.id, opts.rustic, opts.style);
+      const isBaroque = !opts.rustic && opts.style === 'baroque';
+      mesh.position.set(opts.x, opts.y, opts.z);
+      mesh.rotation.y = opts.yaw || 0;
+      parent.add(mesh);
+      tagInteractable(mesh, opts.id);
+      if (colList) {
+        const horiz = Math.abs(Math.cos(opts.yaw || 0)) > 0.5;
+        addBox(colList, opts.x, opts.z, horiz ? 1.78 : 0.98, horiz ? 0.98 : 1.78);
+      }
+      const exitPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0, opts.exitZOffset || -1.0);
+      registerSpot({
+        id: opts.id,
+        title: opts.title,
+        floor: opts.floor || 0,
+        category: opts.category || 'toilets',
+        shortcut: Boolean(opts.shortcut),
+        x: opts.x, y: opts.y, z: opts.z,
+        radius: 3.0,
+        actions: [
+          {
+            id: opts.id + '_soak',
+            label: 'Soak in Warm Bubble Bath',
+            hint: '+16 Hygiene/s & +7 Poise/s',
+            pose: 'bath',
+            anchor: {
+              x: opts.x, y: opts.y + (isBaroque ? 0.42 : 0.25), z: opts.z, yaw: opts.yaw || 0, rigOffsetY: -0.5,
+              floorY: opts.y, exitX: exitPos.x, exitZ: exitPos.z, exitYaw: opts.yaw || 0,
+            },
+            rates: { hygiene: 16, composure: 7, fun: 5 },
+            statusText: 'Soaking warmly inside ' + opts.title + '...',
+          },
+        ],
+      });
+    }
+
+    function placeShower(parent, colList, opts) {
+      if (!kit || typeof kit.buildShowerCubicle !== 'function') return;
+      const mesh = kit.buildShowerCubicle(opts.id, opts.rustic);
+      mesh.position.set(opts.x, opts.y, opts.z);
+      mesh.rotation.y = opts.yaw || 0;
+      parent.add(mesh);
+      tagInteractable(mesh, opts.id);
+      if (colList) addBox(colList, opts.x, opts.z, 1.38, 1.38);
+      const exitPos = localToWorld(opts.x, opts.z, opts.yaw || 0, 0.85, 0.85);
+      registerSpot({
+        id: opts.id,
+        title: opts.title,
+        floor: opts.floor || 0,
+        category: opts.category || 'toilets',
+        shortcut: Boolean(opts.shortcut),
+        x: opts.x, y: opts.y, z: opts.z,
+        radius: 3.0,
+        actions: [
+          {
+            id: opts.id + '_shower',
+            label: 'Take Warm Rain Shower',
+            hint: '+18 Hygiene/s & +5 Energy/s',
+            pose: 'shower',
+            anchor: {
+              x: opts.x, y: opts.y + 0.06, z: opts.z, yaw: opts.yaw || 0,
+              floorY: opts.y, exitX: exitPos.x, exitZ: exitPos.z, exitYaw: opts.yaw || 0,
+            },
+            rates: { hygiene: 18, energy: 5, composure: 4 },
+            statusText: 'Refreshing inside ' + opts.title + '...',
+          },
+        ],
+      });
+    }
+
     // -----------------------------------------------------------
     // 1. ESTATE GROUNDS, HILLS, COASTAL QUAY & COMMONERS' VILLAGES
     // -----------------------------------------------------------
-    const grounds = new THREE.Mesh(new THREE.PlaneGeometry(460, 340), grassMat);
+    const grounds = new THREE.Mesh(new THREE.PlaneGeometry(640, 420), grassMat);
     grounds.rotation.x = -Math.PI / 2;
     grounds.position.set(0, 0, -35);
     grounds.receiveShadow = true;
     scene.add(grounds);
 
-    const courtyardPaving = new THREE.Mesh(new THREE.PlaneGeometry(76, 66), gravelMat);
+    const courtyardPaving = new THREE.Mesh(new THREE.PlaneGeometry(76, 58), gravelMat);
     courtyardPaving.rotation.x = -Math.PI / 2;
-    courtyardPaving.position.set(0, 0.02, 16);
+    courtyardPaving.position.set(0, 0.02, 12);
     courtyardPaving.receiveShadow = true;
     scene.add(courtyardPaving);
 
-    // Cobble Country Road + Side Street Lanes leading right to Enterable Village Cottages!
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0xb7ab97, roughness: 0.85 });
-    const eastWestRoad = new THREE.Mesh(new THREE.PlaneGeometry(240, 6.2), roadMat);
+    // Sims-4 Curbed Paved Waterfront Boulevard + Raised Stone Sidewalk + Centerline
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x3b404b, roughness: 0.86 });
+    const curbStoneMat = new THREE.MeshStandardMaterial({ color: 0xded6c8, roughness: 0.68 });
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0xf9f3e3 });
+    const eastWestRoad = new THREE.Mesh(new THREE.PlaneGeometry(340, 5.6), roadMat);
     eastWestRoad.rotation.x = -Math.PI / 2;
-    eastWestRoad.position.set(0, 0.015, 48.5);
+    eastWestRoad.position.set(0, 0.028, 48.0);
+    eastWestRoad.receiveShadow = true;
     scene.add(eastWestRoad);
 
+    [-45.0, 51.1].forEach(function (swZ, si) {
+      const sidewalk = new THREE.Mesh(new THREE.BoxGeometry(340, 0.08, si === 0 ? 1.2 : 1.6), curbStoneMat);
+      sidewalk.position.set(0, 0.04, si === 0 ? 44.7 : 51.5);
+      sidewalk.receiveShadow = true;
+      scene.add(sidewalk);
+    });
+    for (let sx = -152; sx <= 152; sx += 6) {
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.14), stripeMat);
+      dash.rotation.x = -Math.PI / 2;
+      dash.position.set(sx, 0.034, 48.0);
+      scene.add(dash);
+    }
+
     [-44, 44].forEach(function (laneX) {
-      const sideLane = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 46), roadMat);
+      const sideLane = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 62), roadMat);
       sideLane.rotation.x = -Math.PI / 2;
-      sideLane.position.set(laneX, 0.018, 26);
+      sideLane.position.set(laneX, 0.028, 17);
+      sideLane.receiveShadow = true;
       scene.add(sideLane);
+      for (let sz = -11; sz <= 44; sz += 6) {
+        const sDash = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 2.4), stripeMat);
+        sDash.rotation.x = -Math.PI / 2;
+        sDash.position.set(laneX, 0.034, sz);
+        scene.add(sDash);
+      }
+      [-2.85, 2.85].forEach(function (offX) {
+        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.07, 56), curbStoneMat);
+        curb.position.set(laneX + offX, 0.035, 19);
+        scene.add(curb);
+      });
     });
 
     const centralAvenue = new THREE.Mesh(new THREE.PlaneGeometry(9.0, 48), gravelMat);
@@ -842,26 +1094,71 @@
     centralAvenue.position.set(0, 0.025, 24);
     scene.add(centralAvenue);
 
-    const quayFloor = new THREE.Mesh(new THREE.BoxGeometry(240, 1.4, 8), ivoryMat);
-    quayFloor.position.set(0, -0.68, 55);
-    quayFloor.receiveShadow = true;
-    scene.add(quayFloor);
+    // Riviera Golden Sandy Beach + Timber Yacht Pier + Moored Royal Yacht!
+    const sandMat = new THREE.MeshStandardMaterial({ color: 0xeed9b0, roughness: 0.9 });
+    const beachStrip = new THREE.Mesh(new THREE.BoxGeometry(360, 0.42, 7.6), sandMat);
+    beachStrip.position.set(0, -0.18, 55.8);
+    beachStrip.receiveShadow = true;
+    scene.add(beachStrip);
 
-    const seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(520, 260), waterMat);
+    const timberPierMat = new THREE.MeshStandardMaterial({ color: 0x8e6340, roughness: 0.78 });
+    const yachtPier = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.24, 15.0), timberPierMat);
+    yachtPier.position.set(0, 0.14, 59.5);
+    yachtPier.receiveShadow = true;
+    scene.add(yachtPier);
+    if (kit) {
+      const yacht = kit.buildRoyalYacht('riviera_royal_yacht');
+      yacht.position.set(5.4, -0.42, 65.5);
+      yacht.rotation.y = Math.PI * 0.42;
+      scene.add(yacht);
+      tagInteractable(yacht, 'riviera_royal_yacht');
+      registerSpot({
+        id: 'riviera_royal_yacht',
+        title: 'Riviera Royal Superyacht',
+        floor: 0,
+        category: 'town',
+        shortcut: true,
+        x: 3.0, y: 0.14, z: 65.5,
+        radius: 6.8,
+        actions: [
+          {
+            id: 'yacht_cruise',
+            label: 'Board Royal Yacht & Champagne Deck (₡80)',
+            hint: '+30 Fun, +20 Poise & +4 Crown Dispatch Clout',
+            instant: true,
+            onInstant: function (ctx) {
+              if (ctx.game && (ctx.game.money || 0) < 80) return ctx.toast('Need ₡80 Crowns.');
+              if (ctx.game) ctx.game.money -= 80;
+              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 30, composure: 20 });
+              if (ctx.game && ctx.game.reputation) ctx.game.reputation.clout = Math.min(100, (ctx.game.reputation.clout || 50) + 4);
+              ctx.toast('Sailing past the Riviera coast in champagne splendor! (+30 Fun)');
+            },
+          },
+        ],
+      });
+      [-28, -14, 14, 28, 72, 92, -72, -92].forEach(function (bx, bi) {
+        const bSet = kit.buildBeachUmbrellaSet(['rose', 'sapphire', 'champagne'][bi % 3], null);
+        bSet.position.set(bx, 0.03, 55.2);
+        bSet.rotation.y = Math.PI;
+        scene.add(bSet);
+      });
+    }
+
+    const seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(720, 280, 36, 18), seaWaterMat);
     seaMesh.rotation.x = -Math.PI / 2;
-    seaMesh.position.set(0, -0.5, 188);
+    seaMesh.position.set(0, -0.45, 198);
     scene.add(seaMesh);
 
     const hillMatFar = new THREE.MeshStandardMaterial({ color: 0x4c7041, roughness: 0.92 });
     const hillMatMid = new THREE.MeshStandardMaterial({ color: 0x5c8549, roughness: 0.88 });
     [
-      { x: -130, z: -85, rx: 68, ry: 20, rz: 48, mat: hillMatFar },
-      { x: -58, z: -110, rx: 74, ry: 24, rz: 46, mat: hillMatFar },
-      { x: 0, z: -120, rx: 82, ry: 22, rz: 44, mat: hillMatFar },
-      { x: 60, z: -110, rx: 74, ry: 24, rz: 46, mat: hillMatFar },
-      { x: 132, z: -82, rx: 68, ry: 20, rz: 48, mat: hillMatFar },
-      { x: -102, z: -34, rx: 40, ry: 11, rz: 34, mat: hillMatMid },
-      { x: 102, z: -38, rx: 40, ry: 11.5, rz: 34, mat: hillMatMid },
+      { x: -165, z: -92, rx: 74, ry: 22, rz: 50, mat: hillMatFar },
+      { x: -64, z: -115, rx: 76, ry: 24, rz: 46, mat: hillMatFar },
+      { x: 0, z: -125, rx: 84, ry: 22, rz: 44, mat: hillMatFar },
+      { x: 64, z: -115, rx: 76, ry: 24, rz: 46, mat: hillMatFar },
+      { x: 165, z: -92, rx: 74, ry: 22, rz: 50, mat: hillMatFar },
+      { x: -182, z: -46, rx: 42, ry: 11.5, rz: 34, mat: hillMatMid },
+      { x: 182, z: -48, rx: 42, ry: 11.5, rz: 34, mat: hillMatMid },
     ].forEach(function (h) {
       const m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), h.mat);
       m.scale.set(h.rx, h.ry, h.rz);
@@ -904,29 +1201,29 @@
       g.add(banner);
       scene.add(g);
     }
-    buildDistantRoyalChateau(-102, 10.2, -34, 0.55, crestMat);
-    buildDistantRoyalChateau(102, 10.7, -38, -0.55, goldMat);
+    buildDistantRoyalChateau(-182, 10.2, -46, 0.55, crestMat);
+    buildDistantRoyalChateau(182, 10.7, -48, -0.55, goldMat);
 
     // -----------------------------------------------------------
-    // 1B. 10 ENTERABLE, FURNISHED COMMONERS' COTTAGES + OUTER HORIZON TOWN
+    // 1B. 10 ENTERABLE, FURNISHED COMMONERS' COTTAGES (WITH ENCLOSED BATHROOMS!) + OUTER HORIZON TOWN
     // -----------------------------------------------------------
     const cottageSpecs = [
-      { id: 'cottage_1', title: 'Village Bakery Cottage', x: -50, z: 10, doorSide: 1, tone: 'champagne' },
-      { id: 'cottage_2', title: 'Seamstress Townhouse', x: -50, z: 20, doorSide: 1, tone: 'rose' },
-      { id: 'cottage_3', title: 'Cobbler Hearth Home', x: -50, z: 30, doorSide: 1, tone: 'rustic' },
-      { id: 'cottage_4', title: 'Apothecary Cottage', x: -59, z: 15, doorSide: 1, tone: 'emerald' },
-      { id: 'cottage_5', title: "Clocktower Keeper's House", x: -59, z: 35, doorSide: 1, tone: 'sapphire' },
-      { id: 'cottage_6', title: 'Village Florist Cottage', x: 50, z: 10, doorSide: -1, tone: 'lavender' },
-      { id: 'cottage_7', title: 'Harbor Tailor House', x: 50, z: 20, doorSide: -1, tone: 'rose' },
-      { id: 'cottage_8', title: "Tavern Keeper's Cottage", x: 50, z: 30, doorSide: -1, tone: 'crimson' },
-      { id: 'cottage_9', title: "Painter's Studio Cottage", x: 59, z: 15, doorSide: -1, tone: 'champagne' },
-      { id: 'cottage_10', title: 'Fisherman Cottage', x: 59, z: 35, doorSide: -1, tone: 'sapphire' },
+      { id: 'cottage_1', title: 'Village Bakery Cottage', x: -50.8, z: 9.0, doorSide: 1, tone: 'champagne' },
+      { id: 'cottage_2', title: 'Seamstress Townhouse', x: -50.8, z: 19.0, doorSide: 1, tone: 'rose' },
+      { id: 'cottage_3', title: 'Cobbler Hearth Home', x: -50.8, z: 29.0, doorSide: 1, tone: 'rustic' },
+      { id: 'cottage_4', title: 'Apothecary Cottage', x: -59.4, z: 14.0, doorSide: 1, tone: 'emerald' },
+      { id: 'cottage_5', title: "Clocktower Keeper's House", x: -59.4, z: 34.0, doorSide: 1, tone: 'sapphire' },
+      { id: 'cottage_6', title: 'Village Florist Cottage', x: 50.8, z: 9.0, doorSide: -1, tone: 'lavender' },
+      { id: 'cottage_7', title: 'Harbor Tailor House', x: 50.8, z: 19.0, doorSide: -1, tone: 'rose' },
+      { id: 'cottage_8', title: "Tavern Keeper's Cottage", x: 50.8, z: 29.0, doorSide: -1, tone: 'crimson' },
+      { id: 'cottage_9', title: "Painter's Studio Cottage", x: 59.4, z: 14.0, doorSide: -1, tone: 'champagne' },
+      { id: 'cottage_10', title: 'Fisherman Cottage', x: 59.4, z: 34.0, doorSide: -1, tone: 'sapphire' },
     ];
 
     cottageSpecs.forEach(function (c, idx) {
-      const cw = 6.6;
-      const cd = 6.2;
-      const wallH = 3.1;
+      const cw = 7.4;
+      const cd = 6.8;
+      const wallH = 3.15;
       const grp = new THREE.Group();
       scene.add(grp);
 
@@ -944,31 +1241,49 @@
       addWallX(grp, sharedColliders, 0, wallH, c.z - cd * 0.5, c.x - cw * 0.5, c.x + cw * 0.5, null, 0, 0.28, cottageWallMat);
       addWallX(grp, sharedColliders, 0, wallH, c.z + cd * 0.5, c.x - cw * 0.5, c.x + cw * 0.5, null, 0, 0.28, cottageWallMat);
 
+      // Enclosed Partitioned Bathroom Corner inside every Cottage (Back-South Corner 2.9m x 2.8m with open doorway)
+      const innerDir = -c.doorSide; // points toward back wall
+      const bathDivX = c.x + innerDir * 0.85;
+      const bathDivZ = c.z + 0.6;
+      const xMinBath = Math.min(backX, bathDivX);
+      const xMaxBath = Math.max(backX, bathDivX);
+      addWallX(grp, sharedColliders, 0, wallH - 0.05, bathDivZ, xMinBath, xMaxBath, null, 0, 0.2, cottageWallMat);
+      addWallZ(grp, sharedColliders, 0, wallH - 0.05, bathDivX, bathDivZ, c.z + cd * 0.5, c.z + 2.0, 1.35, 0.2, cottageWallMat);
+
       // Stone step at open front doorway
       const step = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 2.4), roadMat);
       step.position.set(frontX + c.doorSide * 0.3, 0.05, c.z);
       grp.add(step);
 
-      // Cutaway Roof Group (hides automatically when Princess steps inside!)
+      // Cutaway Roof Group — Sims-4 Pitched Timber Gable Roof + Chimney + Shuttered Floral Windows!
       const roofGrp = new THREE.Group();
-      const roofCone = new THREE.Mesh(new THREE.ConeGeometry(4.9, 2.3, 4), cottageRoofMat);
-      roofCone.rotation.y = Math.PI * 0.25;
-      roofCone.scale.set(1.06, 1, 1.0);
-      roofCone.position.set(c.x, wallH + 1.15, c.z);
-      roofGrp.add(roofCone);
+      if (kit && typeof kit.buildGableRoof === 'function') {
+        const gableRoof = kit.buildGableRoof(cw, cd, 1.9, cottageRoofMat, ivoryMat, { chimney: true, dormer: idx % 2 === 0 });
+        gableRoof.position.set(c.x, wallH - 0.02, c.z);
+        gableRoof.rotation.y = c.doorSide > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+        roofGrp.add(gableRoof);
+        const wBox = kit.buildWindowBox(c.doorSide > 0 ? kit.palette.fabricColors.sapphire : kit.palette.fabricColors.rose);
+        wBox.position.set(c.x, 1.65, c.z + cd * 0.5 + 0.16);
+        grp.add(wBox);
+      } else {
+        const roofCone = new THREE.Mesh(new THREE.ConeGeometry(4.9, 2.3, 4), cottageRoofMat);
+        roofCone.rotation.y = Math.PI * 0.25;
+        roofCone.scale.set(1.06, 1, 1.0);
+        roofCone.position.set(c.x, wallH + 1.15, c.z);
+        roofGrp.add(roofCone);
+      }
       grp.add(roofGrp);
 
       // Furnished Interior Inside Each Enterable Commoner Cottage:
-      const innerDir = -c.doorSide; // toward back wall
-      // 1) Cozy Cottage Bed
+      // 1) Cozy Cottage Bed (North-Back Zone)
       placeBed(grp, sharedColliders, {
         id: 'cot_bed_' + (idx + 1),
         title: c.title + ' Bed',
         floor: 0,
         shortcut: false,
-        x: c.x + innerDir * 1.9,
+        x: c.x + innerDir * 2.1,
         y: 0.08,
-        z: c.z - 1.5,
+        z: c.z - 1.75,
         yaw: c.doorSide < 0 ? -Math.PI * 0.5 : Math.PI * 0.5,
         tone: c.tone,
         cottage: true,
@@ -977,34 +1292,56 @@
         noSideTable: true,
       });
 
-      // 2) Cottage Washroom Toilet & Basin in Opposite Back Corner
+      // 2) Full Enclosed Bathroom (Toilet + Vanity Basin + Bathtub!)
       placeToilet(grp, sharedColliders, {
         id: 'cot_toilet_' + (idx + 1),
         title: c.title + ' Toilet',
         floor: 0,
         rustic: true,
-        x: c.x + innerDir * 2.4,
+        x: c.x + innerDir * 3.05,
         y: 0.08,
-        z: c.z + 2.35,
+        z: c.z + 1.35,
+        yaw: innerDir < 0 ? Math.PI * 0.5 : -Math.PI * 0.5,
+      });
+      placeVanitySink(grp, sharedColliders, {
+        id: 'cot_sink_' + (idx + 1),
+        title: c.title + ' Bathroom Sink',
+        floor: 0,
+        rustic: true,
+        x: c.x + innerDir * 1.78,
+        y: 0.08,
+        z: c.z + 1.12,
         yaw: 0,
       });
+      placeTub(grp, sharedColliders, {
+        id: 'cot_tub_' + (idx + 1),
+        title: c.title + ' Bathtub',
+        floor: 0,
+        category: 'cottages',
+        rustic: true,
+        x: c.x + innerDir * 2.35,
+        y: 0.08,
+        z: c.z + 2.75,
+        yaw: 0,
+        exitZOffset: -0.95,
+      });
 
-      // 3) Cottage Kitchen Stove / Hearth Counter
+      // 3) Cottage Kitchen Stove / Hearth Counter + Fridge + Dining Set
       if (kit) {
         const stove = kit.buildKitchenCounter('cot_stove_' + (idx + 1), true);
         stove.scale.set(0.68, 0.92, 0.85);
-        stove.position.set(c.x + innerDir * 0.1, 0.08, c.z - 2.35);
+        stove.position.set(c.x - innerDir * 0.25, 0.08, c.z - 2.65);
         grp.add(stove);
         tagInteractable(stove, 'cot_stove_' + (idx + 1));
-        addBox(sharedColliders, c.x + innerDir * 0.1, c.z - 2.35, 2.2, 0.8);
+        addBox(sharedColliders, c.x - innerDir * 0.25, c.z - 2.65, 2.2, 0.8);
         registerSpot({
           id: 'cot_stove_' + (idx + 1),
           title: c.title + ' Hearth Stove',
           floor: 0,
           category: 'cottages',
-          x: c.x + innerDir * 0.1,
+          x: c.x - innerDir * 0.25,
           y: 0.08,
-          z: c.z - 2.35,
+          z: c.z - 2.65,
           radius: 2.8,
           actions: [
             {
@@ -1013,8 +1350,8 @@
               hint: '+16 Food/s & +5 Fun/s',
               pose: 'cook',
               anchor: {
-                x: c.x + innerDir * 0.1, y: 0.08, z: c.z - 1.48, yaw: Math.PI,
-                floorY: 0.08, exitX: c.x + innerDir * 0.1, exitZ: c.z - 1.48, exitYaw: Math.PI,
+                x: c.x - innerDir * 0.25, y: 0.08, z: c.z - 1.75, yaw: Math.PI,
+                floorY: 0.08, exitX: c.x - innerDir * 0.25, exitZ: c.z - 1.75, exitYaw: Math.PI,
               },
               rates: { hunger: 16, fun: 5 },
               statusText: 'Cooking rustic stew at ' + c.title + '...',
@@ -1022,20 +1359,27 @@
           ],
         });
 
+        if (typeof kit.buildFridge === 'function') {
+          const fridge = kit.buildFridge(true);
+          fridge.position.set(c.x - innerDir * 2.15, 0.08, c.z - 2.65);
+          grp.add(fridge);
+          addBox(sharedColliders, c.x - innerDir * 2.15, c.z - 2.65, 1.0, 0.8);
+        }
+
         // 4) Wooden Dining Table & Chairs
         const tbl = kit.buildTableSet('cot_table_' + (idx + 1), true);
-        tbl.position.set(c.x - innerDir * 0.5, 0.08, c.z + 1.65);
+        tbl.position.set(c.x - innerDir * 1.15, 0.08, c.z + 2.0);
         grp.add(tbl);
         tagInteractable(tbl, 'cot_table_' + (idx + 1));
-        addBox(sharedColliders, c.x - innerDir * 0.5, c.z + 1.65, 1.5, 1.0);
+        addBox(sharedColliders, c.x - innerDir * 1.15, c.z + 2.0, 1.5, 1.0);
         registerSpot({
           id: 'cot_table_' + (idx + 1),
           title: c.title + ' Dining Table',
           floor: 0,
           category: 'cottages',
-          x: c.x - innerDir * 0.5,
+          x: c.x - innerDir * 1.15,
           y: 0.08,
-          z: c.z + 1.65,
+          z: c.z + 2.0,
           radius: 2.8,
           actions: [
             {
@@ -1044,8 +1388,8 @@
               hint: '+16 Food/s & +7 Energy/s',
               pose: 'eat',
               anchor: {
-                x: c.x - innerDir * 0.5 - 0.98, y: 0.08, z: c.z + 1.65, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
-                floorY: 0.08, exitX: c.x - innerDir * 0.5, exitZ: c.z + 0.55, exitYaw: 0,
+                x: c.x - innerDir * 1.15 - 0.98, y: 0.08, z: c.z + 2.0, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
+                floorY: 0.08, exitX: c.x - innerDir * 1.15, exitZ: c.z + 0.85, exitYaw: 0,
               },
               rates: { hunger: 16, energy: 7, fun: 5 },
               statusText: 'Dining warmly inside ' + c.title + '...',
@@ -1099,8 +1443,8 @@
     const dummy = new THREE.Object3D();
     const tint = new THREE.Color();
     const outerHouses = [
-      [-72, 18], [-74, 30], [-68, 42], [-82, 24], [-80, 38], [-70, 5],
-      [73, 19], [75, 31], [69, 42], [83, 25], [81, 37], [70, 5],
+      [-164, 10], [-166, 22], [-162, 36], [-172, 16], [-170, 30], [-160, -14],
+      [164, 10], [166, 22], [162, 36], [172, 16], [170, 30], [160, -14],
     ];
     const hwMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.78 });
     const hrMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.68 });
@@ -1135,21 +1479,21 @@
     houseRoofs.computeBoundingSphere();
     scene.add(houseWalls, houseRoofs);
 
-    // Town Clocktower Spire on West Ridge
+    // Town Clocktower Spire at North-West Cottage Plaza (clear of avenues & pavilions)
     const clockBase = new THREE.Mesh(new THREE.BoxGeometry(4.4, 10.5, 4.4), ivoryMat);
-    clockBase.position.set(-69, 5.25, 22);
+    clockBase.position.set(-55.5, 5.25, -4.5);
     scene.add(clockBase);
-    addBox(sharedColliders, -69, 22, 4.6, 4.6);
+    addBox(sharedColliders, -55.5, -4.5, 4.6, 4.6);
     const clockRoof = new THREE.Mesh(new THREE.ConeGeometry(3.4, 5.2, 4), slateRoofMat);
     clockRoof.rotation.y = Math.PI * 0.25;
-    clockRoof.position.set(-69, 13.0, 22);
+    clockRoof.position.set(-55.5, 13.0, -4.5);
     scene.add(clockRoof);
 
-    // Perimeter Trees
+    // Perimeter Trees (moved clear of North auto pavilions & North civic avenues)
     const treeCoords = [
-      [-37, -32], [-39, -20], [-38, -8], [-39, 6], [-40, 20], [-40, 34],
-      [37, -32], [39, -20], [38, -8], [39, 6], [40, 20], [40, 34],
-      [-42, -46], [-26, -48], [0, -49], [26, -48], [42, -46],
+      [-45, -36], [-39, 6], [-40, 20], [-40, 34],
+      [45, -36], [39, 6], [40, 20], [40, 34],
+      [-42, -55], [-26, -56], [0, -57], [26, -56], [42, -55],
     ];
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a422f, roughness: 0.9 });
     const foliageMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
@@ -1626,10 +1970,15 @@
     });
 
     // ---- 1F ROYAL LIVING ROOM / DRAWING SALON (East Center: x = 10..21.5, z = -17.8..-27.5) ----
+    let palaceFlames = [];
     if (kit) {
-      const livingRug = new THREE.Mesh(new THREE.PlaneGeometry(8.5, 6.8), blushRugMat);
-      livingRug.rotation.x = -Math.PI / 2;
-      livingRug.position.set(16.0, 0.69, -22.2);
+      const livingRug = typeof kit.buildRug === 'function'
+        ? kit.buildRug(8.6, 6.8, 'champagne')
+        : new THREE.Mesh(new THREE.PlaneGeometry(8.5, 6.8), blushRugMat);
+      if (!livingRug.isGroup) {
+        livingRug.rotation.x = -Math.PI / 2;
+      }
+      livingRug.position.set(16.0, 0.68, -22.2);
       floor1Group.add(livingRug);
 
       // Marble Fireplace on East Partition
@@ -1637,6 +1986,7 @@
       fp.position.set(20.9, 0.67, -22.2);
       fp.rotation.y = -Math.PI * 0.5;
       floor1Group.add(fp);
+      palaceFlames = fp.userData && fp.userData.flames ? fp.userData.flames : [];
       tagInteractable(fp, 'fireplace_living');
       addBox(floor1Colliders, 20.9, -22.2, 0.9, 2.3);
       registerSpot({
@@ -1656,25 +2006,25 @@
         ],
       });
 
-      // Plush Royal Living Room Sofas + Armchair
+      // Plush Royal Living Room Sofas + Armchair (Image 3 Cream Tufted Grand Salon)
       placeSofa(floor1Group, floor1Colliders, {
         id: 'sofa_living_main', title: 'Royal Drawing Room Sofa', floor: 1, shortcut: true,
-        x: 15.8, y: 0.67, z: -22.2, yaw: Math.PI * 0.5, tone: 'crimson', w: 2.8,
+        x: 15.8, y: 0.67, z: -22.2, yaw: Math.PI * 0.5, tone: 'creamTufted', w: 2.8,
       });
       placeSofa(floor1Group, floor1Colliders, {
         id: 'sofa_living_south', title: 'Salon Silk Settee', floor: 1,
-        x: 18.0, y: 0.67, z: -19.0, yaw: 0, tone: 'rose', w: 2.3,
+        x: 18.0, y: 0.67, z: -19.0, yaw: 0, tone: 'creamTufted', w: 2.3,
       });
       placeArmchair(floor1Group, floor1Colliders, {
         id: 'chair_living_1', title: 'Velvet Drawing Room Armchair', floor: 1,
-        x: 18.0, y: 0.67, z: -25.4, yaw: Math.PI, tone: 'champagne',
+        x: 17.6, y: 0.67, z: -25.2, yaw: Math.PI, tone: 'champagne',
       });
 
-      // Coffee Table between Sofas
-      const coffeeTbl = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.4, 0.48, 16), goldMat);
-      coffeeTbl.position.set(18.2, 0.92, -22.2);
+      // Portoro Black-and-Gold Marble Coffee Table between Sofas
+      const coffeeTbl = kit.buildCoffeeTable(false, true);
+      coffeeTbl.position.set(18.2, 0.67, -22.2);
       floor1Group.add(coffeeTbl);
-      addCircle(floor1Colliders, 18.2, -22.2, 0.9);
+      addBox(floor1Colliders, 18.2, -22.2, 1.95, 1.18);
 
       // Concert Grand Piano & Bookshelf in Drawing Salon
       const piano = kit.buildGrandPiano('piano_living');
@@ -1803,13 +2153,21 @@
       ],
     });
 
-    // Palace Kitchen Range & Counters (1F West North: -16..-20, -34..-37.8)
+    // Palace Kitchen Range & Counters (1F West North: Image 1 Mahogany & Inlaid Marble Hearth)
     if (kit) {
+      const kFloorMat = (kit.palette && (kit.palette.kitchenInlayFloor || kit.palette.checkeredTile));
+      if (kFloorMat) {
+        const kitchenTileMat = new THREE.Mesh(new THREE.PlaneGeometry(10.8, 9.6), kFloorMat);
+        kitchenTileMat.rotation.x = -Math.PI / 2;
+        kitchenTileMat.position.set(-15.8, 0.676, -33.2);
+        kitchenTileMat.receiveShadow = true;
+        floor1Group.add(kitchenTileMat);
+      }
       const kStove = kit.buildKitchenCounter('kitchen_stove', false);
       kStove.position.set(-16.2, 0.67, -37.2);
       floor1Group.add(kStove);
       tagInteractable(kStove, 'kitchen_stove');
-      addBox(floor1Colliders, -16.2, -37.2, 3.2, 0.9);
+      addBox(floor1Colliders, -16.2, -37.2, 4.2, 0.96);
       registerSpot({
         id: 'kitchen_stove',
         title: 'Palace Kitchen Range & Hearth',
@@ -1930,43 +2288,31 @@
     addBox(floor2Colliders, 3.1, -32.8, 0.32, 8.0);
     addBox(floor2Colliders, 0, -28.65, 5.8, 0.32);
 
-    // Bedroom #4 (Princess Canopy Master Suite, x = -16.5, z = -34.2) + Sofa + Fireplace
+    // Bedroom #4 (Princess Canopy Master Suite, Image 4 Plum Quilted Bedding + Circular Medallion Rug)
     placeBed(floor2Group, floor2Colliders, {
       id: 'canopy_bed', title: 'Bedroom #4 (Princess Master Canopy)', floor: 2, shortcut: true,
-      canopy: true, tone: 'rose', x: -16.5, y: 5.67, z: -34.2, yaw: 0, w: 2.6, d: 3.1,
+      canopy: true, circularRug: true, tone: 'plum', x: -16.5, y: 5.67, z: -34.2, yaw: 0, w: 2.6, d: 3.1,
     });
     placeSofa(floor2Group, floor2Colliders, {
       id: 'sofa_master_2f', title: 'Master Suite Velvet Sofa', floor: 2,
       x: -16.5, y: 5.67, z: -28.2, yaw: Math.PI, tone: 'champagne', w: 2.2,
     });
 
-    // Master Marble Bath (Tub + Shower + Toilet #3 + Vanity Sink #3)
-    const tubGroup = new THREE.Group();
-    tubGroup.position.set(-25.5, 5.65, -35.8);
+    // Master Marble Bath (Image 5 Carved Mahogany Double Vanity, Stepped Marble Plinth Clawfoot Tub & Rain Shower)
+    const tubGroup = kit
+      ? kit.buildBathtub('clawfoot_tub', false, 'baroque')
+      : new THREE.Group();
+    tubGroup.position.set(-25.6, 5.65, -34.2);
     floor2Group.add(tubGroup);
-    const tub = new THREE.Mesh(new THREE.CylinderGeometry(1.12, 0.88, 0.82, 18), ivoryMat);
-    tub.scale.set(1.6, 1, 0.95);
-    tub.position.y = 0.44;
-    tubGroup.add(tub);
-    const tubRim = new THREE.Mesh(new THREE.TorusGeometry(1.07, 0.08, 8, 24), goldMat);
-    tubRim.rotation.x = Math.PI / 2;
-    tubRim.scale.set(1.6, 0.95, 1);
-    tubRim.position.y = 0.86;
-    tubGroup.add(tubRim);
-    const bathWater = new THREE.Mesh(new THREE.CircleGeometry(1.02, 20), new THREE.MeshPhysicalMaterial({ color: 0xf4c8d8, roughness: 0.14, transparent: true, opacity: 0.78, clearcoat: 0.9 }));
-    bathWater.rotation.x = -Math.PI / 2;
-    bathWater.scale.set(1.56, 0.92, 1);
-    bathWater.position.y = 0.72;
-    tubGroup.add(bathWater);
     tagInteractable(tubGroup, 'clawfoot_tub');
-    addBox(floor2Colliders, -25.5, -35.8, 3.1, 1.9);
+    addBox(floor2Colliders, -25.6, -34.2, 2.3, 1.45);
     registerSpot({
       id: 'clawfoot_tub', title: 'Gold Rosewater Clawfoot Tub (2F)', floor: 2, category: 'toilets', shortcut: true,
-      x: -25.5, y: 5.67, z: -35.8, radius: 3.8,
+      x: -25.6, y: 5.67, z: -34.2, radius: 3.8,
       actions: [
         {
           id: 'tub_bubble', label: 'Soak in Rosewater Bubble Bath', hint: '+16 Hygiene/s & +8 Poise/s', pose: 'bath',
-          anchor: { x: -25.8, y: 5.95, z: -35.8, yaw: Math.PI * 0.5, rigOffsetY: -0.5, floorY: 5.65, exitX: -25.5, exitZ: -33.4, exitYaw: 0 },
+          anchor: { x: -25.8, y: 6.12, z: -34.2, yaw: Math.PI * 0.5, rigOffsetY: -0.5, floorY: 5.65, exitX: -25.6, exitZ: -31.8, exitYaw: 0 },
           rates: { hygiene: 16, composure: 8, fun: 5 }, statusText: 'Soaking in warm rosewater steam...',
         },
         {
@@ -1976,23 +2322,17 @@
       ],
     });
 
-    const showerGroup = new THREE.Group();
+    const showerGroup = kit
+      ? kit.buildShowerCubicle('shower_booth', false)
+      : new THREE.Group();
     showerGroup.position.set(-28.4, 5.65, -28.0);
+    if (kit) showerGroup.scale.set(1.55, 1.32, 1.55);
     floor2Group.add(showerGroup);
-    const showerTray = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 2.2), whiteMarbleMat);
-    showerTray.position.y = 0.07;
-    showerGroup.add(showerTray);
-    const showerBooth = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.4, 2.2), glassMat);
-    showerBooth.position.y = 1.72;
-    showerGroup.add(showerBooth);
-    const showerHead = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.16, 0.12, 12), goldMat);
-    showerHead.position.set(0, 3.1, 0);
-    showerGroup.add(showerHead);
     const showerSpray = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.54, 2.8, 12, 1, true),
+      new THREE.CylinderGeometry(0.16, 0.36, 2.1, 12, 1, true),
       new THREE.MeshBasicMaterial({ color: 0xdff6ff, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false })
     );
-    showerSpray.position.set(0, 1.65, 0);
+    showerSpray.position.set(0, 1.32, 0);
     showerSpray.visible = false;
     showerGroup.add(showerSpray);
     tagInteractable(showerGroup, 'shower_booth');
@@ -2010,7 +2350,7 @@
     });
 
     placeToilet(floor2Group, floor2Colliders, { id: 'toilet_3', title: '2F Master Bath Toilet #3', floor: 2, shortcut: true, x: -29.4, y: 5.67, z: -35.2, yaw: Math.PI * 0.5 });
-    placeVanitySink(floor2Group, floor2Colliders, { id: 'sink_3', title: '2F Master Double Vanity', floor: 2, x: -23.5, y: 5.67, z: -37.6, yaw: 0 });
+    placeVanitySink(floor2Group, floor2Colliders, { id: 'sink_3', title: '2F Master Double Vanity', floor: 2, style: 'baroque', x: -23.5, y: 5.67, z: -37.6, yaw: 0 });
 
     // Remaining Floor 2 Bedrooms #5, #6, #7, #8, #9 + Toilets #4, #5 + 2F Gallery Living Sofa
     placeBed(floor2Group, floor2Colliders, { id: 'bed_5', title: 'Bedroom #5 (Crimson Balcony 2F)', floor: 2, x: -27.8, y: 5.67, z: -19.8, yaw: Math.PI * 0.5, tone: 'crimson', w: 2.0, d: 2.6 });
@@ -2020,7 +2360,7 @@
     placeBed(floor2Group, floor2Colliders, { id: 'bed_9', title: 'Bedroom #9 (Champagne Sunlit 2F)', floor: 2, x: 27.8, y: 5.67, z: -19.8, yaw: -Math.PI * 0.5, tone: 'champagne', w: 2.0, d: 2.6 });
 
     placeToilet(floor2Group, floor2Colliders, { id: 'toilet_4', title: '2F East Suite Toilet #4', floor: 2, x: 20.8, y: 5.67, z: -35.8, yaw: -Math.PI * 0.5 });
-    placeVanitySink(floor2Group, floor2Colliders, { id: 'sink_4', title: '2F East Suite Vanity', floor: 2, x: 20.8, y: 5.67, z: -33.2, yaw: -Math.PI * 0.5 });
+    placeVanitySink(floor2Group, floor2Colliders, { id: 'sink_4', title: '2F East Suite Vanity', floor: 2, style: 'slate', x: 20.8, y: 5.67, z: -33.2, yaw: -Math.PI * 0.5 });
     placeToilet(floor2Group, floor2Colliders, { id: 'toilet_5', title: '2F Gallery Powder Toilet #5', floor: 2, x: 18.8, y: 5.67, z: -18.8, yaw: 0 });
 
     placeSofa(floor2Group, floor2Colliders, { id: 'sofa_gallery_2f', title: '2F Upper Gallery Sofa', floor: 2, x: 0, y: 5.67, z: -18.8, yaw: 0, tone: 'lavender', w: 2.6 });
@@ -2081,14 +2421,15 @@
     placeBed(floor3Group, floor3Colliders, { id: 'bed_15', title: 'Bedroom #15 (Lady-in-Waiting 3F)', floor: 3, x: -27.6, y: 10.67, z: -19.8, yaw: Math.PI * 0.5, tone: 'lavender', w: 2.0, d: 2.6 });
 
     placeToilet(floor3Group, floor3Colliders, { id: 'toilet_6', title: '3F West Bath Toilet #6', floor: 3, x: -20.4, y: 10.67, z: -36.5, yaw: 0 });
-    placeVanitySink(floor3Group, floor3Colliders, { id: 'sink_6', title: '3F West Vanity', floor: 3, x: -18.8, y: 10.67, z: -37.2, yaw: 0 });
+    placeVanitySink(floor3Group, floor3Colliders, { id: 'sink_6', title: '3F West Vanity', floor: 3, style: 'slate', x: -18.8, y: 10.67, z: -37.2, yaw: 0 });
     placeToilet(floor3Group, floor3Colliders, { id: 'toilet_7', title: '3F East Bath Toilet #7', floor: 3, x: 20.8, y: 10.67, z: -36.0, yaw: -Math.PI * 0.5 });
-    placeVanitySink(floor3Group, floor3Colliders, { id: 'sink_7', title: '3F East Vanity', floor: 3, x: 20.8, y: 10.67, z: -33.2, yaw: -Math.PI * 0.5 });
+    placeVanitySink(floor3Group, floor3Colliders, { id: 'sink_7', title: '3F East Vanity', floor: 3, style: 'slate', x: 20.8, y: 10.67, z: -33.2, yaw: -Math.PI * 0.5 });
 
     placeSofa(floor3Group, floor3Colliders, { id: 'sofa_3f_west', title: '3F Mansard Reading Sofa', floor: 3, x: -6.0, y: 10.67, z: -19.2, yaw: 0, tone: 'rose', w: 2.4 });
     placeSofa(floor3Group, floor3Colliders, { id: 'sofa_3f_east', title: '3F Dome Lounge Sofa', floor: 3, x: 14.0, y: 10.67, z: -19.2, yaw: 0, tone: 'emerald', w: 2.4 });
 
-    // ------------------ EXTERIOR SLATE-BLUE MANSARD ROOFS & DOMES (sits above Floor 3!) ------------------
+    // ------------------ EXTERIOR SLATE-BLUE MANSARD ROOFS & DOMES (sits cleanly above Floor 7 at y=34.9!) ------------------
+    roofAndDomesGroup.position.y = 20.6;
     const eaveCornice = new THREE.Mesh(new THREE.BoxGeometry(63.4, 0.55, 22.8), ivoryMat);
     eaveCornice.position.set(0, 14.3, -28.0);
     roofAndDomesGroup.add(eaveCornice);
@@ -2155,6 +2496,9 @@
         floor3Colliders: floor3Colliders,
         sharedColliders: sharedColliders,
         cottages: enterableCottages,
+        placeArmchair: placeArmchair,
+        placeTub: placeTub,
+        placeShower: placeShower,
         addBox: addBox,
         addCircle: addCircle,
         tagInteractable: tagInteractable,
@@ -2163,8 +2507,78 @@
       });
     }
 
+    if (window.CrownPalaceUpper && typeof window.CrownPalaceUpper.build === 'function') {
+      upperFloors = window.CrownPalaceUpper.build({
+        THREE: THREE,
+        kit: kit,
+        palaceRoot: palaceRoot,
+        floor1Group: floor1Group,
+        floor1Colliders: floor1Colliders,
+        floor2Group: floor2Group,
+        floor2Colliders: floor2Colliders,
+        floor3Group: floor3Group,
+        floor3Colliders: floor3Colliders,
+        ivoryMat: ivoryMat,
+        wingFacadeMat: wingFacadeMat,
+        pavFacadeMat: pavFacadeMat,
+        marbleMat: marbleMat,
+        parquetMat: parquetMat,
+        goldMat: goldMat,
+        blushRugMat: blushRugMat,
+        addBox: addBox,
+        addCircle: addCircle,
+        addWallX: addWallX,
+        addWallZ: addWallZ,
+        placeBed: placeBed,
+        placeToilet: placeToilet,
+        placeVanitySink: placeVanitySink,
+        placeTub: placeTub,
+        placeShower: placeShower,
+        placeSofa: placeSofa,
+        placeArmchair: placeArmchair,
+        tagInteractable: tagInteractable,
+        registerSpot: registerSpot,
+        localToWorld: localToWorld,
+      });
+    }
+
+    if (window.CrownTown && typeof window.CrownTown.build === 'function') {
+      townMod = window.CrownTown.build({
+        THREE: THREE,
+        kit: kit,
+        scene: scene,
+        sharedColliders: sharedColliders,
+        spots: spots,
+        ivoryMat: ivoryMat,
+        whiteMarbleMat: whiteMarbleMat,
+        parquetMat: parquetMat,
+        marbleMat: marbleMat,
+        goldMat: goldMat,
+        glassMat: glassMat,
+        cottageFloorMat: cottageFloorMat,
+        cottageWallMat: cottageWallMat,
+        slateRoofMat: slateRoofMat,
+        waterMat: waterMat,
+        boxwoodMat: boxwoodMat,
+        addBox: addBox,
+        addCircle: addCircle,
+        addWallX: addWallX,
+        addWallZ: addWallZ,
+        placeBed: placeBed,
+        placeToilet: placeToilet,
+        placeVanitySink: placeVanitySink,
+        placeTub: placeTub,
+        placeShower: placeShower,
+        placeSofa: placeSofa,
+        placeArmchair: placeArmchair,
+        tagInteractable: tagInteractable,
+        registerSpot: registerSpot,
+        localToWorld: localToWorld,
+      });
+    }
+
     // -----------------------------------------------------------
-    // 4. SIMS-4 CUTAWAY CONTROLLER (3 Palace Floors + 10 Cottages!)
+    // 4. SIMS-4 CUTAWAY CONTROLLER (7 Palace Floors + 10 Cottages + Town Buildings!)
     // -----------------------------------------------------------
     function isInsidePalace(pos) {
       return Math.abs(pos.x) <= 30.8 && pos.z <= -17.2 && pos.z >= -38.8;
@@ -2181,52 +2595,47 @@
         ct.roofGrp.visible = !inCot;
       }
 
-      if (mode === 'exterior') {
+      if (townMod) {
+        townMod.updateTownCutaway(playerPos);
+      }
+
+      if (mode === 'exterior' || (mode === 'auto' && !inside)) {
         roofAndDomesGroup.visible = true;
         floor3Group.visible = true;
         floor3FrontCutaway.visible = true;
         floor2Group.visible = true;
         floor2FrontCutaway.visible = true;
         floor1FrontCutaway.visible = true;
+        if (upperFloors) upperFloors.setUpperCutaway(7, true);
         return;
       }
 
-      if (mode === '1f' || (mode === 'auto' && inside && playerPos.y < 3.2)) {
-        roofAndDomesGroup.visible = false;
-        floor3Group.visible = false;
-        floor3FrontCutaway.visible = false;
-        floor2Group.visible = false;
-        floor2FrontCutaway.visible = false;
-        floor1FrontCutaway.visible = false;
-        return;
+      let activeLevel = 1;
+      if (mode !== 'auto' && /^[1-7]f$/.test(mode)) {
+        activeLevel = parseInt(mode.charAt(0), 10);
+      } else if (playerPos.y >= 28.2) {
+        activeLevel = 7;
+      } else if (playerPos.y >= 23.2) {
+        activeLevel = 6;
+      } else if (playerPos.y >= 18.2) {
+        activeLevel = 5;
+      } else if (playerPos.y >= 13.2) {
+        activeLevel = 4;
+      } else if (playerPos.y >= 8.2) {
+        activeLevel = 3;
+      } else if (playerPos.y >= 3.2) {
+        activeLevel = 2;
+      } else {
+        activeLevel = 1;
       }
 
-      if (mode === '2f' || (mode === 'auto' && inside && playerPos.y >= 3.2 && playerPos.y < 8.2)) {
-        roofAndDomesGroup.visible = false;
-        floor3Group.visible = false;
-        floor3FrontCutaway.visible = false;
-        floor2Group.visible = true;
-        floor2FrontCutaway.visible = false;
-        floor1FrontCutaway.visible = true;
-        return;
-      }
-
-      if (mode === '3f' || (mode === 'auto' && inside && playerPos.y >= 8.2)) {
-        roofAndDomesGroup.visible = false;
-        floor3Group.visible = true;
-        floor3FrontCutaway.visible = false;
-        floor2Group.visible = true;
-        floor2FrontCutaway.visible = true;
-        floor1FrontCutaway.visible = true;
-        return;
-      }
-
-      roofAndDomesGroup.visible = true;
-      floor3Group.visible = true;
-      floor3FrontCutaway.visible = true;
-      floor2Group.visible = true;
-      floor2FrontCutaway.visible = true;
-      floor1FrontCutaway.visible = true;
+      roofAndDomesGroup.visible = false;
+      floor1FrontCutaway.visible = activeLevel > 1;
+      floor2Group.visible = activeLevel >= 2;
+      floor2FrontCutaway.visible = activeLevel > 2;
+      floor3Group.visible = activeLevel >= 3;
+      floor3FrontCutaway.visible = activeLevel > 3;
+      if (upperFloors) upperFloors.setUpperCutaway(activeLevel, false);
     }
 
     // -----------------------------------------------------------
@@ -2235,9 +2644,48 @@
     const _dropPos = new THREE.Vector3();
     const _mat4 = new THREE.Matrix4();
 
-    function update(elapsedSec) {
+    function isInPool(pos) {
+      if (!pos) return false;
+      if (upperFloors && typeof upperFloors.isInUpperPool === 'function' && upperFloors.isInUpperPool(pos)) {
+        return true;
+      }
+      if (townMod && Array.isArray(townMod.poolZones) && pos.y < 1.5) {
+        for (let p = 0; p < townMod.poolZones.length; p++) {
+          const pz = townMod.poolZones[p];
+          if (pos.x >= pz.minX && pos.x <= pz.maxX && pos.z >= pz.minZ && pos.z <= pz.maxZ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Soft Multi-Puff Cumulus Clouds Drifting Overhead
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0 });
+    const cloudGroup = new THREE.Group();
+    const cloudSeeds = [
+      [-120, 62, -95, 1.2], [-45, 68, -110, 1.4], [55, 64, -98, 1.1],
+      [135, 60, -82, 1.3], [-95, 58, 95, 1.1], [25, 65, 115, 1.35], [125, 60, 100, 1.15],
+    ];
+    cloudSeeds.forEach(function (cs) {
+      const cg = new THREE.Group();
+      cg.position.set(cs[0], cs[1], cs[2]);
+      const sc = cs[3];
+      [[-3.2, 0, 0, 3.6, 2.1, 2.6], [0, 1.0, 0, 4.6, 2.7, 3.1], [3.5, 0.2, 0.4, 3.4, 2.0, 2.5]].forEach(function (p) {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), cloudMat);
+        puff.scale.set(p[3] * sc, p[4] * sc, p[5] * sc);
+        puff.position.set(p[0] * sc, p[1] * sc, p[2] * sc);
+        cg.add(puff);
+      });
+      cloudGroup.add(cg);
+    });
+    scene.add(cloudGroup);
+
+    function update(elapsedSec, activeTransport) {
+      waterUniforms.uWaterTime.value = elapsedSec;
       waterTex.offset.x = (elapsedSec * 0.028) % 1;
       waterTex.offset.y = (elapsedSec * 0.016) % 1;
+      cloudGroup.position.x = Math.sin(elapsedSec * 0.015) * 28;
       for (let f = 0; f < animatedFountains.length; f++) {
         const ft = animatedFountains[f];
         if (!ft.drops) continue;
@@ -2252,19 +2700,29 @@
         }
         ft.drops.instanceMatrix.needsUpdate = true;
       }
+      for (let k = 0; k < palaceFlames.length; k++) {
+        palaceFlames[k].scale.y = 0.85 + Math.sin(elapsedSec * (9.0 + k * 2.2)) * 0.25;
+      }
       if (showerSpray.visible) {
         showerSpray.rotation.y = elapsedSec * 6.0;
+      }
+      if (townMod) {
+        townMod.update(elapsedSec, activeTransport);
       }
     }
 
     function detectZone(pos) {
-      if (pos.y >= 8.2) {
+      if (upperFloors && pos.y >= 13.2 && isInsidePalace(pos)) {
+        const upZone = upperFloors.detectUpperZone(pos);
+        if (upZone) return upZone;
+      }
+      if (pos.y >= 8.2 && isInsidePalace(pos)) {
         if (pos.x < -17.2 && pos.z < -25) return 'Bedroom #10 & Bath (3F)';
         if (pos.x < 3 && pos.z < -25) return 'Mansard Guest Suites #11-#12 (3F)';
         if (pos.x >= 7.6 && pos.z < -25) return 'Dome Canopy Suite #13-#14 (3F)';
         return '3F Mansard Reading Lounge';
       }
-      if (pos.y >= 3.2) {
+      if (pos.y >= 3.2 && isInsidePalace(pos)) {
         if (pos.z > -18.5) return 'Upper Château Balcony (2F)';
         if (pos.x < -21.8 && pos.z < -25) return 'Master Marble Bath (2F)';
         if (pos.x < -11.4 && pos.z < -25) return 'Princess Master Bedroom #4 (2F)';
@@ -2286,12 +2744,17 @@
           return ct.title + ' (Interior)';
         }
       }
+      if (townMod) {
+        const tz = townMod.detectTownZone(pos);
+        if (tz) return tz;
+      }
       if (pos.z < -12) return 'Palace Grand Steps';
       if (pos.z <= 41 && Math.abs(pos.x) <= 42) return 'Versailles Parterre Gardens';
-      if (pos.z >= 50.2) return 'Riviera Coastal Quay';
-      if (pos.x < -42) return "West Commoners' Village";
-      if (pos.x > 42) return "East Commoners' Village";
-      return 'Royal Promenade Road';
+      if (pos.z >= 59.5 && Math.abs(pos.x) <= 4.5) return 'Riviera Yacht Pier';
+      if (pos.z >= 51.8) return 'Riviera Golden Sandy Beach';
+      if (pos.x < -42) return 'Willow Creek Suburbs & Civic Town';
+      if (pos.x > 42) return 'Royal Campus, Pool & Promenade';
+      return 'Waterfront Riviera Boulevard';
     }
 
     function setShowerActive(on) {
@@ -2300,6 +2763,7 @@
 
     function dispose() {
       textures.forEach(function (t) { t.dispose(); });
+      if (townMod && typeof townMod.dispose === 'function') townMod.dispose();
       if (kit) kit.dispose();
     }
 
@@ -2309,10 +2773,14 @@
       updateCutaway: updateCutaway,
       detectZone: detectZone,
       isInsidePalace: isInsidePalace,
+      isInPool: isInPool,
       interactiveMeshes: interactiveMeshes,
       spots: spots,
       shortcuts: shortcutsList,
       cottages: enterableCottages,
+      vehicles: townMod ? townMod.vehicles : [],
+      horses: townMod ? townMod.horses : [],
+      townDirectory: townMod ? townMod.townDirectory : [],
       setShowerActive: setShowerActive,
       update: update,
       dispose: dispose,

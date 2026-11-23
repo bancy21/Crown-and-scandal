@@ -32,10 +32,23 @@
       parent.add(dr);
     }
 
-    function addChandelier(parent, x, y, z, scale) {
-      const ch = kit.buildChandelier(scale || 1.0);
+    function addChandelier(parent, x, y, z, scale, grand) {
+      const ch = kit.buildChandelier(scale || 1.0, Boolean(grand));
       ch.position.set(x, y, z);
       parent.add(ch);
+    }
+
+    function addColumn(parent, colList, x, y, z, height, isDark) {
+      if (typeof kit.buildFlutedColumn !== 'function') return;
+      const col = kit.buildFlutedColumn(height || 4.7, Boolean(isDark));
+      col.position.set(x, y, z);
+      parent.add(col);
+      if (colList) addCircle(colList, x, z, 0.36);
+    }
+
+    function addWallAccentPanel(parent, mat, w, h, d, x, y, z) {
+      if (!mat) return;
+      kit.addMesh(parent, kit.g.box1, mat, w, h, d, x, y, z);
     }
 
     function addPlant(parent, colList, x, y, z, tall) {
@@ -238,36 +251,71 @@
     const setting = kit.buildBanquetSetting();
     setting.position.set(-15.8, 1.57, -22.2);
     floor1Group.add(setting);
-    addChandelier(floor1Group, -15.8, 4.95, -22.2, 1.15);
+    addChandelier(floor1Group, -15.8, 4.95, -22.2, 1.15, true);
     addChest(floor1Group, floor1Colliders, 'buffet_1f', -10.5, 0.67, -20.2, -Math.PI * 0.5, 'champagne');
     addArt(floor1Group, -10.22, 3.1, -20.2, -Math.PI * 0.5, 2, 1.7, 1.4);
     addDrapes(floor1Group, -15.8, 0.67, -18.55, Math.PI, 'rose', 3.4, 4.0);
 
-    // Kitchen Marble Island + Pantry Shelf + Herbs
+    // Kitchen Marble Island + Pantry/Butler's Illuminated Arches + Sub-Zero Fridge + Triple Crystal Chandeliers
     const island = kit.buildKitchenIsland();
     island.position.set(-16.2, 0.67, -32.8);
     floor1Group.add(island);
-    addBox(floor1Colliders, -16.2, -32.8, 2.4, 1.1);
-    addChest(floor1Group, floor1Colliders, 'kitchen_pantry', -20.6, 0.67, -36.8, Math.PI * 0.5, 'champagne', true);
+    addBox(floor1Colliders, -16.2, -32.65, 3.05, 1.95);
+    if (typeof kit.buildFridge === 'function') {
+      const pFridge = kit.buildFridge(false);
+      pFridge.position.set(-19.5, 0.67, -37.2);
+      floor1Group.add(pFridge);
+      addBox(floor1Colliders, -19.5, -37.2, 1.72, 0.88);
+    }
+    if (typeof kit.buildPantryButlerArches === 'function') {
+      const arches = kit.buildPantryButlerArches();
+      arches.position.set(-10.08, 0.67, -33.2);
+      arches.rotation.y = -Math.PI * 0.5;
+      floor1Group.add(arches);
+    }
+    addChandelier(floor1Group, -16.2, 4.95, -33.2, 1.12, true);
+    addChandelier(floor1Group, -18.8, 4.95, -33.2, 0.82, true);
+    addChandelier(floor1Group, -13.4, 4.95, -33.2, 0.82, true);
+    addChest(floor1Group, floor1Colliders, 'kitchen_pantry', -21.1, 0.67, -30.2, Math.PI * 0.5, 'champagne', true);
 
-    // 1F Drawing Living Room Finishes (Chandelier, Coffee Table Tea Set, Twin Palms, Wall Art, Drapes)
-    addChandelier(floor1Group, 16.5, 4.95, -22.2, 1.15);
+    // 1F Drawing Living Room Finishes (Grand Chandelier, Side Lamps, Twin Wing Armchairs, Columns, Palms)
+    addChandelier(floor1Group, 16.5, 4.95, -22.2, 1.25, true);
     addArt(floor1Group, 16.2, 3.0, -27.45, 0, 3, 2.2, 1.6);
     addArt(floor1Group, 10.22, 3.0, -20.5, Math.PI * 0.5, 0, 1.5, 1.8);
     addDrapes(floor1Group, 16.2, 0.67, -18.55, Math.PI, 'crimson', 3.2, 4.0);
     addPlant(floor1Group, floor1Colliders, 20.6, 0.67, -25.2, true);
     addPlant(floor1Group, floor1Colliders, 20.6, 0.67, -19.2, true);
+    if (typeof ctx.placeArmchair === 'function') {
+      ctx.placeArmchair(floor1Group, floor1Colliders, {
+        id: 'chair_living_2', title: 'Salon Damask Wing Chair', floor: 1,
+        x: 19.4, y: 0.67, z: -25.2, yaw: Math.PI, tone: 'champagne',
+      });
+    }
+    if (typeof kit.buildSideTableLamp === 'function') {
+      [16.2, 19.8].forEach(function (lx) {
+        const sl = kit.buildSideTableLamp('champagne');
+        sl.position.set(lx, 0.67, -19.0);
+        floor1Group.add(sl);
+        addCircle(floor1Colliders, lx, -19.0, 0.3);
+      });
+    }
+    addColumn(floor1Group, floor1Colliders, 10.4, 0.67, -26.8, 4.7, false);
+    addColumn(floor1Group, floor1Colliders, 21.1, 0.67, -26.8, 4.7, false);
 
-    // Ballroom State Finishes (Chandelier + Twin Throne Portraits & Palms)
-    addChandelier(floor1Group, 16.0, 4.95, -33.2, 1.25);
+    // Ballroom State Finishes (Grand Chandelier + Twin Throne Portraits & Palms)
+    addChandelier(floor1Group, 16.0, 4.95, -33.2, 1.35, true);
     addArt(floor1Group, 16.0, 3.2, -38.1, 0, 0, 2.6, 2.0);
     addDrapes(floor1Group, 16.0, 0.67, -38.15, 0, 'crimson', 3.8, 4.2);
     addPlant(floor1Group, floor1Colliders, 11.2, 0.67, -37.2, true);
     addPlant(floor1Group, floor1Colliders, 20.8, 0.67, -37.2, true);
 
-    // 1F Toilets & Bathrooms Finishes (#1 East, #2 West)
+    // 1F Toilets & Bathrooms Finishes (#1 East, #2 West + Showers)
     addTowelStand(floor1Group, floor1Colliders, 23.0, 0.67, -18.6, 0);
     addPlant(floor1Group, floor1Colliders, 29.4, 0.67, -22.8, false);
+    if (typeof ctx.placeShower === 'function') {
+      ctx.placeShower(floor1Group, floor1Colliders, { id: 'shower_1f_east', title: '1F East Marble Shower', floor: 1, x: 23.2, y: 0.67, z: -22.4, yaw: 0 });
+      ctx.placeShower(floor1Group, floor1Colliders, { id: 'shower_1f_west', title: '1F West Marble Shower', floor: 1, x: -23.2, y: 0.67, z: -22.4, yaw: Math.PI * 0.5 });
+    }
     addTowelStand(floor1Group, floor1Colliders, -23.0, 0.67, -18.6, 0);
     addPlant(floor1Group, floor1Colliders, -29.4, 0.67, -22.8, false);
 
@@ -293,18 +341,35 @@
     // -----------------------------------------------------------
     // 2. FLOOR 2 FINISHED SUITES (Master Bath, Master Suite #4, #5-#9, Salon)
     // -----------------------------------------------------------
-    // Master Marble Bath Finishes
+    // Master Marble Bath Finishes (Image 5 Baroque Mahogany Paneling, Bench, Gilded Glass Screen & Persian Bath Rug)
+    addChandelier(floor2Group, -25.6, 9.75, -34.2, 1.1, true);
+    addWallAccentPanel(floor2Group, kit.palette.mahoganyPanel, 7.6, 3.8, 0.06, -26.0, 7.6, -38.18);
+    addWallAccentPanel(floor2Group, kit.palette.mahoganyPanel, 0.06, 3.8, 12.6, -30.18, 7.6, -31.8);
+    if (typeof kit.buildMasterBathExtras === 'function') {
+      const mExtras = kit.buildMasterBathExtras();
+      mExtras.position.set(-25.6, 5.67, -34.2);
+      floor2Group.add(mExtras);
+      addBox(floor2Colliders, -25.6, -32.82, 1.48, 0.54);
+    }
     addTowelStand(floor2Group, floor2Colliders, -23.0, 5.67, -32.2, -Math.PI * 0.5);
     addPlant(floor2Group, floor2Colliders, -22.8, 5.67, -26.2, true);
     addArt(floor2Group, -26.0, 7.9, -38.1, 0, 1, 1.4, 1.5);
 
-    // Bedroom #4 Master Princess Canopy Suite Finishes (x: -21.6..-11.6, z: -38.4..-25.0)
-    addChandelier(floor2Group, -16.5, 9.75, -31.5, 1.15);
+    // Bedroom #4 Master Princess Canopy Suite Finishes (Image 4 Rotunda Columns, Crystal Chandelier & Lounge Lamp)
+    addChandelier(floor2Group, -16.5, 9.75, -31.5, 1.25, true);
     addArt(floor2Group, -16.5, 8.2, -38.1, 0, 0, 2.0, 1.7);
-    addDrapes(floor2Group, -16.5, 5.67, -38.12, 0, 'rose', 3.4, 4.1);
+    addDrapes(floor2Group, -16.5, 5.67, -38.12, 0, 'plum', 3.4, 4.1);
     addWardrobeSpot(floor2Group, floor2Colliders, 'wardrobe_b4', 'Princess Royal Wardrobe (2F)', 2, -20.6, 5.67, -37.3, 0);
-    addVanitySpot(floor2Group, floor2Colliders, 'vanity_b4', 'Princess Dressing Vanity (2F)', 2, -12.8, 5.67, -37.3, 0, 'rose');
+    addVanitySpot(floor2Group, floor2Colliders, 'vanity_b4', 'Princess Dressing Vanity (2F)', 2, -12.8, 5.67, -37.3, 0, 'plum');
     addPlant(floor2Group, floor2Colliders, -12.4, 5.67, -26.2, true);
+    addColumn(floor2Group, floor2Colliders, -21.2, 5.67, -26.0, 4.7, false);
+    addColumn(floor2Group, floor2Colliders, -11.9, 5.67, -26.0, 4.7, false);
+    if (typeof kit.buildSideTableLamp === 'function') {
+      const sLamp4 = kit.buildSideTableLamp('plum');
+      sLamp4.position.set(-19.2, 5.67, -35.8);
+      floor2Group.add(sLamp4);
+      addCircle(floor2Colliders, -19.2, -35.8, 0.3);
+    }
 
     // Bedroom #5 (x: -30.4..-22.4, z: -24.8..-18.2)
     addArt(floor2Group, -30.1, 7.9, -19.8, Math.PI * 0.5, 2, 1.4, 1.5);
@@ -324,8 +389,23 @@
     addVanitySpot(floor2Group, floor2Colliders, 'vanity_b7', 'Queen Mother Dressing Vanity', 2, 16.0, 5.67, -37.3, 0, 'crimson');
     addPlant(floor2Group, floor2Colliders, 8.6, 5.67, -26.2, true);
 
-    // 2F East Bath Finishes (Toilet #4)
+    // 2F East Bath Finishes (Image 6 Slate-Blue Panelling, Blue-Bordered Marble Floor & Arch Portal)
+    if (kit.palette && kit.palette.blueBorderMarble) {
+      const b2Floor = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 10.6), kit.palette.blueBorderMarble);
+      b2Floor.rotation.x = -Math.PI / 2;
+      b2Floor.position.set(20.1, 5.662, -32.2);
+      floor2Group.add(b2Floor);
+    }
+    addWallAccentPanel(floor2Group, kit.palette.slateBluePanel, 0.06, 3.8, 11.8, 22.42, 7.6, -32.2);
+    if (typeof kit.buildSlateArchPortal === 'function') {
+      const sp2 = kit.buildSlateArchPortal(4.0, 3.8);
+      sp2.position.set(20.1, 5.65, -31.4);
+      floor2Group.add(sp2);
+    }
     addTowelStand(floor2Group, floor2Colliders, 18.6, 5.67, -37.4, 0);
+    if (typeof ctx.placeTub === 'function') {
+      ctx.placeTub(floor2Group, floor2Colliders, { id: 'tub_2f_east', title: '2F East Suite Bathtub', floor: 2, style: 'slate', x: 20.2, y: 5.67, z: -29.6, yaw: Math.PI * 0.5 });
+    }
 
     // Bedroom #8 (x: 22.8..30.4, z: -38.4..-25.0)
     addArt(floor2Group, 30.1, 8.0, -34.0, -Math.PI * 0.5, 3, 1.5, 1.6);
@@ -354,8 +434,23 @@
     addWardrobeSpot(floor3Group, floor3Colliders, 'wardrobe_b10', 'Suite #10 Ivory Wardrobe (3F)', 3, -23.4, 10.67, -37.4, 0);
     addPlant(floor3Group, floor3Colliders, -29.4, 10.67, -26.2, false);
 
-    // 3F West Bath (#6)
+    // 3F West Bath (#6 + Rain Shower + Image 6 Slate-Blue Portal & Floor Tile)
+    if (kit.palette && kit.palette.blueBorderMarble) {
+      const b3wFloor = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 11.2), kit.palette.blueBorderMarble);
+      b3wFloor.rotation.x = -Math.PI / 2;
+      b3wFloor.position.set(-19.6, 10.662, -31.8);
+      floor3Group.add(b3wFloor);
+    }
+    addWallAccentPanel(floor3Group, kit.palette.slateBluePanel, 0.06, 3.2, 11.6, -21.82, 12.25, -31.8);
+    if (typeof kit.buildSlateArchPortal === 'function') {
+      const sp3w = kit.buildSlateArchPortal(3.8, 3.2);
+      sp3w.position.set(-19.6, 10.65, -31.4);
+      floor3Group.add(sp3w);
+    }
     addTowelStand(floor3Group, floor3Colliders, -21.0, 10.67, -32.2, Math.PI * 0.5);
+    if (typeof ctx.placeShower === 'function') {
+      ctx.placeShower(floor3Group, floor3Colliders, { id: 'shower_3f_west', title: '3F West Suite Shower', floor: 3, x: -18.4, y: 10.67, z: -28.8, yaw: 0 });
+    }
 
     // Bedroom #11 (x: -17.0..-8.6, z: -38.4..-25.0)
     addArt(floor3Group, -12.8, 12.6, -38.1, 0, 3, 1.5, 1.4);
@@ -374,8 +469,23 @@
     addWardrobeSpot(floor3Group, floor3Colliders, 'wardrobe_b13', 'Imperial Dome Wardrobe (3F)', 3, 8.8, 10.67, -37.4, 0);
     addVanitySpot(floor3Group, floor3Colliders, 'vanity_b13', 'Imperial Dome Vanity (3F)', 3, 16.0, 10.67, -37.3, 0, 'crimson');
 
-    // 3F East Bath (#7)
+    // 3F East Bath (#7 + Rain Shower + Image 6 Slate-Blue Portal & Floor Tile)
+    if (kit.palette && kit.palette.blueBorderMarble) {
+      const b3eFloor = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 11.2), kit.palette.blueBorderMarble);
+      b3eFloor.rotation.x = -Math.PI / 2;
+      b3eFloor.position.set(20.1, 10.662, -31.8);
+      floor3Group.add(b3eFloor);
+    }
+    addWallAccentPanel(floor3Group, kit.palette.slateBluePanel, 0.06, 3.2, 11.6, 22.42, 12.25, -31.8);
+    if (typeof kit.buildSlateArchPortal === 'function') {
+      const sp3e = kit.buildSlateArchPortal(3.8, 3.2);
+      sp3e.position.set(20.1, 10.65, -31.4);
+      floor3Group.add(sp3e);
+    }
     addTowelStand(floor3Group, floor3Colliders, 18.6, 10.67, -37.4, 0);
+    if (typeof ctx.placeShower === 'function') {
+      ctx.placeShower(floor3Group, floor3Colliders, { id: 'shower_3f_east', title: '3F East Suite Shower', floor: 3, x: 20.6, y: 10.67, z: -28.8, yaw: Math.PI * 0.5 });
+    }
 
     // Bedroom #14 (x: 22.8..30.4, z: -38.4..-25.0)
     addArt(floor3Group, 27.6, 12.6, -38.1, 0, 3, 1.5, 1.4);
@@ -500,10 +610,30 @@
         const grp = ct.grp;
         if (!grp) return;
         const innerDir = ct.doorX > ct.cx ? -1 : 1;
+        // Woven Cozy Rug in Center Living Zone
+        if (typeof kit.buildRug === 'function') {
+          const rug = kit.buildRug(2.6, 2.1, ['champagne', 'rose', 'sapphire', 'emerald'][ci % 4]);
+          rug.position.set(ct.cx - innerDir * 0.65, 0.09, ct.cz - 0.05);
+          grp.add(rug);
+        }
         // Framed Pastoral Artwork on Back Wall
-        addArt(grp, ct.cx + innerDir * 3.05, 1.85, ct.cz + 0.4, innerDir < 0 ? Math.PI * 0.5 : -Math.PI * 0.5, ci, 1.05, 0.9);
-        // Cottage Chest of Drawers beside bed away from doorway
-        addChest(grp, ctx.sharedColliders, 'cot_chest_' + (ci + 1), ct.cx - innerDir * 1.85, 0.08, ct.cz - 2.45, 0, 'rustic', true);
+        addArt(grp, ct.cx + innerDir * 3.45, 1.85, ct.cz - 0.1, innerDir < 0 ? Math.PI * 0.5 : -Math.PI * 0.5, ci, 1.05, 0.9);
+        // Cottage Chest of Drawers beside South Front Wall
+        addChest(grp, ctx.sharedColliders, 'cot_chest_' + (ci + 1), ct.cx - innerDir * 3.05, 0.08, ct.cz + 2.65, Math.PI, 'rustic', true);
+        // Cottage Reading Armchair in Living Area
+        if (typeof ctx.placeArmchair === 'function') {
+          ctx.placeArmchair(grp, ctx.sharedColliders, {
+            id: 'cot_chair_' + (ci + 1),
+            title: ct.title + ' Reading Chair',
+            floor: 0,
+            cottage: true,
+            x: ct.cx + innerDir * 0.15,
+            y: 0.08,
+            z: ct.cz - 0.1,
+            yaw: innerDir > 0 ? Math.PI * 0.5 : -Math.PI * 0.5,
+            tone: ['champagne', 'rose', 'sapphire', 'emerald'][ci % 4],
+          });
+        }
         // Cottage Hanging Candle Chandelier
         const lantern = kit.buildChandelier(0.55);
         lantern.position.set(ct.cx, 2.75, ct.cz);
