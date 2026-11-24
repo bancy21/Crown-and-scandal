@@ -15,6 +15,26 @@
       return t;
     };
 
+    const matCache = {};
+    function getStdMat(hex, roughness, metalness) {
+      const k = 'std_' + String(hex) + '_' + (roughness ?? 0.5) + '_' + (metalness ?? 0);
+      if (!matCache[k]) {
+        matCache[k] = keepMat(new THREE.MeshStandardMaterial({
+          color: new THREE.Color(hex),
+          roughness: roughness !== undefined ? roughness : 0.5,
+          metalness: metalness !== undefined ? metalness : 0,
+        }));
+      }
+      return matCache[k];
+    }
+    function getBasicMat(hex) {
+      const k = 'bas_' + String(hex);
+      if (!matCache[k]) {
+        matCache[k] = keepMat(new THREE.MeshBasicMaterial({ color: new THREE.Color(hex) }));
+      }
+      return matCache[k];
+    }
+
     function makeTex(size, drawFn) {
       const c = document.createElement('canvas');
       c.width = size;
@@ -462,10 +482,10 @@
       silver: keepMat(new THREE.MeshStandardMaterial({ color: 0xd9dfe6, roughness: 0.22, metalness: 0.88 })),
       mahogany: keepMat(new THREE.MeshStandardMaterial({ map: woodMahoganyTex, color: 0xffffff, roughness: 0.4, metalness: 0.1 })),
       oak: keepMat(new THREE.MeshStandardMaterial({ map: woodOakTex, color: 0xffffff, roughness: 0.62, metalness: 0.04 })),
-      creamSilk: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0xf7eee3, roughness: 0.6, sheen: 0.65 })),
+      creamSilk: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0xf7eee3, roughness: 0.62 })),
       rug: keepMat(new THREE.MeshStandardMaterial({ map: rugTex, roughness: 0.85 })),
       pianoKeys: keepMat(new THREE.MeshStandardMaterial({ map: pianoKeysTex, roughness: 0.28 })),
-      sheerVeil: keepMat(new THREE.MeshPhysicalMaterial({ color: 0xfff8f2, roughness: 0.48, transparent: true, opacity: 0.46 })),
+      sheerVeil: keepMat(new THREE.MeshStandardMaterial({ color: 0xfff8f2, roughness: 0.55, transparent: true, opacity: 0.46 })),
       mirror: keepMat(new THREE.MeshPhysicalMaterial({ color: 0xeaf4fc, roughness: 0.05, metalness: 0.9, clearcoat: 1 })),
       crystal: keepMat(new THREE.MeshPhysicalMaterial({ color: 0xeff8ff, roughness: 0.06, metalness: 0.15, transparent: true, opacity: 0.76, clearcoat: 1 })),
       iron: keepMat(new THREE.MeshStandardMaterial({ color: 0x22242a, roughness: 0.36, metalness: 0.68 })),
@@ -477,15 +497,15 @@
       foliage: keepMat(new THREE.MeshStandardMaterial({ color: 0x3f6e39, roughness: 0.74 })),
       foliageLight: keepMat(new THREE.MeshStandardMaterial({ color: 0x578c49, roughness: 0.72 })),
       fabricColors: {
-        rose: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0xd98fa0, roughness: 0.58, sheen: 0.84 })),
-        sapphire: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0x46669c, roughness: 0.58, sheen: 0.84 })),
-        emerald: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0x3b7660, roughness: 0.58, sheen: 0.84 })),
-        crimson: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0x9b2d43, roughness: 0.58, sheen: 0.84 })),
-        plum: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0x5d1935, roughness: 0.5, sheen: 0.92, sheenColor: new THREE.Color(0xe096af) })),
-        burgundy: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0x5d1935, roughness: 0.5, sheen: 0.92, sheenColor: new THREE.Color(0xe096af) })),
-        lavender: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0x9b82b8, roughness: 0.58, sheen: 0.84 })),
-        champagne: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0xddc397, roughness: 0.54, sheen: 0.78 })),
-        creamTufted: keepMat(new THREE.MeshPhysicalMaterial({ map: damaskTex, color: 0xf4eadb, roughness: 0.52, sheen: 0.78, sheenColor: new THREE.Color(0xffffff) })),
+        rose: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0xd98fa0, roughness: 0.58 })),
+        sapphire: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0x46669c, roughness: 0.58 })),
+        emerald: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0x3b7660, roughness: 0.58 })),
+        crimson: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0x9b2d43, roughness: 0.58 })),
+        plum: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0x5d1935, roughness: 0.52 })),
+        burgundy: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0x5d1935, roughness: 0.52 })),
+        lavender: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0x9b82b8, roughness: 0.58 })),
+        champagne: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0xddc397, roughness: 0.56 })),
+        creamTufted: keepMat(new THREE.MeshStandardMaterial({ map: damaskTex, color: 0xf4eadb, roughness: 0.54 })),
         rustic: keepMat(new THREE.MeshStandardMaterial({ color: 0x8d6346, roughness: 0.84 })),
       },
       bookColors: [
@@ -590,8 +610,8 @@
         bevelEnabled: bv > 0.002,
         bevelThickness: bv,
         bevelSize: bv,
-        bevelSegments: 3,
-        curveSegments: 8,
+        bevelSegments: 1,
+        curveSegments: 4,
       });
       geo.rotateX(-Math.PI * 0.5);
       geo.center();
@@ -612,8 +632,8 @@
         bevelEnabled: true,
         bevelThickness: 0.02,
         bevelSize: 0.02,
-        bevelSegments: 2,
-        curveSegments: 14,
+        bevelSegments: 1,
+        curveSegments: 7,
       });
       geo.center();
       return keepGeo(geo);
@@ -641,8 +661,8 @@
         bevelEnabled: true,
         bevelThickness: 0.025,
         bevelSize: 0.02,
-        bevelSegments: 2,
-        curveSegments: 14,
+        bevelSegments: 1,
+        curveSegments: 8,
       });
       geo.translate(0, 0, -lenZ * 0.5);
       return keepGeo(geo);
@@ -662,8 +682,8 @@
         bevelEnabled: true,
         bevelThickness: 0.025,
         bevelSize: 0.02,
-        bevelSegments: 2,
-        curveSegments: 14,
+        bevelSegments: 1,
+        curveSegments: 8,
       });
       geo.rotateX(Math.PI * 0.5);
       return keepGeo(geo);
@@ -678,7 +698,7 @@
       new THREE.Vector2(0.052, 0.72),
       new THREE.Vector2(0.044, 0.92),
       new THREE.Vector2(0.058, 1.0),
-    ], 12));
+    ], 8));
     const toiletBowlGeo = keepGeo(new THREE.LatheGeometry([
       new THREE.Vector2(0.14, 0.0),
       new THREE.Vector2(0.16, 0.08),
@@ -688,7 +708,7 @@
       new THREE.Vector2(0.19, 0.45),
       new THREE.Vector2(0.15, 0.28),
       new THREE.Vector2(0.04, 0.24),
-    ], 18));
+    ], 12));
     const sinkBasinGeo = keepGeo(new THREE.LatheGeometry([
       new THREE.Vector2(0.02, 0.0),
       new THREE.Vector2(0.18, 0.03),
@@ -697,7 +717,7 @@
       new THREE.Vector2(0.26, 0.14),
       new THREE.Vector2(0.16, 0.05),
       new THREE.Vector2(0.02, 0.02),
-    ], 18));
+    ], 12));
     const lampBaseGeo = keepGeo(new THREE.LatheGeometry([
       new THREE.Vector2(0.075, 0.0),
       new THREE.Vector2(0.08, 0.04),
@@ -705,8 +725,8 @@
       new THREE.Vector2(0.095, 0.22),
       new THREE.Vector2(0.038, 0.34),
       new THREE.Vector2(0.024, 0.42),
-    ], 14));
-    const lampShadeGeo = keepGeo(new THREE.CylinderGeometry(0.11, 0.18, 0.22, 16, 1, true));
+    ], 10));
+    const lampShadeGeo = keepGeo(new THREE.CylinderGeometry(0.11, 0.18, 0.22, 12, 1, true));
     const vaseUrnGeo = keepGeo(new THREE.LatheGeometry([
       new THREE.Vector2(0.055, 0.0),
       new THREE.Vector2(0.068, 0.04),
@@ -714,15 +734,15 @@
       new THREE.Vector2(0.11, 0.19),
       new THREE.Vector2(0.055, 0.28),
       new THREE.Vector2(0.085, 0.33),
-    ], 14));
+    ], 10));
 
     const g = {
       box1: keepGeo(new THREE.BoxGeometry(1, 1, 1)),
-      cyl1: keepGeo(new THREE.CylinderGeometry(0.5, 0.5, 1, 14)),
-      capsule1: keepGeo(new THREE.CapsuleGeometry(0.5, 1, 6, 12)),
-      cone1: keepGeo(new THREE.ConeGeometry(0.5, 1, 12)),
-      sphere1: keepGeo(new THREE.SphereGeometry(0.5, 14, 10)),
-      torus1: keepGeo(new THREE.TorusGeometry(0.5, 0.08, 10, 22)),
+      cyl1: keepGeo(new THREE.CylinderGeometry(0.5, 0.5, 1, 10)),
+      capsule1: keepGeo(new THREE.CapsuleGeometry(0.5, 1, 3, 8)),
+      cone1: keepGeo(new THREE.ConeGeometry(0.5, 1, 8)),
+      sphere1: keepGeo(new THREE.SphereGeometry(0.5, 10, 7)),
+      torus1: keepGeo(new THREE.TorusGeometry(0.5, 0.08, 6, 14)),
       cushion: cushionGeo,
       pillow: pillowGeo,
       leg: cabrioleLegGeo,
@@ -753,10 +773,157 @@
       if (sx !== undefined) m.scale.set(sx, sy, sz);
       if (px !== undefined) m.position.set(px, py, pz);
       if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
-      m.castShadow = true;
+      m.castShadow = false;
       m.receiveShadow = true;
       parent.add(m);
       return m;
+    }
+
+    /**
+     * Merges static non-transparent child Mesh objects within `group` by
+     * (material, castShadow, receiveShadow, interactId) into single batched draw calls,
+     * skipping animated subtrees (`noMerge`, `rig`, `rotor`) and preserving transforms & UVs.
+     */
+    const _mergeInvRoot = new THREE.Matrix4();
+    const _mergeRelMat = new THREE.Matrix4();
+    const _mergeNormMat = new THREE.Matrix3();
+    const _mergeV = new THREE.Vector3();
+    const _mergeN = new THREE.Vector3();
+    function mergeStaticGroup(group, opts) {
+      if (!group) return group;
+      const cfg = opts || {};
+      group.updateMatrixWorld(true);
+      _mergeInvRoot.copy(group.matrixWorld).invert();
+
+      const buckets = Object.create(null);
+      const bucketList = [];
+
+      function collect(node) {
+        if (!node || node.visible === false) return;
+        const ud = node.userData;
+        if (ud && (ud.noMerge || ud.rig || ud.rotor)) return;
+        if (node.isMesh && !node.isInstancedMesh) {
+          const mat = node.material;
+          const geo = node.geometry;
+          if (
+            mat && !Array.isArray(mat) && !mat.transparent &&
+            geo && geo.attributes && geo.attributes.position &&
+            (!cfg.filter || cfg.filter(node))
+          ) {
+            const iid = (ud && ud.interactId) || '';
+            const key = mat.uuid + '|' + (node.castShadow ? '1' : '0') + (node.receiveShadow ? '1' : '0') + '|' + iid;
+            let b = buckets[key];
+            if (!b) {
+              b = {
+                material: mat,
+                castShadow: Boolean(node.castShadow),
+                receiveShadow: Boolean(node.receiveShadow),
+                interactId: iid,
+                items: [],
+              };
+              buckets[key] = b;
+              bucketList.push(b);
+            }
+            b.items.push({ mesh: node, parent: node.parent });
+          }
+          return;
+        }
+        const ch = node.children;
+        for (let i = 0; i < ch.length; i++) {
+          collect(ch[i]);
+        }
+      }
+      collect(group);
+
+      for (let bi = 0; bi < bucketList.length; bi++) {
+        const b = bucketList[bi];
+        if (b.items.length < 2) continue;
+
+        let totalVerts = 0;
+        for (let ii = 0; ii < b.items.length; ii++) {
+          const geo = b.items[ii].mesh.geometry;
+          if (geo.index) {
+            totalVerts += geo.index.count;
+          } else {
+            totalVerts += geo.attributes.position.count;
+          }
+        }
+        if (totalVerts <= 0) continue;
+
+        const posArr = new Float32Array(totalVerts * 3);
+        const normArr = new Float32Array(totalVerts * 3);
+        const uvArr = new Float32Array(totalVerts * 2);
+        let cursor = 0;
+
+        for (let ii = 0; ii < b.items.length; ii++) {
+          const item = b.items[ii];
+          const mesh = item.mesh;
+          const geo = mesh.geometry;
+          if (!geo.attributes.normal) geo.computeVertexNormals();
+          const posAttr = geo.attributes.position;
+          const normAttr = geo.attributes.normal;
+          const uvAttr = geo.attributes.uv;
+          const idxAttr = geo.index;
+
+          _mergeRelMat.multiplyMatrices(_mergeInvRoot, mesh.matrixWorld);
+          _mergeNormMat.getNormalMatrix(_mergeRelMat);
+          const flip = _mergeRelMat.determinant() < 0;
+
+          const triVertCount = idxAttr ? idxAttr.count : posAttr.count;
+          for (let t = 0; t + 2 < triVertCount; t += 3) {
+            const a = idxAttr ? idxAttr.getX(t) : t;
+            const bIdx = idxAttr ? idxAttr.getX(t + (flip ? 2 : 1)) : (t + (flip ? 2 : 1));
+            const c = idxAttr ? idxAttr.getX(t + (flip ? 1 : 2)) : (t + (flip ? 1 : 2));
+            const idxs = [a, bIdx, c];
+            for (let k = 0; k < 3; k++) {
+              const vi = idxs[k];
+              _mergeV.fromBufferAttribute(posAttr, vi).applyMatrix4(_mergeRelMat);
+              const pOff = cursor * 3;
+              posArr[pOff] = _mergeV.x;
+              posArr[pOff + 1] = _mergeV.y;
+              posArr[pOff + 2] = _mergeV.z;
+
+              _mergeN.fromBufferAttribute(normAttr, vi).applyMatrix3(_mergeNormMat).normalize();
+              normArr[pOff] = _mergeN.x;
+              normArr[pOff + 1] = _mergeN.y;
+              normArr[pOff + 2] = _mergeN.z;
+
+              if (uvAttr) {
+                const uOff = cursor * 2;
+                uvArr[uOff] = uvAttr.getX(vi);
+                uvArr[uOff + 1] = uvAttr.getY(vi);
+              }
+              cursor++;
+            }
+          }
+          if (item.parent) item.parent.remove(mesh);
+        }
+
+        const mergedGeo = new THREE.BufferGeometry();
+        mergedGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+        mergedGeo.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+        mergedGeo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+        if (!cfg.skipKeepGeo) keepGeo(mergedGeo);
+
+        const mergedMesh = new THREE.Mesh(mergedGeo, b.material);
+        mergedMesh.castShadow = b.castShadow;
+        mergedMesh.receiveShadow = b.receiveShadow;
+        if (b.interactId) mergedMesh.userData.interactId = b.interactId;
+        group.add(mergedMesh);
+      }
+
+      // Prune empty non-animated wrapper sub-groups
+      function pruneEmpty(node) {
+        for (let i = node.children.length - 1; i >= 0; i--) {
+          const ch = node.children[i];
+          if (ch.isGroup && (!ch.userData || (!ch.userData.noMerge && !ch.userData.rig && !ch.userData.rotor && !ch.userData.keepEmpty))) {
+            pruneEmpty(ch);
+            if (ch.children.length === 0) node.remove(ch);
+          }
+        }
+      }
+      pruneEmpty(group);
+      return group;
     }
 
     function tag(obj, interactId) {
@@ -884,6 +1051,7 @@
         }
       }
 
+      mergeStaticGroup(grp);
       if (cfg.interactId) tag(grp, cfg.interactId);
       return grp;
     }
@@ -903,6 +1071,7 @@
       if (!rustic) {
         addMesh(grp, g.cushion, palette.rug, 0.64, 0.022, 0.52, 0, 0.011, 0.26);
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -974,6 +1143,7 @@
           addMesh(grp, g.sphere1, palette.warmBulb, 0.12, 0.14, 0.12, sx, 1.84, -0.2);
         });
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1017,6 +1187,7 @@
         addMesh(grp, g.pillow, palette.gold, 0.3, 0.3, 0.12, w * 0.22, 0.61, -0.15, 0, -0.2, -0.08);
       }
 
+      mergeStaticGroup(grp);
       if (cfg.interactId) tag(grp, cfg.interactId);
       return grp;
     }
@@ -1046,6 +1217,7 @@
         addMesh(grp, g.cushion, frame, 0.68, 0.1, 0.62, 0, 0.12, 0.86);
         addMesh(grp, g.cushion, tone, 0.66, 0.2, 0.58, 0, 0.26, 0.86);
       }
+      mergeStaticGroup(grp);
       if (cfg.interactId) tag(grp, cfg.interactId);
       return grp;
     }
@@ -1065,6 +1237,7 @@
       ovalBack.position.set(0, 0.92, -0.26);
       grp.add(ovalBack);
       addMesh(grp, g.cushion, frame, 0.6, 0.05, 0.11, 0, 1.24, -0.26);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1085,6 +1258,7 @@
       [-0.48, 0.48].forEach(function (ax) {
         addMesh(grp, g.capsule1, palette.gold, 0.075, 0.54, 0.075, ax, 0.88, -0.04, Math.PI * 0.5, 0, 0);
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1116,6 +1290,10 @@
       flameMain.castShadow = false;
       flameL.castShadow = false;
       flameR.castShadow = false;
+      ember.userData.noMerge = true;
+      flameMain.userData.noMerge = true;
+      flameL.userData.noMerge = true;
+      flameR.userData.noMerge = true;
       grp.userData.flames = [flameMain, flameL, flameR];
       // Image 3 Grand Baroque Oil Painting Overmantel + Flanking Columns & Pediment
       addMesh(grp, g.cushion, stone, 1.98, 2.55, 0.55, 0, 3.12, -0.04);
@@ -1124,6 +1302,7 @@
       if (!rustic) {
         addMesh(grp, g.sphere1, trim, 0.28, 0.26, 0.12, 0, 3.98, 0.27);
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1150,6 +1329,7 @@
       });
       addMesh(grp, g.cushion, palette.iron, 0.96, 0.09, 0.42, 0, 0.48, 1.15);
       addMesh(grp, g.cushion, palette.fabricColors.crimson, 0.92, 0.1, 0.4, 0, 0.56, 1.15);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1206,6 +1386,7 @@
           });
         });
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1222,6 +1403,7 @@
           addMesh(grp, g.cushion, bMat, 0.16, 0.28 + (b % 2) * 0.05, 0.3, -0.52 + b * 0.26, sy + 0.04, 0.08);
         }
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1235,6 +1417,7 @@
       addMesh(grp, g.box1, trim, 0.04, 1.85, 0.04, -0.02, 1.05, 0.36);
       addMesh(grp, g.sphere1, trim, 0.08, 0.08, 0.08, -0.14, 1.15, 0.38);
       addMesh(grp, g.sphere1, trim, 0.08, 0.08, 0.08, 0.1, 1.15, 0.38);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1251,6 +1434,7 @@
         c.rotation.y = cx < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
         grp.add(c);
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1274,6 +1458,7 @@
       addMesh(grp, g.cushion, palette.gold, 0.24, 0.1, 0.18, 0.38, 0.89, 0.1);
       addMesh(grp, g.cyl1, palette.gold, 0.4, 0.36, 0.4, 0, 0.18, 0.64);
       addMesh(grp, g.cushion, seatMat, 0.48, 0.15, 0.48, 0, 0.42, 0.64);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1291,6 +1476,7 @@
       deskChair.position.set(0, 0, 0.72);
       deskChair.rotation.y = Math.PI;
       grp.add(deskChair);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1308,6 +1494,7 @@
         addMesh(grp, g.sphere1, trim, 0.06, 0.06, 0.06, 0.3, dy, 0.32);
       });
       addMesh(grp, g.vaseUrn, accent, 1, 1, 1, 0, 1.14, 0);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1332,6 +1519,7 @@
         addMesh(grp, g.cone1, palette.crystal, 0.08 * s, 0.24 * s, 0.08 * s, cx * 0.92, -0.14 * s, cz * 0.92, Math.PI, 0, 0);
       }
       addMesh(grp, g.sphere1, palette.crystal, 0.28 * s, 0.38 * s, 0.28 * s, 0, -0.26 * s, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1355,6 +1543,7 @@
       addMesh(grp, g.cushion, mat, sw * 0.24, ch, 0.2, -sw * 0.42, ch * 0.5, 0.08);
       addMesh(grp, g.cushion, mat, sw * 0.24, ch, 0.2, sw * 0.42, ch * 0.5, 0.08);
       addMesh(grp, g.cushion, mat, sw + 0.16, 0.28, 0.22, 0, ch - 0.12, 0.1);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1379,6 +1568,7 @@
           addMesh(grp, g.cyl1, palette.crystal, 0.08, 0.16, 0.08, px * 0.76, 0.09, pz + (pz < 0 ? 0.25 : -0.25));
         });
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1410,6 +1600,7 @@
         addMesh(grp, g.cushion, palette.fabricColors.creamTufted, 0.42, 0.12, 0.42, sx, 0.62, 0.82);
         addMesh(grp, g.cushion, palette.fabricColors.creamTufted, 0.4, 0.34, 0.1, sx, 0.82, 0.98);
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1430,6 +1621,7 @@
         addMesh(grp, g.vaseUrn, palette.ivory, 1.4, 1.1, 1.4, 0, 0, 0);
         addMesh(grp, g.sphere1, palette.foliage, 0.62, 0.48, 0.62, 0, 0.52, 0);
       }
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1448,6 +1640,7 @@
         c.rotation.y = cz < 0 ? 0 : Math.PI;
         grp.add(c);
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1459,6 +1652,7 @@
       addMesh(grp, g.box1, palette.oak, 0.1, 1.9, 0.1, 0, 0.94, -0.32, 0.26, 0, 0);
       addMesh(grp, g.cushion, palette.gold, 0.96, 1.15, 0.06, 0, 1.24, 0.08, -0.16, 0, 0);
       addMesh(grp, g.box1, palette.artCanvases[1], 0.82, 1.0, 0.07, 0, 1.24, 0.09, -0.16, 0, 0);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1469,6 +1663,7 @@
       addMesh(grp, g.cushion, palette.gold, 0.76, 0.12, 0.54, 0, 2.28, 0);
       addMesh(grp, g.cyl1, palette.porcelain, 0.42, 0.06, 0.42, 0, 1.88, 0.23, Math.PI * 0.5, 0, 0);
       addMesh(grp, g.box1, palette.gold, 0.26, 0.72, 0.06, 0, 1.12, 0.22);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1480,6 +1675,7 @@
       addMesh(grp, g.cyl1, palette.gold, 0.05, 0.62, 0.05, 0, 0.96, 0, 0, 0, Math.PI * 0.5);
       addMesh(grp, g.cushion, palette.creamSilk, 0.44, 0.68, 0.08, 0, 0.65, 0);
       addMesh(grp, g.cushion, palette.fabricColors.rose, 0.4, 0.48, 0.1, 0, 0.74, 0.02);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1496,7 +1692,7 @@
         metalness: 0.45,
         clearcoat: 0.95,
       }));
-      const seatMat = keepMat(new THREE.MeshStandardMaterial({ color: isConvertible ? 0x8e2c3e : 0x3b2c26, roughness: 0.65 }));
+      const seatMat = getStdMat(isConvertible ? 0x8e2c3e : 0x3b2c26, 0.65);
       const glassClear = keepMat(new THREE.MeshPhysicalMaterial({
         color: 0x3b5870,
         roughness: 0.06,
@@ -1506,8 +1702,8 @@
         opacity: isConvertible ? 0.38 : 0.34,
         depthWrite: false,
       }));
-      const tailRed = keepMat(new THREE.MeshBasicMaterial({ color: 0xee3344 }));
-      const headMat = keepMat(new THREE.MeshBasicMaterial({ color: 0xfff5d4 }));
+      const tailRed = getBasicMat(0xee3344);
+      const headMat = getBasicMat(0xfff5d4);
       const carLen = isConvertible ? 4.0 : isSuv ? 4.05 : 3.85;
       const cabLen = isSuv ? 2.25 : 1.85;
       // Tall realistic greenhouse roof top (1.76m sedan, 1.88m SUV/Ambulance) so seated driver head & crown stay cleanly INSIDE!
@@ -1517,7 +1713,8 @@
 
       // Sculpted lower chassis, wheel arches & hood/trunk decks
       addMesh(grp, g.cushion, palette.iron, 1.84, 0.14, carLen + 0.08, 0, 0.24, 0);
-      addMesh(grp, g.cushion, bodyMat, 1.78, 0.44, carLen, 0, 0.52, 0);
+      const lowerBody = addMesh(grp, g.cushion, bodyMat, 1.78, 0.44, carLen, 0, 0.52, 0);
+      lowerBody.castShadow = true;
       // Hood & Trunk (kept forward/aft of central cockpit opening)
       addMesh(grp, g.cushion, bodyMat, 1.68, 0.18, 1.15, 0, 0.76, carLen * 0.34);
       addMesh(grp, g.cushion, bodyMat, 1.68, 0.18, 0.78, 0, 0.76, -carLen * 0.38);
@@ -1547,12 +1744,15 @@
           addMesh(grp, g.box1, bodyMat, 0.09, pillarH, 0.12, pl[0], beltY + pillarH * 0.5, pl[1], pl[2], 0, 0);
         });
         // Solid Painted Car Roof Cap (bottom at roofPanelY - 0.05, top at roofPanelY + 0.05 -> 1.75..1.87m!)
-        addMesh(grp, g.cushion, bodyMat, 1.54, 0.11, cabLen - 0.16, 0, roofPanelY, cabZ);
-        // Translucent Front Windshield, Rear Glass, & Side Windows
+        const roofCap = addMesh(grp, g.cushion, bodyMat, 1.54, 0.11, cabLen - 0.16, 0, roofPanelY, cabZ);
+        roofCap.castShadow = true;
+        // Translucent Front Windshield, Rear Glass, & Rear Quarter Windows (front door bays open cleanly!)
         const wf = addMesh(grp, g.box1, glassClear, 1.42, pillarH * 0.88, 0.04, 0, beltY + pillarH * 0.46, cabZ + cabLen * 0.42, -0.24, 0, 0);
         const wb = addMesh(grp, g.box1, glassClear, 1.42, pillarH * 0.84, 0.04, 0, beltY + pillarH * 0.46, cabZ - cabLen * 0.44, 0.18, 0, 0);
-        const wL = addMesh(grp, g.box1, glassClear, 0.04, pillarH * 0.78, cabLen - 0.42, -0.74, beltY + pillarH * 0.46, cabZ);
-        const wR = addMesh(grp, g.box1, glassClear, 0.04, pillarH * 0.78, cabLen - 0.42, 0.74, beltY + pillarH * 0.46, cabZ);
+        const qLen = Math.max(0.32, cabLen * 0.40);
+        const qZ = cabZ - cabLen * 0.24;
+        const wL = addMesh(grp, g.box1, glassClear, 0.04, pillarH * 0.78, qLen, -0.74, beltY + pillarH * 0.46, qZ);
+        const wR = addMesh(grp, g.box1, glassClear, 0.04, pillarH * 0.78, qLen, 0.74, beltY + pillarH * 0.46, qZ);
         wf.castShadow = false;
         wb.castShadow = false;
         wL.castShadow = false;
@@ -1569,12 +1769,42 @@
         }
       }
 
+      // Articulated Swinging Left & Right Front Car Doors (open cleanly when entering, exiting, or toggling!)
+      function buildCarDoorLeaf(sideSign) {
+        const pivot = new THREE.Group();
+        pivot.position.set(sideSign * 0.89, 0.34, 0.44);
+        // Sculpted outer painted door skin
+        addMesh(pivot, g.cushion, bodyMat, 0.07, 0.44, 0.96, 0, 0.22, -0.48);
+        // Chrome door handle & trim strip
+        addMesh(pivot, g.box1, palette.silver, 0.04, 0.05, 0.16, sideSign * 0.035, 0.34, -0.78);
+        addMesh(pivot, g.box1, palette.silver, 0.02, 0.03, 0.86, sideSign * 0.03, 0.14, -0.48);
+        // Interior leather door trim & armrest
+        addMesh(pivot, g.box1, seatMat, 0.04, 0.32, 0.84, -sideSign * 0.03, 0.20, -0.48);
+        if (!isConvertible) {
+          // Upper framed window glass & B-pillar sash on sedan/SUV doors
+          const winH = Math.max(0.42, pillarH * 0.78);
+          addMesh(pivot, g.box1, bodyMat, 0.05, winH + 0.06, 0.06, -sideSign * 0.08, 0.44 + winH * 0.5, -0.92);
+          addMesh(pivot, g.box1, bodyMat, 0.05, 0.05, 0.88, -sideSign * 0.08, 0.44 + winH + 0.02, -0.48);
+          const dGlass = addMesh(pivot, g.box1, glassClear, 0.03, winH * 0.92, 0.82, -sideSign * 0.08, 0.44 + winH * 0.48, -0.48);
+          dGlass.castShadow = false;
+        }
+        mergeStaticGroup(pivot);
+        pivot.userData.noMerge = true;
+        pivot.userData.noFreeze = true;
+        return pivot;
+      }
+      const doorL = buildCarDoorLeaf(-1);
+      const doorR = buildCarDoorLeaf(1);
+      grp.add(doorL, doorR);
+
       // Chrome Grille, Headlights, Taillights & Gold License Plate
       addMesh(grp, g.cushion, palette.silver, 0.78, 0.22, 0.08, 0, 0.48, carLen * 0.5 + 0.02);
       addMesh(grp, g.box1, palette.gold, 0.38, 0.12, 0.04, 0, 0.34, -carLen * 0.5 - 0.03);
       const headlights = [];
       [-0.58, 0.58].forEach(function (lx) {
-        headlights.push(addMesh(grp, g.sphere1, headMat, 0.22, 0.16, 0.12, lx, 0.55, carLen * 0.5 + 0.02));
+        const hl = addMesh(grp, g.sphere1, headMat, 0.22, 0.16, 0.12, lx, 0.55, carLen * 0.5 + 0.02);
+        hl.userData.noMerge = true;
+        headlights.push(hl);
         addMesh(grp, g.box1, tailRed, 0.28, 0.12, 0.08, lx, 0.55, -carLen * 0.5 - 0.02);
       });
       [-0.9, 0.9].forEach(function (mx) {
@@ -1587,11 +1817,13 @@
       [1.16, -1.12].forEach(function (wz, zi) {
         [-0.84, 0.84].forEach(function (wx) {
           const steerPivot = new THREE.Group();
+          steerPivot.userData.noMerge = true;
           steerPivot.position.set(wx, 0.31, wz);
           const wheelSpin = new THREE.Group();
           addMesh(wheelSpin, g.cyl1, palette.iron, 0.62, 0.23, 0.62, 0, 0, 0, 0, 0, Math.PI * 0.5);
           addMesh(wheelSpin, g.cyl1, palette.silver, 0.36, 0.25, 0.36, 0, 0, 0, 0, 0, Math.PI * 0.5);
           addMesh(wheelSpin, g.box1, palette.gold, 0.26, 0.27, 0.07, 0, 0, 0);
+          mergeStaticGroup(wheelSpin);
           steerPivot.add(wheelSpin);
           grp.add(steerPivot);
           wheels.push(wheelSpin);
@@ -1602,13 +1834,100 @@
       grp.userData.wheels = wheels;
       grp.userData.frontSteer = frontSteer;
       grp.userData.headlights = headlights;
+      grp.userData.carDoors = {
+        left: doorL,
+        right: doorR,
+        openRatio: 0,
+        manualOpen: false,
+      };
       grp.userData.seatY = 0.44;
       grp.userData.seatX = -0.35;
       grp.userData.seatZ = -0.26;
       grp.userData.roofTopY = isConvertible ? 1.44 : roofPanelY + 0.05;
 
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
+    }
+
+    /**
+     * Articulated Swinging Entrance Doors (French double glazed doors or single architectural door)
+     * Each pivot leaf is pre-merged cleanly and tagged noMerge/noFreeze for silky 60fps opening.
+     */
+    function buildHingedDoors(opts) {
+      const o = opts || {};
+      const width = o.width || 2.5;
+      const height = o.height || 2.55;
+      const count = o.count === 1 ? 1 : 2;
+      const frameMat = o.frameMat || palette.ivory;
+      const leafMat = o.leafMat || getStdMat(o.leafColor || 0xfaf2e4, 0.42, 0.06);
+      const glassPanelMat = o.glassMat || palette.crystal;
+      const handleMat = o.handleMat || palette.gold;
+      const swingSign = o.inward ? -1 : 1;
+
+      const grp = new THREE.Group();
+      // Subtle low threshold & top frame casing
+      const frameWrap = new THREE.Group();
+      addMesh(frameWrap, g.box1, frameMat, width + 0.18, 0.06, 0.34, 0, 0.03, 0);
+      addMesh(frameWrap, g.box1, frameMat, width + 0.22, 0.11, 0.36, 0, height + 0.05, 0);
+      addMesh(frameWrap, g.box1, frameMat, 0.09, height, 0.34, -width * 0.5 - 0.04, height * 0.5, 0);
+      addMesh(frameWrap, g.box1, frameMat, 0.09, height, 0.34, width * 0.5 + 0.04, height * 0.5, 0);
+      if (o.transom) {
+        addMesh(frameWrap, g.box1, frameMat, width + 0.14, 0.62, 0.24, 0, height + 0.38, 0);
+        addMesh(frameWrap, g.box1, glassPanelMat, width - 0.16, 0.46, 0.12, 0, height + 0.38, 0);
+        [-0.32, 0, 0.32].forEach(function (mx) {
+          addMesh(frameWrap, g.box1, handleMat, 0.04, 0.44, 0.16, mx * width, height + 0.38, 0);
+        });
+      }
+      mergeStaticGroup(frameWrap);
+      grp.add(frameWrap);
+
+      function makeLeaf(sideSign, leafW) {
+        const pivot = new THREE.Group();
+        pivot.position.set(sideSign * width * 0.5, 0.04, 0);
+        const dir = -sideSign;
+        // Door stiles, bottom kickplate & rails
+        const kickH = height * 0.34;
+        addMesh(pivot, g.box1, leafMat, leafW - 0.02, kickH, 0.07, dir * leafW * 0.5, kickH * 0.5, 0);
+        addMesh(pivot, g.box1, frameMat, leafW * 0.72, kickH * 0.58, 0.09, dir * leafW * 0.5, kickH * 0.5, 0);
+        // Side stiles + top rail framing clear pane glass
+        addMesh(pivot, g.box1, leafMat, 0.11, height - kickH, 0.07, dir * 0.055, kickH + (height - kickH) * 0.5, 0);
+        addMesh(pivot, g.box1, leafMat, 0.11, height - kickH, 0.07, dir * (leafW - 0.065), kickH + (height - kickH) * 0.5, 0);
+        addMesh(pivot, g.box1, leafMat, leafW - 0.02, 0.16, 0.07, dir * leafW * 0.5, height - 0.08, 0);
+        // Translucent glazed window pane & Parisian grid mullions
+        const glassW = Math.max(0.24, leafW - 0.24);
+        const glassH = Math.max(0.6, height - kickH - 0.24);
+        const glassY = kickH + glassH * 0.5 + 0.03;
+        addMesh(pivot, g.box1, glassPanelMat, glassW, glassH, 0.03, dir * leafW * 0.5, glassY, 0);
+        addMesh(pivot, g.box1, leafMat, glassW, 0.035, 0.05, dir * leafW * 0.5, glassY, 0);
+        if (o.filigree) {
+          addMesh(pivot, g.box1, handleMat, 0.03, glassH * 0.86, 0.05, dir * leafW * 0.5, glassY, 0);
+        }
+        // Brass Push/Pull Handles on Exterior & Interior
+        const handleX = dir * (leafW - 0.16);
+        addMesh(pivot, g.cyl1, handleMat, 0.032, 0.34, 0.032, handleX, 1.02, 0.06);
+        addMesh(pivot, g.cyl1, handleMat, 0.032, 0.34, 0.032, handleX, 1.02, -0.06);
+        mergeStaticGroup(pivot);
+        pivot.userData.noMerge = true;
+        pivot.userData.noFreeze = true;
+        return pivot;
+      }
+
+      const leafW = count === 2 ? width * 0.5 : width;
+      const leftPivot = makeLeaf(-1, leafW);
+      grp.add(leftPivot);
+      let rightPivot = null;
+      if (count === 2) {
+        rightPivot = makeLeaf(1, leafW);
+        grp.add(rightPivot);
+      }
+
+      return {
+        group: grp,
+        leftPivot: leftPivot,
+        rightPivot: rightPivot,
+        maxAngle: (o.maxAngle || 1.42) * swingSign,
+      };
     }
 
     /**
@@ -1618,19 +1937,15 @@
      */
     function buildHorse(coatHex, maneHex, interactId) {
       const grp = new THREE.Group();
-      const coatMat = keepMat(new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(coatHex || 0x7b482c),
-        roughness: 0.48,
-        sheen: 0.45,
-        sheenColor: new THREE.Color(0xfff2e0),
-      }));
-      const maneMat = keepMat(new THREE.MeshStandardMaterial({ color: new THREE.Color(maneHex || 0x261a14), roughness: 0.78 }));
-      const leatherMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x3b2016, roughness: 0.52 }));
+      const coatMat = getStdMat(coatHex || 0x7b482c, 0.48, 0.06);
+      const maneMat = getStdMat(maneHex || 0x261a14, 0.78);
+      const leatherMat = getStdMat(0x3b2016, 0.52);
       const hoofMat = palette.iron;
       const eyeMat = palette.iron;
 
       // Barrel Torso & Sculpted Shoulders/Haunches
-      addMesh(grp, g.capsule1, coatMat, 0.66, 0.84, 0.66, 0, 1.18, 0, Math.PI * 0.5, 0, 0);
+      const barrel = addMesh(grp, g.capsule1, coatMat, 0.66, 0.84, 0.66, 0, 1.18, 0, Math.PI * 0.5, 0, 0);
+      barrel.castShadow = true;
       addMesh(grp, g.sphere1, coatMat, 0.68, 0.66, 0.66, 0, 1.2, -0.45);
       addMesh(grp, g.sphere1, coatMat, 0.66, 0.68, 0.64, 0, 1.22, 0.45);
 
@@ -1642,10 +1957,12 @@
 
       // Articulated Head & Neck Pivot (for grazing, nodding & spirited tossing)
       const headPivot = new THREE.Group();
+      headPivot.userData.noMerge = true;
       headPivot.position.set(0, 1.32, 0.56);
       grp.add(headPivot);
 
-      addMesh(headPivot, g.capsule1, coatMat, 0.34, 0.62, 0.38, 0, 0.24, 0.16, 0.55, 0, 0);
+      const neckMesh = addMesh(headPivot, g.capsule1, coatMat, 0.34, 0.62, 0.38, 0, 0.24, 0.16, 0.55, 0, 0);
+      neckMesh.castShadow = true;
       addMesh(headPivot, g.cushion, maneMat, 0.1, 0.58, 0.16, 0, 0.36, 0.02, 0.52, 0, 0);
       addMesh(headPivot, g.capsule1, coatMat, 0.26, 0.36, 0.26, 0, 0.52, 0.46, 1.18, 0, 0);
       addMesh(headPivot, g.sphere1, coatMat, 0.21, 0.19, 0.22, 0, 0.4, 0.66);
@@ -1670,6 +1987,7 @@
 
       // Articulated Swishing Tail Pivot
       const tailPivot = new THREE.Group();
+      tailPivot.userData.noMerge = true;
       tailPivot.position.set(0, 1.3, -0.74);
       addMesh(tailPivot, g.cone1, maneMat, 0.16, 0.82, 0.16, 0, -0.36, -0.1, -0.26, 0, 0);
       grp.add(tailPivot);
@@ -1683,9 +2001,11 @@
         [0.2, -0.48],
       ].forEach(function (pt) {
         const legPivot = new THREE.Group();
+        legPivot.userData.noMerge = true;
         legPivot.position.set(pt[0], 0.98, pt[1]);
         addMesh(legPivot, g.cyl1, coatMat, 0.13, 0.9, 0.13, 0, -0.46, 0);
         addMesh(legPivot, g.cyl1, hoofMat, 0.145, 0.1, 0.145, 0, -0.92, 0);
+        mergeStaticGroup(legPivot);
         grp.add(legPivot);
         legs.push(legPivot);
       });
@@ -1698,6 +2018,7 @@
         legs: legs,
       };
 
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1715,6 +2036,7 @@
         addMesh(grp, g.cyl1, palette.iron, 0.06, 0.64, 0.06, sx, 0.32, 0.78);
         addMesh(grp, g.cyl1, palette.oak, 0.38, 0.07, 0.38, sx, 0.65, 0.78);
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1729,8 +2051,10 @@
       addMesh(grp, g.box1, palette.iron, 1.48, 0.88, 0.08, 0, 1.06, -0.04);
       const scr = addMesh(grp, g.box1, screenMat, 1.38, 0.78, 0.09, 0, 1.06, -0.03);
       scr.castShadow = false;
+      scr.userData.noMerge = true;
       grp.userData.tvScreen = scr;
       grp.userData.tvMat = screenMat;
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1749,6 +2073,7 @@
         addMesh(grp, g.cyl1, treatMat, 0.34, 0.22, 0.34, px, 1.04, 0);
         addMesh(grp, g.sphere1, palette.fabricColors.crimson, 0.1, 0.1, 0.1, px, 1.2, 0);
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1763,7 +2088,9 @@
       addMesh(grp, g.cushion, palette.ivory, 0.58, 0.07, 1.95, 0, 0.48, 3.65);
       // Floating pastel pool ring gently drifting inside pool
       const floatRing = addMesh(grp, g.torus1, palette.fabricColors.rose, 1.15, 1.15, 0.85, -2.4, 0.29, 0.8, Math.PI * 0.5, 0, 0);
+      floatRing.userData.noMerge = true;
       grp.userData.floatRing = floatRing;
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1782,6 +2109,7 @@
       addMesh(grp, g.cushion, pad, 0.74, 0.1, 1.24, 0, 0.37, 0.28);
       addMesh(grp, g.cushion, pad, 0.74, 0.1, 0.66, 0, 0.56, -0.58, 0.45, 0, 0);
       addMesh(grp, g.pillow, palette.creamSilk, 0.46, 0.1, 0.26, 0, 0.76, -0.68, 0.45, 0, 0);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1823,6 +2151,7 @@
       addMesh(grp, g.cyl1, palette.gold, 0.08, 1.35, 0.08, 0, 0.68, 0);
       addMesh(grp, g.cushion, palette.gold, 1.56, 0.92, 0.1, 0, 1.52, 0);
       addMesh(grp, g.box1, signMat, 1.42, 0.78, 0.12, 0, 1.52, 0.01);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1858,7 +2187,7 @@
 
       // Brick Chimney with smoking flue cap
       if (o.chimney !== false) {
-        const brickMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x9b4b3c, roughness: 0.82 }));
+        const brickMat = getStdMat(0x9b4b3c, 0.82);
         addMesh(grp, g.box1, brickMat, 0.62, ph + 1.05, 0.62, -w * 0.28, (ph + 0.9) * 0.5, -d * 0.18);
         addMesh(grp, g.box1, palette.ivory, 0.74, 0.14, 0.74, -w * 0.28, ph + 1.04, -d * 0.18);
       }
@@ -1878,6 +2207,7 @@
         addMesh(grp, g.cone1, roofMat || palette.oak, 2.1, 1.65, 2.1, 0, ph + 2.88, 0);
         addMesh(grp, g.sphere1, palette.gold, 0.32, 0.32, 0.32, 0, ph + 3.8, 0);
       }
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1887,7 +2217,7 @@
     function buildFrontPorch(w, d, trimMat) {
       const grp = new THREE.Group();
       const tMat = trimMat || palette.ivory;
-      const deckMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xb99a74, roughness: 0.78 }));
+      const deckMat = getStdMat(0xb99a74, 0.78);
       addMesh(grp, g.box1, deckMat, w, 0.16, d, 0, 0.08, 0);
       addMesh(grp, g.box1, deckMat, 2.5, 0.08, 0.55, 0, 0.04, d * 0.5 + 0.27);
       // Canopy porch roof
@@ -1908,6 +2238,7 @@
       }
       // Warm hanging porch lantern
       addMesh(grp, g.sphere1, palette.crystal, 0.22, 0.28, 0.22, 0, 2.65, d * 0.22);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1930,6 +2261,7 @@
       [-0.42, 0, 0.42].forEach(function (fx, fi) {
         addMesh(grp, g.sphere1, fi === 1 ? palette.fabricColors.champagne : palette.fabricColors.rose, 0.22, 0.2, 0.22, fx, -0.62, 0.16);
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -1955,6 +2287,7 @@
           addMesh(grp, g.leg, palette.iron, 0.7, 0.44, 0.7, cx, 0, 0.66 + cz);
         });
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1964,7 +2297,7 @@
      */
     function buildChalkboardLectern(interactId) {
       const grp = new THREE.Group();
-      const boardMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x244234, roughness: 0.72 }));
+      const boardMat = getStdMat(0x244234, 0.72);
       addMesh(grp, g.box1, palette.oak, 3.8, 1.75, 0.12, 0, 1.65, -0.25);
       addMesh(grp, g.box1, boardMat, 3.5, 1.5, 0.14, 0, 1.65, -0.23);
       addMesh(grp, g.box1, palette.oak, 3.7, 0.1, 0.22, 0, 0.78, -0.18);
@@ -1972,6 +2305,7 @@
       addMesh(grp, g.cushion, palette.mahogany, 0.95, 1.12, 0.66, 0.2, 0.56, 0.8);
       addMesh(grp, g.cyl1, palette.gold, 0.22, 0.36, 0.22, -1.25, 0.62, 0.75);
       addMesh(grp, g.sphere1, palette.fabricColors.sapphire, 0.36, 0.36, 0.36, -1.25, 0.95, 0.75);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -1981,13 +2315,14 @@
      */
     function buildSchoolLockers(interactId) {
       const grp = new THREE.Group();
-      const lockMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x38587a, roughness: 0.42, metalness: 0.32 }));
+      const lockMat = getStdMat(0x38587a, 0.42, 0.32);
       for (let i = 0; i < 5; i++) {
         const lx = -1.32 + i * 0.66;
         addMesh(grp, g.box1, lockMat, 0.62, 2.05, 0.52, lx, 1.025, 0);
         addMesh(grp, g.box1, palette.gold, 0.06, 0.16, 0.06, lx + 0.18, 1.08, 0.27);
         addMesh(grp, g.box1, palette.ivory, 0.38, 0.08, 0.04, lx, 1.75, 0.27);
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2001,6 +2336,7 @@
       addMesh(grp, g.cushion, palette.gold, 1.18, 0.08, 0.82, 0, 1.16, 0);
       addMesh(grp, g.cyl1, palette.gold, 0.38, 0.06, 0.38, 0, 0.65, 0.39, Math.PI * 0.5, 0, 0);
       addMesh(grp, g.cyl1, palette.silver, 0.03, 0.28, 0.03, -0.18, 1.28, -0.1);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2015,12 +2351,14 @@
         const ang = (i / 6) * Math.PI * 2;
         addMesh(grp, g.cyl1, palette.ivory, 0.22, 3.0, 0.22, Math.cos(ang) * 2.55, 1.7, Math.sin(ang) * 2.55);
       }
-      addMesh(grp, g.cone1, palette.fabricColors.sapphire, 6.8, 1.9, 6.8, 0, 4.15, 0);
+      const gazRoof = addMesh(grp, g.cone1, palette.fabricColors.sapphire, 6.8, 1.9, 6.8, 0, 4.15, 0);
+      gazRoof.castShadow = true;
       addMesh(grp, g.sphere1, palette.gold, 0.38, 0.48, 0.38, 0, 5.2, 0);
       // Curved interior benches
       [-1.55, 1.55].forEach(function (bx) {
         addMesh(grp, g.cushion, palette.oak, 0.58, 0.45, 2.2, bx, 0.56, 0);
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2035,6 +2373,7 @@
       addMesh(grp, g.cone1, pad, 2.5, 0.72, 2.5, 0.85, 2.48, -0.25);
       addMesh(grp, g.cushion, palette.ivory, 0.82, 0.14, 1.95, -0.25, 0.12, 0);
       addMesh(grp, g.cushion, pad, 0.78, 0.1, 0.68, -0.25, 0.32, -0.62, 0.45, 0, 0);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2044,8 +2383,9 @@
      */
     function buildRoyalYacht(interactId) {
       const grp = new THREE.Group();
-      const deckMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xb07c4a, roughness: 0.62 }));
-      addMesh(grp, g.cushion, palette.ivory, 3.6, 1.4, 12.2, 0, 0.65, 0);
+      const deckMat = getStdMat(0xb07c4a, 0.62);
+      const hull = addMesh(grp, g.cushion, palette.ivory, 3.6, 1.4, 12.2, 0, 0.65, 0);
+      hull.castShadow = true;
       addMesh(grp, g.cone1, palette.ivory, 3.5, 3.6, 2.2, 0, 0.72, 7.6, Math.PI * 0.5, 0, 0);
       addMesh(grp, g.cushion, deckMat, 3.2, 0.08, 10.6, 0, 1.36, -0.2);
       // Sleek Cabin & Tinted Bridge Glass
@@ -2053,6 +2393,7 @@
       addMesh(grp, g.box1, palette.crystal, 2.56, 0.62, 4.4, 0, 2.02, 0.8);
       addMesh(grp, g.cushion, palette.gold, 2.6, 0.08, 5.3, 0, 2.54, 0.6);
       addMesh(grp, g.cyl1, palette.gold, 0.1, 2.8, 0.1, 0, 3.85, 1.1);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2060,19 +2401,21 @@
     /**
      * Sculpted Porcelain & Marble Clawfoot / Alcove / Pedestal Plinth Bathtub.
      */
+    const _tubWaterCache = {};
     function buildBathtub(interactId, rustic, style) {
       const grp = new THREE.Group();
       const rimMat = rustic ? palette.silver : palette.gold;
       const isBaroque = !rustic && style === 'baroque';
       const isSlate = !rustic && style === 'slate';
       const bodyMat = isBaroque ? palette.creamMarble : (palette.porcelain || palette.ivory);
-      const tubWaterMat = keepMat(new THREE.MeshPhysicalMaterial({
-        color: rustic ? 0x9de6f2 : (isSlate ? 0xbef0f7 : 0xf4c8d8),
+      const waterHex = rustic ? 0x9de6f2 : (isSlate ? 0xbef0f7 : 0xf4c8d8);
+      const tubWaterMat = _tubWaterCache[waterHex] || (_tubWaterCache[waterHex] = keepMat(new THREE.MeshPhysicalMaterial({
+        color: waterHex,
         roughness: 0.12,
         transparent: true,
         opacity: 0.8,
         clearcoat: 0.9,
-      }));
+      })));
 
       if (isBaroque) {
         // Image 5 Oval Veined Marble Clawfoot Tub Elevated on Rounded Stepped Marble Plinth
@@ -2103,6 +2446,7 @@
         addMesh(grp, g.cyl1, rimMat, 0.06, 0.32, 0.06, -0.78, 0.78, 0);
         addMesh(grp, g.box1, rimMat, 0.18, 0.06, 0.06, -0.68, 0.9, 0);
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2132,6 +2476,7 @@
       addMesh(grp, g.box1, metal, 1.34, 0.06, 1.34, 0, 2.56, 0);
       addMesh(grp, g.cyl1, metal, 0.3, 0.06, 0.3, 0, 2.42, 0);
       addMesh(grp, g.cyl1, metal, 0.05, 1.7, 0.05, -0.54, 1.56, -0.54);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2142,7 +2487,7 @@
     function buildFridge(rustic) {
       const grp = new THREE.Group();
       if (rustic) {
-        const bodyMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xe9ebe6, roughness: 0.28, metalness: 0.12 }));
+        const bodyMat = getStdMat(0xe9ebe6, 0.28, 0.12);
         addMesh(grp, g.cushion, bodyMat, 0.98, 2.02, 0.78, 0, 1.01, 0);
         addMesh(grp, g.box1, palette.iron, 0.98, 0.04, 0.8, 0, 0.68, 0);
         addMesh(grp, g.box1, palette.iron, 0.04, 1.25, 0.8, 0, 1.34, 0);
@@ -2166,6 +2511,7 @@
           });
         });
       }
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2196,6 +2542,7 @@
         addMesh(grp, g.box1, palette.gold, 0.32, 0.05, 0.24, -tw * 0.28, 0.60, 0.14);
         addMesh(grp, g.cyl1, palette.crystal, 0.11, 0.18, 0.11, tw * 0.28, 0.61, -0.1);
       }
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2207,6 +2554,7 @@
       const base = palette.fabricColors[toneName || 'champagne'] || palette.fabricColors.champagne;
       addMesh(grp, g.box1, palette.ivory, w, 0.024, d, 0, 0.012, 0);
       addMesh(grp, g.box1, base, w * 0.86, 0.028, d * 0.84, 0, 0.014, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2215,7 +2563,7 @@
      */
     function buildAutoPavilion(w, d) {
       const grp = new THREE.Group();
-      const roof = palette.slate || keepMat(new THREE.MeshStandardMaterial({ color: 0x3b4858, roughness: 0.62 }));
+      const roof = palette.slate || getStdMat(0x3b4858, 0.62);
       addMesh(grp, g.box1, palette.ivory, w, 0.14, d, 0, 0.07, 0);
       [
         [-w * 0.44, -d * 0.44],
@@ -2227,8 +2575,10 @@
         addMesh(grp, g.box1, palette.gold, 0.42, 0.14, 0.42, p[0], 3.3, p[1]);
       });
       addMesh(grp, g.box1, palette.ivory, w + 0.5, 0.28, d + 0.5, 0, 3.48, 0);
-      addMesh(grp, g.box1, roof, w + 0.2, 0.45, d + 0.2, 0, 3.82, 0);
+      const rMesh = addMesh(grp, g.box1, roof, w + 0.2, 0.45, d + 0.2, 0, 3.82, 0);
+      rMesh.castShadow = true;
       addMesh(grp, g.box1, palette.gold, w + 0.55, 0.08, d + 0.55, 0, 3.62, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2236,11 +2586,12 @@
      * Hospital Clinic Bed with Hollow Blanket Dome (patient lies cleanly INSIDE),
      * IV Drip Pole, Privacy Curtain Rail Option & Heart-Rate Telemetry Monitor.
      */
+    let _dripFluidMat = null;
     function buildHospitalBed(interactId) {
       const grp = new THREE.Group();
       const railMat = palette.silver;
       const blanket = palette.fabricColors.sapphire;
-      const dripFluidMat = keepMat(new THREE.MeshPhysicalMaterial({ color: 0xb9ecff, roughness: 0.12, transparent: true, opacity: 0.72 }));
+      if (!_dripFluidMat) _dripFluidMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xb9ecff, roughness: 0.18, transparent: true, opacity: 0.72 }));
 
       // Bed frame & Mattress (top at y = 0.58)
       addMesh(grp, g.box1, railMat, 1.18, 0.14, 2.22, 0, 0.42, 0);
@@ -2267,12 +2618,13 @@
       // IV Drip Stand & Saline Bag (-X side)
       addMesh(grp, g.cyl1, railMat, 0.04, 1.92, 0.04, -0.72, 0.96, -0.78);
       addMesh(grp, g.box1, railMat, 0.32, 0.04, 0.04, -0.60, 1.90, -0.78);
-      addMesh(grp, g.cushion, dripFluidMat, 0.14, 0.24, 0.08, -0.48, 1.72, -0.78);
+      addMesh(grp, g.cushion, _dripFluidMat, 0.14, 0.24, 0.08, -0.48, 1.72, -0.78);
 
       // Heart Monitor Screen on Stand (+X side)
       addMesh(grp, g.cyl1, railMat, 0.06, 1.45, 0.06, 0.74, 0.72, -0.82);
       addMesh(grp, g.box1, palette.iron, 0.42, 0.32, 0.12, 0.74, 1.42, -0.82);
-      addMesh(grp, g.box1, keepMat(new THREE.MeshBasicMaterial({ color: 0x38e290 })), 0.34, 0.24, 0.04, 0.74, 1.42, -0.75);
+      addMesh(grp, g.box1, getBasicMat(0x38e290), 0.34, 0.24, 0.04, 0.74, 1.42, -0.75);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2280,12 +2632,13 @@
     /**
      * Hospital Medical Curtain Divider Rail & Aqua Drape Panels.
      */
+    let _drapeMat = null;
     function buildMedicalCurtain(lenZ) {
       const grp = new THREE.Group();
       const czLen = lenZ || 2.3;
-      const drapeMat = keepMat(new THREE.MeshPhysicalMaterial({ color: 0x9cd8dc, roughness: 0.62, transparent: true, opacity: 0.76 }));
+      if (!_drapeMat) _drapeMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x9cd8dc, roughness: 0.62, transparent: true, opacity: 0.76 }));
       addMesh(grp, g.cyl1, palette.silver, 0.04, czLen, 0.04, 0, 2.52, 0, Math.PI * 0.5, 0, 0);
-      addMesh(grp, g.cushion, drapeMat, 0.05, 2.05, czLen * 0.86, 0, 1.48, 0.05);
+      addMesh(grp, g.cushion, _drapeMat, 0.05, 2.05, czLen * 0.86, 0, 1.48, 0.05);
       return grp;
     }
 
@@ -2294,7 +2647,7 @@
      */
     function buildCashierCounter(interactId, accentHex, labelText) {
       const grp = new THREE.Group();
-      const accent = keepMat(new THREE.MeshStandardMaterial({ color: new THREE.Color(accentHex || '#8d2f23'), roughness: 0.45 }));
+      const accent = getStdMat(accentHex || '#8d2f23', 0.45);
       addMesh(grp, g.cushion, palette.oak, 2.2, 0.92, 0.78, 0, 0.46, 0);
       addMesh(grp, g.cushion, palette.creamMarble, 2.32, 0.08, 0.88, 0, 0.95, 0);
       addMesh(grp, g.box1, accent, 1.9, 0.55, 0.05, 0, 0.48, 0.41);
@@ -2302,12 +2655,13 @@
       addMesh(grp, g.box1, palette.iron, 0.54, 0.12, 0.42, -0.35, 1.05, 0);
       addMesh(grp, g.cyl1, palette.silver, 0.05, 0.24, 0.05, -0.35, 1.2, -0.08);
       addMesh(grp, g.box1, palette.iron, 0.44, 0.30, 0.05, -0.35, 1.38, -0.06, -0.18, 0, 0);
-      addMesh(grp, g.box1, keepMat(new THREE.MeshBasicMaterial({ color: 0x52e596 })), 0.36, 0.22, 0.02, -0.35, 1.38, -0.03, -0.18, 0, 0);
+      addMesh(grp, g.box1, getBasicMat(0x52e596), 0.36, 0.22, 0.02, -0.35, 1.38, -0.03, -0.18, 0, 0);
       addMesh(grp, g.box1, palette.iron, 0.16, 0.06, 0.24, 0.25, 1.03, 0.16, 0.22, 0, 0);
       addMesh(grp, g.sphere1, palette.gold, 0.11, 0.08, 0.11, 0.65, 1.03, 0.16);
       if (labelText) {
         addMesh(grp, g.cushion, palette.gold, 0.85, 0.32, 0.08, 0.45, 1.15, -0.22);
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2317,8 +2671,8 @@
      */
     function buildPizzaDisplayCase(interactId) {
       const grp = new THREE.Group();
-      const crustMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xd9a157, roughness: 0.68 }));
-      const cheeseMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xf6cf62, roughness: 0.48 }));
+      const crustMat = getStdMat(0xd9a157, 0.68);
+      const cheeseMat = getStdMat(0xf6cf62, 0.48);
       const pepMat = palette.fabricColors.crimson;
       addMesh(grp, g.cushion, palette.oak, 2.2, 0.90, 0.82, 0, 0.45, 0);
       addMesh(grp, g.box1, palette.crystal, 2.08, 0.56, 0.72, 0, 1.18, 0);
@@ -2340,6 +2694,7 @@
         addMesh(grp, g.box1, palette.ivory, 0.48, 0.055, 0.48, 0.75, 0.95 + b * 0.06, 0.02);
         addMesh(grp, g.box1, pepMat, 0.485, 0.015, 0.12, 0.75, 0.95 + b * 0.06, 0.02);
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2350,7 +2705,7 @@
     function buildBoothTableSet(interactId) {
       const grp = new THREE.Group();
       const boothMat = palette.fabricColors.crimson;
-      const cheeseMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xf4cc5b, roughness: 0.45 }));
+      const cheeseMat = getStdMat(0xf4cc5b, 0.45);
       // Table in center
       addMesh(grp, g.cushion, palette.oak, 1.38, 0.08, 0.96, 0, 0.76, 0);
       addMesh(grp, g.leg, palette.iron, 1.6, 0.72, 1.6, 0, 0, 0);
@@ -2369,6 +2724,7 @@
         addMesh(grp, g.cushion, boothMat, 0.54, 0.18, 1.22, bx, 0.36, 0);
         addMesh(grp, g.cushion, boothMat, 0.16, 0.66, 1.24, bx + sign * 0.22, 0.72, 0);
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2378,7 +2734,7 @@
      */
     function buildBeverageCooler() {
       const grp = new THREE.Group();
-      const bodyMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x242830, roughness: 0.38, metalness: 0.32 }));
+      const bodyMat = getStdMat(0x242830, 0.38, 0.32);
       addMesh(grp, g.cushion, bodyMat, 1.05, 2.15, 0.74, 0, 1.075, 0);
       addMesh(grp, g.box1, palette.crystal, 0.86, 1.64, 0.05, 0, 1.15, 0.36);
       [0.65, 1.05, 1.45].forEach(function (sy, si) {
@@ -2388,7 +2744,8 @@
           addMesh(grp, g.cyl1, bCol, 0.11, 0.26, 0.11, bx, sy + 0.15, 0.12);
         });
       });
-      addMesh(grp, g.box1, keepMat(new THREE.MeshBasicMaterial({ color: 0xfff0c4 })), 0.86, 0.22, 0.05, 0, 2.02, 0.36);
+      addMesh(grp, g.box1, getBasicMat(0xfff0c4), 0.86, 0.22, 0.05, 0, 2.02, 0.36);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2400,8 +2757,9 @@
       addMesh(grp, g.cushion, palette.ivory, 2.2, 0.92, 0.82, 0, 0.46, 0);
       addMesh(grp, g.box1, palette.fabricColors.sapphire, 2.24, 0.06, 0.86, 0, 0.93, 0);
       addMesh(grp, g.box1, palette.iron, 0.68, 0.44, 0.08, -0.45, 1.24, -0.15);
-      addMesh(grp, g.box1, keepMat(new THREE.MeshBasicMaterial({ color: 0x6ce3ff })), 0.6, 0.36, 0.04, -0.45, 1.24, -0.1);
+      addMesh(grp, g.box1, getBasicMat(0x6ce3ff), 0.6, 0.36, 0.04, -0.45, 1.24, -0.1);
       addMesh(grp, g.cyl1, palette.silver, 0.22, 0.36, 0.22, 0.55, 1.12, 0.08);
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2419,6 +2777,7 @@
           addMesh(grp, g.cyl1, bCol, 0.14, 0.26, 0.14, b, sy + 0.16, 0.06);
         }
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2428,18 +2787,23 @@
      */
     function buildSilo() {
       const grp = new THREE.Group();
-      const tinMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xc2c8cf, roughness: 0.42, metalness: 0.55 }));
-      addMesh(grp, g.cyl1, palette.fabricColors.crimson, 3.2, 6.2, 3.2, 0, 3.1, 0);
+      const tinMat = getStdMat(0xc2c8cf, 0.42, 0.55);
+      const tank = addMesh(grp, g.cyl1, palette.fabricColors.crimson, 3.2, 6.2, 3.2, 0, 3.1, 0);
+      tank.castShadow = true;
       addMesh(grp, g.sphere1, tinMat, 3.3, 2.4, 3.3, 0, 6.2, 0);
       addMesh(grp, g.box1, palette.ivory, 0.45, 5.8, 0.2, 1.55, 3.0, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
     function buildWindmill() {
       const grp = new THREE.Group();
-      addMesh(grp, g.cyl1, palette.ivory, 2.0, 6.4, 2.0, 0, 3.2, 0);
-      addMesh(grp, g.cone1, keepMat(new THREE.MeshStandardMaterial({ color: 0xa64135, roughness: 0.72 })), 2.5, 1.8, 2.5, 0, 7.2, 0);
+      const body = addMesh(grp, g.cyl1, palette.ivory, 2.0, 6.4, 2.0, 0, 3.2, 0);
+      body.castShadow = true;
+      const cap = addMesh(grp, g.cone1, getStdMat(0xa64135, 0.72), 2.5, 1.8, 2.5, 0, 7.2, 0);
+      cap.castShadow = true;
       const rotor = new THREE.Group();
+      rotor.userData.noMerge = true;
       rotor.position.set(0, 6.0, 1.15);
       for (let i = 0; i < 4; i++) {
         const blade = new THREE.Group();
@@ -2448,6 +2812,7 @@
         addMesh(blade, g.box1, palette.creamSilk, 0.65, 2.1, 0.04, 0.28, 1.55, 0.02);
         rotor.add(blade);
       }
+      mergeStaticGroup(rotor);
       grp.add(rotor);
       grp.userData.rotor = rotor;
       return grp;
@@ -2458,11 +2823,11 @@
      */
     function buildCropBed(kind, interactId) {
       const grp = new THREE.Group();
-      const soilMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x5c422c, roughness: 0.94 }));
-      const wheatMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xe3bd56, roughness: 0.78 }));
-      const leafMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x4b7f3f, roughness: 0.8 }));
-      const pumpMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xe27724, roughness: 0.68 }));
-      const berryMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xd93855, roughness: 0.52 }));
+      const soilMat = getStdMat(0x5c422c, 0.94);
+      const wheatMat = getStdMat(0xe3bd56, 0.78);
+      const leafMat = getStdMat(0x4b7f3f, 0.8);
+      const pumpMat = getStdMat(0xe27724, 0.68);
+      const berryMat = getStdMat(0xd93855, 0.52);
       addMesh(grp, g.box1, palette.oak, 4.4, 0.28, 2.4, 0, 0.14, 0);
       addMesh(grp, g.box1, soilMat, 4.1, 0.24, 2.1, 0, 0.18, 0);
       for (let x = -1.6; x <= 1.6; x += 0.8) {
@@ -2478,6 +2843,7 @@
           }
         }
       }
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2487,8 +2853,9 @@
      */
     function buildTractor(interactId) {
       const grp = new THREE.Group();
-      const bodyMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x3b723f, roughness: 0.45, metalness: 0.28 }));
-      addMesh(grp, g.cushion, bodyMat, 1.35, 0.72, 2.2, 0, 0.86, 0);
+      const bodyMat = getStdMat(0x3b723f, 0.45, 0.28);
+      const tBody = addMesh(grp, g.cushion, bodyMat, 1.35, 0.72, 2.2, 0, 0.86, 0);
+      tBody.castShadow = true;
       addMesh(grp, g.cushion, bodyMat, 1.25, 0.95, 1.05, 0, 1.62, -0.45);
       addMesh(grp, g.box1, palette.crystal, 1.15, 0.6, 0.95, 0, 1.65, -0.45);
       addMesh(grp, g.cyl1, palette.iron, 0.14, 0.65, 0.14, 0.38, 1.48, 0.72);
@@ -2498,6 +2865,7 @@
         addMesh(grp, g.cyl1, palette.gold, 0.56, 0.35, 0.56, wx, 0.58, -0.62, 0, 0, Math.PI * 0.5);
         addMesh(grp, g.cyl1, palette.iron, 0.74, 0.24, 0.74, wx, 0.37, 0.78, 0, 0, Math.PI * 0.5);
       });
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2508,6 +2876,7 @@
     function buildFarmAnimal(kind, interactId) {
       const grp = new THREE.Group();
       const headPivot = new THREE.Group();
+      headPivot.userData.noMerge = true;
       const legs = [];
       if (kind === 'cow') {
         const coat = palette.ivory;
@@ -2523,9 +2892,11 @@
         });
         [[-0.16, 0.32], [0.16, 0.32], [-0.16, -0.34], [0.16, -0.34]].forEach(function (pt) {
           const lp = new THREE.Group();
+          lp.userData.noMerge = true;
           lp.position.set(pt[0], 0.62, pt[1]);
           addMesh(lp, g.cyl1, coat, 0.12, 0.56, 0.12, 0, -0.28, 0);
           addMesh(lp, g.cyl1, spot, 0.13, 0.08, 0.13, 0, -0.58, 0);
+          mergeStaticGroup(lp);
           grp.add(lp);
           legs.push(lp);
         });
@@ -2537,21 +2908,24 @@
         addMesh(headPivot, g.sphere1, face, 0.24, 0.24, 0.28, 0, 0, 0.1);
         [[-0.12, 0.18], [0.12, 0.18], [-0.12, -0.2], [0.12, -0.2]].forEach(function (pt) {
           const lp = new THREE.Group();
+          lp.userData.noMerge = true;
           lp.position.set(pt[0], 0.36, pt[1]);
           addMesh(lp, g.cyl1, face, 0.08, 0.32, 0.08, 0, -0.16, 0);
           grp.add(lp);
           legs.push(lp);
         });
       } else {
-        const feather = keepMat(new THREE.MeshStandardMaterial({ color: 0xf7e7cf, roughness: 0.75 }));
+        const feather = getStdMat(0xf7e7cf, 0.75);
         addMesh(grp, g.sphere1, feather, 0.26, 0.24, 0.32, 0, 0.28, 0);
         headPivot.position.set(0, 0.4, 0.14);
         addMesh(headPivot, g.sphere1, feather, 0.14, 0.14, 0.14, 0, 0.06, 0.04);
         addMesh(headPivot, g.cone1, palette.gold, 0.06, 0.1, 0.06, 0, 0.04, 0.13, Math.PI * 0.5, 0, 0);
         addMesh(headPivot, g.box1, palette.fabricColors.crimson, 0.04, 0.08, 0.1, 0, 0.15, 0.04);
       }
+      mergeStaticGroup(headPivot);
       grp.add(headPivot);
       grp.userData.rig = { headPivot: headPivot, legs: legs };
+      mergeStaticGroup(grp);
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -2564,6 +2938,7 @@
       addMesh(grp, g.box1, shaftMat, 0.78, 0.28, 0.78, 0, 0.14, 0);
       addMesh(grp, g.cyl1, shaftMat, 0.56, h - 0.52, 0.56, 0, h * 0.5, 0);
       addMesh(grp, g.box1, palette.gold, 0.82, 0.28, 0.82, 0, h - 0.14, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2575,6 +2950,7 @@
       addMesh(grp, g.box1, palette.gold, sw + 0.35, sh + 0.35, 0.3, 0, sh * 0.5 + 0.45, 0.02);
       const scr = addMesh(grp, g.box1, palette.cinemaScreen, sw, sh, 0.32, 0, sh * 0.5 + 0.45, 0.04);
       scr.castShadow = false;
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2586,6 +2962,7 @@
       addMesh(grp, g.cyl1, palette.porcelain, 0.34, h * 0.55, 0.32, 0, 0.88 + h * 0.27, 0);
       addMesh(grp, g.capsule1, palette.porcelain, 0.28, 0.28, 0.22, 0, 0.88 + h * 0.56, 0);
       addMesh(grp, g.sphere1, palette.porcelain, 0.22, 0.26, 0.22, 0, 0.88 + h * 0.78, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2604,6 +2981,7 @@
         addMesh(grp, g.cushion, palette.gold, 1.16, 0.46, 0.12, item.x, 2.72, 0.09);
         addMesh(grp, g.box1, item.signMat, 1.04, 0.38, 0.14, item.x, 2.72, 0.10);
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2626,6 +3004,7 @@
         addMesh(panel, g.box1, palette.crystal, 0.56, 1.98, 0.06, 0, 0, 0);
         grp.add(panel);
       });
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2636,6 +3015,7 @@
       addMesh(grp, g.box1, palette.ivory, 0.28, ph, 0.26, -pw * 0.5, ph * 0.5, 0);
       addMesh(grp, g.box1, palette.ivory, 0.28, ph, 0.26, pw * 0.5, ph * 0.5, 0);
       addMesh(grp, g.box1, palette.ivory, pw + 0.3, 0.48, 0.28, 0, ph - 0.24, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2647,6 +3027,7 @@
       addMesh(grp, g.vaseUrn, palette.fabricColors[toneName || 'rose'] || palette.porcelain, 0.85, 0.9, 0.85, 0, 0.69, 0);
       addMesh(grp, g.lampShade, palette.creamSilk, 1.35, 1.3, 1.35, 0, 1.14, 0);
       addMesh(grp, g.sphere1, palette.warmBulb, 0.13, 0.13, 0.13, 0, 1.12, 0);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2660,6 +3041,7 @@
       addMesh(grp, g.cyl1, palette.creamMarble, 0.86, 0.06, 0.86, 0, 0.46, 0.28);
       addMesh(grp, g.leg, palette.gold, 1.15, 0.42, 1.15, 0, 0.02, 0.28);
       addMesh(grp, g.vaseUrn, palette.crystal, 0.55, 0.55, 0.55, 0, 0.49, 0.28);
+      mergeStaticGroup(grp);
       return grp;
     }
 
@@ -2674,6 +3056,9 @@
       g: g,
       addMesh: addMesh,
       keepMat: keepMat,
+      getStdMat: getStdMat,
+      getBasicMat: getBasicMat,
+      mergeStaticGroup: mergeStaticGroup,
       buildBed: buildBed,
       buildToilet: buildToilet,
       buildVanitySink: buildVanitySink,
@@ -2745,6 +3130,7 @@
       buildSlateArchPortal: buildSlateArchPortal,
       buildSideTableLamp: buildSideTableLamp,
       buildBedWindowLounge: buildBedWindowLounge,
+      buildHingedDoors: buildHingedDoors,
       getHollowDuvet: getHollowDuvet,
       dispose: dispose,
     };

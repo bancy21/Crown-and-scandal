@@ -344,7 +344,7 @@
       kit.addMesh(spaGrp, kit.g.box1, kit.palette.warmCoveGlow, 4.66, 0.03, 0.05, 0, 0.52, -1.68);
       kit.addMesh(spaGrp, kit.g.box1, kit.palette.warmCoveGlow, 4.66, 0.03, 0.05, 0, 0.52, 1.68);
     }
-    const spaWaterMat = kit.keepMat(new THREE.MeshPhysicalMaterial({ color: 0x5cd8ea, roughness: 0.08, transparent: true, opacity: 0.62, clearcoat: 0.9 }));
+    const spaWaterMat = kit.keepMat(new THREE.MeshStandardMaterial({ color: 0x5cd8ea, roughness: 0.1, metalness: 0.12, transparent: true, opacity: 0.62 }));
     kit.addMesh(spaGrp, kit.g.box1, spaWaterMat, 4.6, 0.08, 3.4, 0, 0.55, 0);
     f5G.add(spaGrp);
     tagInteractable(spaGrp, 'spa_pool_5f');
@@ -609,6 +609,16 @@
     placeVanitySink(f7G, f7C, { id: 'sink_11', title: '7F Sky Penthouse Marble Vanity', floor: 7, style: 'baroque', x: -28.6, y: y7 + 0.02, z: -32.8, yaw: Math.PI * 0.5 });
     if (typeof placeTub === 'function') {
       placeTub(f7G, f7C, { id: 'tub_7f', title: '7F Penthouse Gold Soaking Tub', floor: 7, style: 'baroque', x: -28.4, y: y7 + 0.02, z: -29.0, yaw: Math.PI * 0.5 });
+    }
+
+    if (kit && typeof kit.mergeStaticGroup === 'function') {
+      const nonInteractFilter = function (m) {
+        return !(m.userData && (m.userData.interactId || m.userData.noMerge));
+      };
+      [4, 5, 6, 7].forEach(function (f) {
+        kit.mergeStaticGroup(floorGroups[f], { filter: nonInteractFilter });
+        kit.mergeStaticGroup(frontCutaways[f], { filter: nonInteractFilter });
+      });
     }
 
     // Ground height helper strictly for stairs 3->4, 4->5, 5->6, 6->7 + floors 4..7

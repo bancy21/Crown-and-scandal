@@ -50,6 +50,9 @@
     const animatedFlames = [];
     const poolFloatRings = [];
     const windmillRotors = [];
+    const townDoors = [];
+    const dynamicNodes = [];
+    let lastTownElapsed = 0;
 
     const asphaltMat = kit.keepMat(new THREE.MeshStandardMaterial({ color: 0x3b404b, roughness: 0.86 }));
     const sidewalkMat = kit.keepMat(new THREE.MeshStandardMaterial({ color: 0xded6c8, roughness: 0.68 }));
@@ -71,6 +74,8 @@
     // -----------------------------------------------------------
     // 1. EXPANDED SIMS-4 ASPHALT STREET GRID (North + South Green Land)
     // -----------------------------------------------------------
+    const dashSpecs = [];
+
     function addStreetStrip(x, z, w, d, isHorizontal) {
       const road = new THREE.Mesh(new THREE.PlaneGeometry(w, d), asphaltMat);
       road.rotation.x = -Math.PI / 2;
@@ -86,10 +91,7 @@
           townGroup.add(sw);
         });
         for (let sx = x - w * 0.5 + 3; sx <= x + w * 0.5 - 3; sx += 5.5) {
-          const dash = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.14), roadLineMat);
-          dash.rotation.x = -Math.PI / 2;
-          dash.position.set(sx, 0.034, z);
-          townGroup.add(dash);
+          dashSpecs.push([sx, z, 2.4, 0.14]);
         }
       } else {
         [-w * 0.5 - 0.55, w * 0.5 + 0.55].forEach(function (dx) {
@@ -99,10 +101,7 @@
           townGroup.add(sw);
         });
         for (let sz = z - d * 0.5 + 3; sz <= z + d * 0.5 - 3; sz += 5.5) {
-          const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 2.4), roadLineMat);
-          dash.rotation.x = -Math.PI / 2;
-          dash.position.set(x, 0.034, sz);
-          townGroup.add(dash);
+          dashSpecs.push([x, sz, 0.14, 2.4]);
         }
       }
     }
@@ -134,12 +133,24 @@
       [79.6, 48.0], [106.5, 48.0], [-81.0, 48.0], [-111.0, 48.0],
     ].forEach(function (cw) {
       for (let bar = -1.4; bar <= 1.4; bar += 0.7) {
-        const zStripe = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 3.2), roadLineMat);
-        zStripe.rotation.x = -Math.PI / 2;
-        zStripe.position.set(cw[0] + bar, 0.035, cw[1]);
-        townGroup.add(zStripe);
+        dashSpecs.push([cw[0] + bar, cw[1], 0.36, 3.2]);
       }
     });
+
+    if (dashSpecs.length) {
+      const dashDummy = new THREE.Object3D();
+      const dashInst = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), roadLineMat, dashSpecs.length);
+      for (let di = 0; di < dashSpecs.length; di++) {
+        const sp = dashSpecs[di];
+        dashDummy.position.set(sp[0], 0.035, sp[1]);
+        dashDummy.rotation.set(-Math.PI / 2, 0, 0);
+        dashDummy.scale.set(sp[2], sp[3], 1);
+        dashDummy.updateMatrix();
+        dashInst.setMatrixAt(di, dashDummy.matrix);
+      }
+      dashInst.computeBoundingSphere();
+      townGroup.add(dashInst);
+    }
 
     function recordDispatchGossip(ctxAct, headline, cloutDelta, scandalDelta) {
       const g = ctxAct.game || window.CrownGame;
@@ -176,6 +187,14 @@
             vehicleId: cfg.id,
             label: 'Get In & Drive ' + cfg.title,
             hint: 'Drive across avenues, suburbs, farm, hospital & beachfront!',
+            instant: true,
+          },
+          {
+            id: cfg.id + '_doors',
+            type: 'toggle_car_doors',
+            vehicleId: cfg.id,
+            label: 'Open / Close Car Doors',
+            hint: 'Swing driver & passenger doors open or shut',
             instant: true,
           },
           {
@@ -239,6 +258,52 @@
       addWallX(townGroup, sharedColliders, 0, wallH, cz + d * 0.5, cx - w * 0.5, cx + w * 0.5, doorFace.indexOf('S') !== -1 ? cx : null, doorW, 0.28, wallMat);
       addWallZ(townGroup, sharedColliders, 0, wallH, cx - w * 0.5, cz - d * 0.5, cz + d * 0.5, doorFace.indexOf('W') !== -1 ? cz : null, doorW, 0.28, wallMat);
       addWallZ(townGroup, sharedColliders, 0, wallH, cx + w * 0.5, cz - d * 0.5, cz + d * 0.5, doorFace.indexOf('E') !== -1 ? cz : null, doorW, 0.28, wallMat);
+
+      // Articulated Swinging Entrance Doors on every town building doorway (open automatically on foot OR when driving up!)
+      if (!cfg.noDoors && typeof kit.buildHingedDoors === 'function') {
+        const doorLeafCol = cfg.doorColor || (wallMat === clubDarkMat ? 0x2b1d36 : 0xfaf2e4);
+        const doorFrame = wallMat === brickMat || wallMat === clubDarkMat ? ivoryMat : wallMat;
+        for (let fi = 0; fi < doorFace.length; fi++) {
+          const df = doorFace[fi];
+          let dpx = cx;
+          let dpz = cz;
+          let dRot = 0;
+          if (df === 'S') { dpz = cz + d * 0.5; dRot = 0; }
+          else if (df === 'N') { dpz = cz - d * 0.5; dRot = Math.PI; }
+          else if (df === 'E') { dpx = cx + w * 0.5; dRot = Math.PI * 0.5; }
+          else if (df === 'W') { dpx = cx - w * 0.5; dRot = -Math.PI * 0.5; }
+          else continue;
+          const doorsObj = kit.buildHingedDoors({
+            width: Math.max(1.8, doorW - 0.08),
+            height: Math.min(wallH - 0.35, 2.65),
+            count: doorW >= 1.9 ? 2 : 1,
+            frameMat: doorFrame,
+            leafColor: doorLeafCol,
+            handleMat: goldMat,
+            filigree: doorW >= 2.2,
+          });
+          doorsObj.group.position.set(dpx, baseFloorY, dpz);
+          doorsObj.group.rotation.y = dRot;
+          townGroup.add(doorsObj.group);
+          const doorId = 'door_' + cfg.id + '_' + df;
+          tagInteractable(doorsObj.leftPivot, doorId);
+          if (doorsObj.rightPivot) tagInteractable(doorsObj.rightPivot, doorId);
+          doorsObj.group.userData.noMerge = true;
+          doorsObj.group.userData.noFreeze = true;
+          dynamicNodes.push(doorsObj.group);
+          townDoors.push({
+            id: doorId,
+            title: cfg.title + ' Doors',
+            x: dpx,
+            y: baseFloorY,
+            z: dpz,
+            radius: 4.0,
+            doors: doorsObj,
+            openRatio: 0,
+            manualOpen: false,
+          });
+        }
+      }
 
       if (cfg.windows !== false) {
         const shutMat = cfg.shutterMat || kit.palette.fabricColors.sapphire;
@@ -1240,6 +1305,8 @@
         recordDispatchGossip: recordDispatchGossip,
         townDirectory: townDirectory,
         townZones: townZones,
+        townDoors: townDoors,
+        dynamicNodes: dynamicNodes,
         spots: ctx.spots,
       });
     }
@@ -1567,105 +1634,38 @@
     });
 
     // -----------------------------------------------------------
-    // 7. BAKERY, SUPERMARKET & PIZZA PLACE (Sims-4 Detailed Interiors, Cashiers & Partitioned Washrooms!)
+    // 7. WALLFLOUR & MAISON BRIOCHE 2-STORY PATISSERIE + BUMBLEBEE GLASSHOUSE (Delegated to bakery.js)
     // -----------------------------------------------------------
-    const bakery = addEnterableLot({
-      id: 'plot_bakery',
-      title: 'Maison Brioche Bakery',
-      signTitle: 'Bakery Maison Brioche',
-      signColor: '#7b3e4c',
-      subtitle: 'Croissants, macarons, cashier counter, café seating & washroom',
-      dirCategory: 'town',
-      x: -81.0, z: 40.0, w: 12.2, d: 8.6,
-      dormer: true, doorFace: 'S',
-      floorMat: kit.palette.checkeredTile || marbleMat, wallMat: pastelPinkWall, roofMat: terracottaMat,
-      shutterMat: kit.palette.fabricColors.rose,
-    });
-    const bCounter = kit.buildCashierCounter('bakery_counter', '#7b3e4c', 'PATISSERIE POS');
-    bCounter.position.set(bakery.cx - 2.1, bakery.y, bakery.cz - 2.6);
-    townGroup.add(bCounter);
-    tagInteractable(bCounter, 'bakery_counter');
-    addBox(sharedColliders, bakery.cx - 2.1, bakery.cz - 2.6, 2.5, 0.9);
-    const bOven = kit.buildKitchenCounter('bakery_kitchen', false);
-    bOven.position.set(bakery.cx - 4.2, bakery.y, bakery.cz - 3.5);
-    townGroup.add(bOven);
-    addBox(sharedColliders, bakery.cx - 4.2, bakery.cz - 3.5, 3.0, 0.9);
-    registerSpot({
-      id: 'bakery_counter',
-      title: 'Maison Brioche Pastry Counter',
-      floor: 0,
-      category: 'town',
-      x: bakery.cx - 2.1, y: bakery.y, z: bakery.cz - 2.6,
-      radius: 3.4,
-      actions: [
-        {
-          id: 'buy_croissant', label: 'Buy Fresh Croissant & Rose Latte (₡18)', hint: '+35 Food, +14 Fun', instant: true,
-          onInstant: function (actCtx) {
-            if ((actCtx.game.money || 0) < 18) return actCtx.toast('Need ₡18 Crowns.');
-            actCtx.game.money -= 18;
-            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ hunger: 35, fun: 14 });
-            actCtx.toast('Enjoying warm butter croissants & rose latte! (+35 Food)');
-          },
-        },
-        {
-          id: 'bakery_table_eat', label: 'Sit at Patisserie Table & Eat Cake', hint: '+18 Food/s & +9 Fun/s', pose: 'eat',
-          anchor: { x: bakery.cx + 1.5, y: bakery.y, z: bakery.cz + 1.2, yaw: Math.PI * 0.5, rigOffsetY: -0.45, floorY: bakery.y, exitX: bakery.cx + 0.4, exitZ: bakery.cz + 1.2, exitYaw: 0 },
-          rates: { hunger: 18, fun: 9 }, statusText: 'Savoring pastel macarons at Maison Brioche...',
-        },
-      ],
-    });
-    const bVitrine = kit.buildBakeryShowcase('bakery_showcase');
-    bVitrine.position.set(bakery.cx + 1.6, bakery.y, bakery.cz - 2.3);
-    townGroup.add(bVitrine);
-    tagInteractable(bVitrine, 'bakery_showcase');
-    addBox(sharedColliders, bakery.cx + 1.6, bakery.cz - 2.3, 2.8, 0.9);
-    registerSpot({
-      id: 'bakery_showcase',
-      title: 'Glass Pastry & Macaron Vitrine',
-      floor: 0,
-      category: 'town',
-      x: bakery.cx + 1.6, y: bakery.y, z: bakery.cz - 2.3,
-      radius: 3.2,
-      actions: [{
-        id: 'buy_macaron_box', label: 'Buy Royal Ribbon Macaron Gift Box (₡32)', hint: '+42 Food, +18 Fun & +2 Clout', instant: true,
-        onInstant: function (actCtx) {
-          if ((actCtx.game.money || 0) < 32) return actCtx.toast('Need ₡32 Crowns.');
-          actCtx.game.money -= 32;
-          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ hunger: 42, fun: 18 });
-          recordDispatchGossip(actCtx, 'Royal Princess spotted leaving Maison Brioche with pastel ribboned macarons!', 2, 0);
-          actCtx.toast('Delicious rose & pistachio macarons! (+42 Food, +2 Clout)');
-        },
-      }],
-    });
-    const bTable = kit.buildBoothTableSet('bakery_table');
-    bTable.position.set(bakery.cx + 2.4, bakery.y, bakery.cz + 1.2);
-    townGroup.add(bTable);
-    tagInteractable(bTable, 'bakery_table');
-    addBox(sharedColliders, bakery.cx + 2.4, bakery.cz + 1.2, 1.5, 1.0);
-    const bTable2 = kit.buildBoothTableSet('bakery_table');
-    bTable2.position.set(bakery.cx + 4.4, bakery.y, bakery.cz - 1.2);
-    townGroup.add(bTable2);
-    tagInteractable(bTable2, 'bakery_table');
-    addBox(sharedColliders, bakery.cx + 4.4, bakery.cz - 1.2, 1.5, 1.0);
-    registerSpot({
-      id: 'bakery_table',
-      title: 'Maison Brioche Café Booths',
-      floor: 0,
-      category: 'town',
-      x: bakery.cx + 2.4, y: bakery.y, z: bakery.cz + 1.2,
-      radius: 3.4,
-      actions: [
-        {
-          id: 'bakery_booth_eat', label: 'Sit in Patisserie Booth & Eat Cake', hint: '+18 Food/s & +9 Fun/s', pose: 'eat',
-          anchor: { x: bakery.cx + 1.45, y: bakery.y, z: bakery.cz + 1.2, yaw: Math.PI * 0.5, rigOffsetY: -0.45, floorY: bakery.y, exitX: bakery.cx + 0.5, exitZ: bakery.cz + 1.2, exitYaw: 0 },
-          rates: { hunger: 18, fun: 9 }, statusText: 'Sipping café crème & eating mille-feuille at Maison Brioche...',
-        },
-      ],
-    });
-    addWallZ(townGroup, sharedColliders, 0, 3.3, bakery.cx - 2.8, bakery.cz + 1.2, bakery.cz + 4.2, bakery.cz + 2.7, 1.2, 0.2, pastelPinkWall);
-    addWallX(townGroup, sharedColliders, 0, 3.3, bakery.cz + 1.2, bakery.cx - 6.0, bakery.cx - 2.8, null, 0, 0.2, pastelPinkWall);
-    placeToilet(townGroup, sharedColliders, { id: 'bakery_toilet', title: 'Bakery Washroom Toilet', floor: 0, rustic: true, x: bakery.cx - 5.1, y: bakery.y, z: bakery.cz + 3.2, yaw: Math.PI * 0.5 });
-    placeVanitySink(townGroup, sharedColliders, { id: 'bakery_sink', title: 'Bakery Washroom Sink', floor: 0, rustic: true, x: bakery.cx - 4.1, y: bakery.y, z: bakery.cz + 1.9, yaw: 0 });
+    let bakeryMod = null;
+    if (window.CrownBakery && typeof window.CrownBakery.build === 'function') {
+      bakeryMod = window.CrownBakery.build({
+        THREE: THREE,
+        kit: kit,
+        townGroup: townGroup,
+        sharedColliders: sharedColliders,
+        ivoryMat: ivoryMat,
+        parquetMat: parquetMat,
+        sidewalkMat: sidewalkMat,
+        goldMat: goldMat,
+        glassMat: glassMat,
+        terracottaMat: terracottaMat,
+        addBox: addBox,
+        addCircle: addCircle,
+        addWallX: addWallX,
+        addWallZ: addWallZ,
+        placeToilet: placeToilet,
+        placeVanitySink: placeVanitySink,
+        tagInteractable: tagInteractable,
+        registerSpot: registerSpot,
+        recordDispatchGossip: recordDispatchGossip,
+        cutaways: cutaways,
+        walkableFloors: walkableFloors,
+        townDirectory: townDirectory,
+        townZones: townZones,
+        townDoors: townDoors,
+        dynamicNodes: dynamicNodes,
+      });
+    }
 
     // SUPERMARKET (x = -111.0, z = 40.0)
     const market = addEnterableLot({
@@ -1972,6 +1972,7 @@
     const danceFloor = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 4.2), danceFloorMat);
     danceFloor.rotation.x = -Math.PI / 2;
     danceFloor.position.set(club.cx, club.y + 0.03, club.cz + 0.2);
+    danceFloor.userData.noMerge = true;
     townGroup.add(danceFloor);
     const djBooth = kit.buildKitchenCounter('club_dj', false);
     djBooth.position.set(club.cx, club.y, club.cz - 3.0);
@@ -2298,9 +2299,122 @@
     groveCrowns.computeBoundingSphere();
     townGroup.add(groveTrunks, groveCrowns);
 
+    // Tag animated nodes and spatially batch static town geometry for low draw calls + frustum culling
+    danceFloor.userData.noMerge = true;
+    dynamicNodes.push(danceFloor);
+    for (let i = 0; i < tvScreens.length; i++) {
+      if (tvScreens[i]) {
+        tvScreens[i].userData.noMerge = true;
+        dynamicNodes.push(tvScreens[i]);
+      }
+    }
+    for (let i = 0; i < animatedFlames.length; i++) {
+      const fl = animatedFlames[i];
+      for (let k = 0; k < fl.length; k++) {
+        if (fl[k]) {
+          fl[k].userData.noMerge = true;
+          dynamicNodes.push(fl[k]);
+        }
+      }
+    }
+    for (let i = 0; i < poolFloatRings.length; i++) {
+      if (poolFloatRings[i] && poolFloatRings[i].mesh) {
+        poolFloatRings[i].mesh.userData.noMerge = true;
+        dynamicNodes.push(poolFloatRings[i].mesh);
+      }
+    }
+    for (let i = 0; i < windmillRotors.length; i++) {
+      if (windmillRotors[i]) {
+        windmillRotors[i].userData.noMerge = true;
+        dynamicNodes.push(windmillRotors[i]);
+      }
+    }
+    for (let i = 0; i < vehicles.length; i++) {
+      if (vehicles[i] && vehicles[i].group) {
+        vehicles[i].group.userData.noMerge = true;
+        dynamicNodes.push(vehicles[i].group);
+      }
+    }
+    for (let i = 0; i < horsesList.length; i++) {
+      if (horsesList[i] && horsesList[i].group) {
+        horsesList[i].group.userData.noMerge = true;
+        dynamicNodes.push(horsesList[i].group);
+      }
+    }
+    for (let i = 0; i < farmAnimals.length; i++) {
+      if (farmAnimals[i] && farmAnimals[i].group) {
+        farmAnimals[i].group.userData.noMerge = true;
+        dynamicNodes.push(farmAnimals[i].group);
+      }
+    }
+
+    if (kit && typeof kit.mergeStaticGroup === 'function') {
+      const nonInteractFilter = function (m) {
+        return !(m.userData && (m.userData.interactId || m.userData.noMerge));
+      };
+      const cutawaySet = new Set();
+      for (let i = 0; i < cutaways.length; i++) {
+        const c = cutaways[i];
+        if (c.roofGrp) {
+          cutawaySet.add(c.roofGrp);
+          kit.mergeStaticGroup(c.roofGrp, { filter: nonInteractFilter });
+          c.roofGrp.userData.noMerge = true;
+        }
+        if (c.upperGrp) {
+          cutawaySet.add(c.upperGrp);
+          kit.mergeStaticGroup(c.upperGrp, { filter: nonInteractFilter });
+          c.upperGrp.userData.noMerge = true;
+        }
+      }
+
+      function hasSpecialDescendant(node) {
+        if (!node) return false;
+        const ud = node.userData;
+        if (ud && (ud.interactId || ud.noMerge || ud.rig || ud.rotor)) return true;
+        if (node.isInstancedMesh || node.isLight) return true;
+        const ch = node.children;
+        for (let k = 0; k < ch.length; k++) {
+          if (hasSpecialDescendant(ch[k])) return true;
+        }
+        return false;
+      }
+
+      const spatialZones = [
+        new THREE.Group(), // 0: West Outer (x < -100)
+        new THREE.Group(), // 1: West Inner (-100 <= x < -45)
+        new THREE.Group(), // 2: Center (-45 <= x <= 45)
+        new THREE.Group(), // 3: East Inner (45 < x <= 100)
+        new THREE.Group(), // 4: East Outer (x > 100)
+      ];
+      const _tmpBox = new THREE.Box3();
+      const _tmpCtr = new THREE.Vector3();
+      townGroup.updateMatrixWorld(true);
+      const origChildren = townGroup.children.slice();
+      for (let ci = 0; ci < origChildren.length; ci++) {
+        const ch = origChildren[ci];
+        if (cutawaySet.has(ch) || hasSpecialDescendant(ch)) continue;
+        _tmpBox.setFromObject(ch);
+        if (_tmpBox.isEmpty()) continue;
+        _tmpBox.getCenter(_tmpCtr);
+        const bx = _tmpCtr.x;
+        const zi = bx < -100 ? 0 : bx < -45 ? 1 : bx <= 45 ? 2 : bx <= 100 ? 3 : 4;
+        spatialZones[zi].add(ch);
+      }
+      for (let zi = 0; zi < spatialZones.length; zi++) {
+        if (spatialZones[zi].children.length > 0) {
+          townGroup.add(spatialZones[zi]);
+          kit.mergeStaticGroup(spatialZones[zi], { filter: nonInteractFilter });
+        }
+      }
+    }
+
     function groundHeightAtTown(x, z, yNow) {
       if (yNow >= 3.2 && x >= hotelX - hotelW * 0.5 && x <= hotelX + hotelW * 0.5 && z >= hotelZ - hotelD * 0.5 && z <= hotelZ + hotelD * 0.5) {
         return hotel2Y;
+      }
+      if (bakeryMod && typeof bakeryMod.groundHeightAtBakery === 'function') {
+        const bh = bakeryMod.groundHeightAtBakery(x, z, yNow);
+        if (typeof bh === 'number') return bh;
       }
       for (let p = 0; p < poolZones.length; p++) {
         const pz = poolZones[p];
@@ -2320,7 +2434,7 @@
           playerPos.x >= c.minX && playerPos.x <= c.maxX &&
           playerPos.z >= c.minZ && playerPos.z <= c.maxZ;
         if (c.upperGrp && c.roofGrp) {
-          c.upperGrp.visible = !inside || playerPos.y >= 3.0;
+          c.upperGrp.visible = !inside || playerPos.y >= 2.2;
           c.roofGrp.visible = !inside;
         } else if (c.roofGrp) {
           c.roofGrp.visible = !inside;
@@ -2331,6 +2445,10 @@
     function detectTownZone(pos) {
       if (pos.y >= 3.2 && pos.x >= hotelX - hotelW * 0.5 && pos.x <= hotelX + hotelW * 0.5 && pos.z >= hotelZ - hotelD * 0.5 && pos.z <= hotelZ + hotelD * 0.5) {
         return 'Grand Hôtel Impérial Honeymoon Suite (2F)';
+      }
+      if (bakeryMod && typeof bakeryMod.detectZone === 'function') {
+        const bz = bakeryMod.detectZone(pos);
+        if (bz) return bz;
       }
       for (let i = 0; i < townZones.length; i++) {
         const tz = townZones[i];
@@ -2343,9 +2461,36 @@
       return null;
     }
 
-    function update(elapsedSec, activeTransport) {
-      const hue = (elapsedSec * 0.14) % 1;
-      danceFloorMat.color.setHSL(hue, 0.72, 0.62);
+    function isOnUpperFloor(x, z, yNow) {
+      return Boolean(bakeryMod && typeof bakeryMod.isOnUpperFloor === 'function' && bakeryMod.isOnUpperFloor(x, z, yNow));
+    }
+
+    function toggleDoor(doorId) {
+      for (let i = 0; i < townDoors.length; i++) {
+        const td = townDoors[i];
+        if (td.id === doorId) {
+          td.manualOpen = !td.manualOpen;
+          return td;
+        }
+      }
+      return null;
+    }
+
+    function update(elapsedSec, activeTransport, playerPos) {
+      const dtDoor = Math.min(0.08, Math.max(0.008, elapsedSec - lastTownElapsed || 0.016));
+      lastTownElapsed = elapsedSec;
+      const hasP = Boolean(playerPos);
+      const px = hasP ? playerPos.x : 0;
+      const py = hasP ? playerPos.y : 0;
+      const pz = hasP ? playerPos.z : 0;
+
+      if (!hasP || (px - club.cx) * (px - club.cx) + (pz - club.cz) * (pz - club.cz) < 3600) {
+        const hue = (elapsedSec * 0.14) % 1;
+        danceFloorMat.color.setHSL(hue, 0.72, 0.62);
+      }
+
+      const activeCar = activeTransport && activeTransport.kind === 'car' ? activeTransport.entity : null;
+      const activeSpeed = activeTransport ? Math.abs(activeTransport.speed || 0) : 0;
 
       for (let v = 0; v < vehicles.length; v++) {
         const vh = vehicles[v];
@@ -2353,16 +2498,66 @@
           vh.spot.x = vh.group.position.x;
           vh.spot.z = vh.group.position.z;
         }
+        const cd = vh.group && vh.group.userData && vh.group.userData.carDoors;
+        if (cd) {
+          if (cd.doorBurstTimer > 0) {
+            cd.doorBurstTimer = Math.max(0, cd.doorBurstTimer - dtDoor);
+          }
+          let targetOpen = cd.manualOpen ? 1 : 0;
+          if (!targetOpen && activeCar === vh) {
+            targetOpen = activeSpeed > 0.75 ? 0 : cd.doorBurstTimer > 0 ? 1 : 0;
+          } else if (!targetOpen && hasP) {
+            const dx = vh.group.position.x - px;
+            const dz = vh.group.position.z - pz;
+            if (cd.doorBurstTimer > 0 || dx * dx + dz * dz < 11.5) targetOpen = 1;
+          }
+          if (Math.abs(cd.openRatio - targetOpen) > 0.002) {
+            cd.openRatio += (targetOpen - cd.openRatio) * Math.min(1, dtDoor * 8.5);
+            if (cd.left) cd.left.rotation.y = -cd.openRatio * 1.05;
+            if (cd.right) cd.right.rotation.y = cd.openRatio * 1.05;
+          }
+        }
+      }
+
+      // Swinging Storefront & House Doors (automatically open on foot OR driving up to them!)
+      for (let di = 0; di < townDoors.length; di++) {
+        const td = townDoors[di];
+        if (hasP) {
+          const ddx = td.x - px;
+          const ddz = td.z - pz;
+          const distSq = ddx * ddx + ddz * ddz;
+          if (distSq > 324 && td.openRatio <= 0.002 && !td.manualOpen) continue;
+          const rad = (td.radius || 3.8) + (activeCar ? 2.2 : 0);
+          const nearPlayer = Math.abs(td.y - py) < 2.2 && distSq < rad * rad;
+          const target = td.manualOpen || nearPlayer ? 1 : 0;
+          if (Math.abs(td.openRatio - target) > 0.002) {
+            td.openRatio += (target - td.openRatio) * Math.min(1, dtDoor * 7.5);
+            const ang = td.openRatio * (td.doors.maxAngle || 1.42);
+            if (td.doors.leftPivot) td.doors.leftPivot.rotation.y = ang;
+            if (td.doors.rightPivot) td.doors.rightPivot.rotation.y = -ang;
+          }
+        }
       }
 
       // Spin Greenfields Windmill blades continuously
       for (let w = 0; w < windmillRotors.length; w++) {
-        windmillRotors[w].rotation.z = elapsedSec * 0.85;
+        const wr = windmillRotors[w];
+        if (hasP && wr.parent) {
+          const dx = wr.parent.position.x - px;
+          const dz = wr.parent.position.z - pz;
+          if (dx * dx + dz * dz > 15625) continue;
+        }
+        wr.rotation.z = elapsedSec * 0.85;
       }
 
       // Gently patrol Cows, Sheep & Chickens in Greenfields Farm Pasture
       for (let a = 0; a < farmAnimals.length; a++) {
         const fa = farmAnimals[a];
+        if (hasP) {
+          const dx = fa.group.position.x - px;
+          const dz = fa.group.position.z - pz;
+          if (dx * dx + dz * dz > 4624) continue;
+        }
         const ap = elapsedSec * 0.25 + fa.phase;
         const ax = fa.homeX + Math.sin(ap) * fa.rx;
         const az = fa.homeZ + Math.cos(ap * 0.8) * fa.rz;
@@ -2393,6 +2588,11 @@
       for (let h = 0; h < horsesList.length; h++) {
         const hr = horsesList[h];
         if (hr.id !== mountedHorseId) {
+          if (hasP) {
+            const dx = hr.group.position.x - px;
+            const dz = hr.group.position.z - pz;
+            if (dx * dx + dz * dz > 5476) continue;
+          }
           const cycle = (elapsedSec * hr.patrolSpeed + hr.phase) % 14.0;
           const isGrazing = cycle > 10.6;
           if (!isGrazing) {
@@ -2441,6 +2641,11 @@
       for (let t = 0; t < tvScreens.length; t++) {
         const tv = tvScreens[t];
         if (tv && tv.userData && tv.userData.tvMat) {
+          if (hasP) {
+            const dx = tv.position.x - px;
+            const dz = tv.position.z - pz;
+            if (dx * dx + dz * dz > 3025) continue;
+          }
           const tvHue = ((elapsedSec * 0.08 + t * 0.22) % 1);
           tv.userData.tvMat.color.setHSL(tvHue, 0.52, 0.58 + Math.sin(elapsedSec * 3.2 + t) * 0.08);
         }
@@ -2448,6 +2653,12 @@
 
       for (let f = 0; f < animatedFlames.length; f++) {
         const fl = animatedFlames[f];
+        if (hasP && fl.length > 0 && fl[0].parent) {
+          const p0 = fl[0].parent;
+          const dx = p0.position.x - px;
+          const dz = p0.position.z - pz;
+          if (dx * dx + dz * dz > 3025) continue;
+        }
         for (let k = 0; k < fl.length; k++) {
           fl[k].scale.y = 0.82 + Math.sin(elapsedSec * (9.5 + k * 2.1) + f) * 0.28;
         }
@@ -2456,6 +2667,11 @@
       for (let r = 0; r < poolFloatRings.length; r++) {
         const pr = poolFloatRings[r];
         if (pr.mesh) {
+          if (hasP) {
+            const dx = pr.baseX - px;
+            const dz = pr.baseZ - pz;
+            if (dx * dx + dz * dz > 4225) continue;
+          }
           pr.mesh.position.x = pr.baseX + Math.sin(elapsedSec * 0.45) * 0.35;
           pr.mesh.position.z = pr.baseZ + Math.cos(elapsedSec * 0.35) * 0.3;
           pr.mesh.position.y = 0.29 + Math.sin(elapsedSec * 2.0) * 0.025;
@@ -2467,13 +2683,18 @@
       groundHeightAtTown: groundHeightAtTown,
       updateTownCutaway: updateTownCutaway,
       detectTownZone: detectTownZone,
+      isOnUpperFloor: isOnUpperFloor,
+      toggleDoor: toggleDoor,
       townDirectory: townDirectory,
+      townDoors: townDoors,
       vehicles: vehicles,
       horses: horsesList,
       poolZones: poolZones,
+      dynamicNodes: dynamicNodes,
       update: update,
       dispose: function () {
         if (hospitalMod && typeof hospitalMod.dispose === 'function') hospitalMod.dispose();
+        if (bakeryMod && typeof bakeryMod.dispose === 'function') bakeryMod.dispose();
       },
     };
   }

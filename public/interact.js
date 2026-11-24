@@ -13,7 +13,37 @@
     const catalog = {};
     if (castle && castle.spots) {
       Object.keys(castle.spots).forEach(function (k) {
-        catalog[k] = castle.spots[k];
+        const spot = castle.spots[k];
+        catalog[k] = spot;
+        if (spot && Array.isArray(spot.actions)) {
+          const sleepAct = spot.actions.find(function (a) { return a && a.pose === 'sleep'; });
+          const hasServeBed = spot.actions.some(function (a) { return a && a.id && a.id.indexOf('serve_bed') !== -1; });
+          if (sleepAct && !hasServeBed) {
+            spot.actions.push({
+              id: spot.id + '_serve_bed',
+              label: 'Order Butler/Maid: Serve Meal in Bed',
+              hint: '+55 Food, +35 Energy, +20 Poise · Staff brings silver cloche tray to bedside!',
+              instant: true,
+              onInstant: function (actCtx) {
+                if (window.CrownCommands && typeof window.CrownCommands.serveMealInBed === 'function') {
+                  window.CrownCommands.serveMealInBed(spot, sleepAct);
+                } else {
+                  if (window.CrownNeeds) window.CrownNeeds.applyBoost({ hunger: 55, energy: 35, composure: 20, fun: 16 });
+                  if (actCtx && actCtx.startPose) {
+                    actCtx.startPose({
+                      id: spot.id + '_eat_in_bed',
+                      label: 'Breakfast Served in Bed',
+                      pose: 'eat_in_bed',
+                      statusText: 'Enjoying royal breakfast served in bed (' + spot.title + ')...',
+                      anchor: sleepAct.anchor,
+                      rates: { hunger: 16, energy: 10, composure: 6, fun: 6 },
+                    });
+                  }
+                }
+              },
+            });
+          }
+        }
       });
     }
 
@@ -111,6 +141,14 @@
         if (vh) {
           playerCtrl.enterCar(vh);
           toast('Driving ' + vh.title + ' — use stick or WASD to drive around town!');
+        }
+        return;
+      }
+      if (action.type === 'toggle_car_doors' && playerCtrl && castle && Array.isArray(castle.vehicles)) {
+        const vh = castle.vehicles.find(function (v) { return v.id === action.vehicleId; });
+        if (vh && typeof playerCtrl.toggleCarDoors === 'function') {
+          const isOpen = playerCtrl.toggleCarDoors(vh);
+          toast(isOpen ? (vh.title + ' doors swung open!') : (vh.title + ' doors closed.'));
         }
         return;
       }

@@ -271,7 +271,7 @@
     const pavFacadeMat = new THREE.MeshStandardMaterial({ map: facadePavTex, roughness: 0.52, metalness: 0.05 });
     const slateRoofMat = new THREE.MeshStandardMaterial({ map: slateTex, color: 0x3b4d63, roughness: 0.48, metalness: 0.14 });
     const marbleMat = new THREE.MeshPhysicalMaterial({ map: marbleTex, roughness: 0.18, metalness: 0.06, clearcoat: 0.45 });
-    const whiteMarbleMat = new THREE.MeshPhysicalMaterial({ color: 0xf4eee4, roughness: 0.34, metalness: 0.04, clearcoat: 0.3 });
+    const whiteMarbleMat = new THREE.MeshStandardMaterial({ color: 0xf4eee4, roughness: 0.28, metalness: 0.06 });
     const parquetMat = new THREE.MeshStandardMaterial({ map: parquetTex, roughness: 0.34, metalness: 0.05 });
     const cottageFloorMat = new THREE.MeshStandardMaterial({ color: 0x9b7552, roughness: 0.78 });
     const cottageWallMat = new THREE.MeshStandardMaterial({ color: 0xf3e8d6, roughness: 0.74 });
@@ -303,10 +303,10 @@
         );
       };
     }
-    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x3a4f66, roughness: 0.08, metalness: 0.18, transparent: true, opacity: 0.46 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x3a4f66, roughness: 0.12, metalness: 0.22, transparent: true, opacity: 0.46 });
     const mirrorGlassMat = new THREE.MeshPhysicalMaterial({ color: 0xeaf4fc, roughness: 0.05, metalness: 0.88, clearcoat: 1.0 });
-    const pinkVelvetMat = new THREE.MeshPhysicalMaterial({ color: 0xd98fa0, roughness: 0.65, sheen: 0.85, sheenColor: new THREE.Color(0xffe0e8) });
-    const creamDrapesMat = new THREE.MeshPhysicalMaterial({ color: 0xf7ece0, roughness: 0.72, sheen: 0.6, sheenColor: new THREE.Color(0xfff8ef) });
+    const pinkVelvetMat = new THREE.MeshStandardMaterial({ color: 0xd98fa0, roughness: 0.72, metalness: 0.02 });
+    const creamDrapesMat = new THREE.MeshStandardMaterial({ color: 0xf7ece0, roughness: 0.76, metalness: 0.02 });
     const blushRugMat = new THREE.MeshStandardMaterial({ map: blushRugTex, roughness: 0.8 });
     const crestMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(crestHex), roughness: 0.55 });
 
@@ -512,6 +512,13 @@
         return { x: rx, z: rz };
       }
 
+      // Wallflour & Maison Brioche 2F Tasting Loft (x: [-90.6..-77.4], z: [35.6..44.0])
+      if (townMod && typeof townMod.isOnUpperFloor === 'function' && townMod.isOnUpperFloor(nx, nz, yNow)) {
+        rx = THREE.MathUtils.clamp(rx, -90.1, -77.9);
+        rz = THREE.MathUtils.clamp(rz, 36.1, 43.5);
+        return { x: rx, z: rz };
+      }
+
       if (yNow >= 3.2 && Math.abs(nx) <= 34 && nz <= -12) {
         rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
         rz = THREE.MathUtils.clamp(rz, -38.0, -14.8);
@@ -577,9 +584,10 @@
     }
 
     // Helper: Partition Wall along X (z = const, x from x0..x1) with optional centered doorway gap
-    function addWallX(group, colList, floorY, wallH, z, x0, x1, doorCenter, doorW, thick, mat) {
+    function addWallX(group, colList, floorY, wallH, z, x0, x1, doorCenter, doorW, thick, mat, castShadow) {
       const t = thick || 0.34;
       const wMat = mat || ivoryMat;
+      const doCast = Boolean(castShadow);
       if (typeof doorCenter === 'number' && doorW > 0) {
         const g0 = doorCenter - doorW * 0.5;
         const g1 = doorCenter + doorW * 0.5;
@@ -588,7 +596,7 @@
           const cxA = x0 + wA * 0.5;
           const mA = new THREE.Mesh(new THREE.BoxGeometry(wA, wallH, t), wMat);
           mA.position.set(cxA, floorY + wallH * 0.5, z);
-          mA.castShadow = true;
+          mA.castShadow = doCast;
           mA.receiveShadow = true;
           group.add(mA);
           addBox(colList, cxA, z, wA, t + 0.1);
@@ -598,7 +606,7 @@
           const cxB = g1 + wB * 0.5;
           const mB = new THREE.Mesh(new THREE.BoxGeometry(wB, wallH, t), wMat);
           mB.position.set(cxB, floorY + wallH * 0.5, z);
-          mB.castShadow = true;
+          mB.castShadow = doCast;
           mB.receiveShadow = true;
           group.add(mB);
           addBox(colList, cxB, z, wB, t + 0.1);
@@ -607,14 +615,14 @@
         const lintelH = Math.max(0.5, wallH - 2.6);
         const lintel = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, t), goldMatteMat);
         lintel.position.set(doorCenter, floorY + wallH - lintelH * 0.5, z);
-        lintel.castShadow = true;
+        lintel.castShadow = doCast;
         group.add(lintel);
       } else {
         const wAll = Math.abs(x1 - x0);
         const cxAll = (x0 + x1) * 0.5;
         const mAll = new THREE.Mesh(new THREE.BoxGeometry(wAll, wallH, t), wMat);
         mAll.position.set(cxAll, floorY + wallH * 0.5, z);
-        mAll.castShadow = true;
+        mAll.castShadow = doCast;
         mAll.receiveShadow = true;
         group.add(mAll);
         addBox(colList, cxAll, z, wAll, t + 0.1);
@@ -622,9 +630,10 @@
     }
 
     // Helper: Partition Wall along Z (x = const, z from z0..z1 where z0 < z1) with optional doorway
-    function addWallZ(group, colList, floorY, wallH, x, z0, z1, doorCenter, doorW, thick, mat) {
+    function addWallZ(group, colList, floorY, wallH, x, z0, z1, doorCenter, doorW, thick, mat, castShadow) {
       const t = thick || 0.34;
       const wMat = mat || ivoryMat;
+      const doCast = Boolean(castShadow);
       const lo = Math.min(z0, z1);
       const hi = Math.max(z0, z1);
       if (typeof doorCenter === 'number' && doorW > 0) {
@@ -635,7 +644,7 @@
           const czA = lo + dA * 0.5;
           const mA = new THREE.Mesh(new THREE.BoxGeometry(t, wallH, dA), wMat);
           mA.position.set(x, floorY + wallH * 0.5, czA);
-          mA.castShadow = true;
+          mA.castShadow = doCast;
           mA.receiveShadow = true;
           group.add(mA);
           addBox(colList, x, czA, t + 0.1, dA);
@@ -645,7 +654,7 @@
           const czB = g1 + dB * 0.5;
           const mB = new THREE.Mesh(new THREE.BoxGeometry(t, wallH, dB), wMat);
           mB.position.set(x, floorY + wallH * 0.5, czB);
-          mB.castShadow = true;
+          mB.castShadow = doCast;
           mB.receiveShadow = true;
           group.add(mB);
           addBox(colList, x, czB, t + 0.1, dB);
@@ -653,14 +662,14 @@
         const lintelH = Math.max(0.5, wallH - 2.6);
         const lintel = new THREE.Mesh(new THREE.BoxGeometry(t, lintelH, doorW), goldMatteMat);
         lintel.position.set(x, floorY + wallH - lintelH * 0.5, doorCenter);
-        lintel.castShadow = true;
+        lintel.castShadow = doCast;
         group.add(lintel);
       } else {
         const dAll = hi - lo;
         const czAll = (lo + hi) * 0.5;
         const mAll = new THREE.Mesh(new THREE.BoxGeometry(t, wallH, dAll), wMat);
         mAll.position.set(x, floorY + wallH * 0.5, czAll);
-        mAll.castShadow = true;
+        mAll.castShadow = doCast;
         mAll.receiveShadow = true;
         group.add(mAll);
         addBox(colList, x, czAll, t + 0.1, dAll);
@@ -1063,11 +1072,9 @@
       sidewalk.receiveShadow = true;
       scene.add(sidewalk);
     });
+    const roadDashSpecs = [];
     for (let sx = -152; sx <= 152; sx += 6) {
-      const dash = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.14), stripeMat);
-      dash.rotation.x = -Math.PI / 2;
-      dash.position.set(sx, 0.034, 48.0);
-      scene.add(dash);
+      roadDashSpecs.push([sx, 48.0, 2.6, 0.14]);
     }
 
     [-44, 44].forEach(function (laneX) {
@@ -1077,10 +1084,7 @@
       sideLane.receiveShadow = true;
       scene.add(sideLane);
       for (let sz = -11; sz <= 44; sz += 6) {
-        const sDash = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 2.4), stripeMat);
-        sDash.rotation.x = -Math.PI / 2;
-        sDash.position.set(laneX, 0.034, sz);
-        scene.add(sDash);
+        roadDashSpecs.push([laneX, sz, 0.14, 2.4]);
       }
       [-2.85, 2.85].forEach(function (offX) {
         const curb = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.07, 56), curbStoneMat);
@@ -1088,6 +1092,21 @@
         scene.add(curb);
       });
     });
+
+    if (roadDashSpecs.length) {
+      const rdDummy = new THREE.Object3D();
+      const rdInst = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), stripeMat, roadDashSpecs.length);
+      for (let ri = 0; ri < roadDashSpecs.length; ri++) {
+        const sp = roadDashSpecs[ri];
+        rdDummy.position.set(sp[0], 0.034, sp[1]);
+        rdDummy.rotation.set(-Math.PI / 2, 0, 0);
+        rdDummy.scale.set(sp[2], sp[3], 1);
+        rdDummy.updateMatrix();
+        rdInst.setMatrixAt(ri, rdDummy.matrix);
+      }
+      rdInst.computeBoundingSphere();
+      scene.add(rdInst);
+    }
 
     const centralAvenue = new THREE.Mesh(new THREE.PlaneGeometry(9.0, 48), gravelMat);
     centralAvenue.rotation.x = -Math.PI / 2;
@@ -1147,6 +1166,7 @@
     const seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(720, 280, 36, 18), seaWaterMat);
     seaMesh.rotation.x = -Math.PI / 2;
     seaMesh.position.set(0, -0.45, 198);
+    seaMesh.userData.noMerge = true;
     scene.add(seaMesh);
 
     const hillMatFar = new THREE.MeshStandardMaterial({ color: 0x4c7041, roughness: 0.92 });
@@ -1558,6 +1578,8 @@
           16
         );
         drops.frustumCulled = false;
+        drops.userData.noMerge = true;
+        drops.userData.noFreeze = true;
         fGroup.add(drops);
       }
 
@@ -1852,9 +1874,9 @@
     floor1Group.add(f1EastFloor);
 
     // Structural North & Side Walls 1F
-    addWallX(floor1Group, floor1Colliders, 0.65, 5.0, -38.6, -30.6, 30.6, null, 0, 0.7, wingFacadeMat);
-    addWallZ(floor1Group, floor1Colliders, 0.65, 5.0, -30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat);
-    addWallZ(floor1Group, floor1Colliders, 0.65, 5.0, 30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat);
+    addWallX(floor1Group, floor1Colliders, 0.65, 5.0, -38.6, -30.6, 30.6, null, 0, 0.7, wingFacadeMat, true);
+    addWallZ(floor1Group, floor1Colliders, 0.65, 5.0, -30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat, true);
+    addWallZ(floor1Group, floor1Colliders, 0.65, 5.0, 30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat, true);
 
     // 1F Room Partitions (Wide open doorways along Z=-24 Gallery Corridor!)
     addWallZ(floor1Group, floor1Colliders, 0.65, 4.9, -9.8, -38.4, -17.6, -24.0, 3.2, 0.36, ivoryMat);
@@ -1987,6 +2009,12 @@
       fp.rotation.y = -Math.PI * 0.5;
       floor1Group.add(fp);
       palaceFlames = fp.userData && fp.userData.flames ? fp.userData.flames : [];
+      for (let fi = 0; fi < palaceFlames.length; fi++) {
+        if (palaceFlames[fi]) {
+          palaceFlames[fi].userData.noMerge = true;
+          palaceFlames[fi].userData.noFreeze = true;
+        }
+      }
       tagInteractable(fp, 'fireplace_living');
       addBox(floor1Colliders, 20.9, -22.2, 0.9, 2.3);
       registerSpot({
@@ -2231,9 +2259,9 @@
     floor2Group.add(balconyRail);
 
     // 2F Perimeter Walls
-    addWallX(floor2Group, floor2Colliders, 5.65, 5.0, -38.6, -30.6, 30.6, null, 0, 0.7, wingFacadeMat);
-    addWallZ(floor2Group, floor2Colliders, 5.65, 5.0, -30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat);
-    addWallZ(floor2Group, floor2Colliders, 5.65, 5.0, 30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat);
+    addWallX(floor2Group, floor2Colliders, 5.65, 5.0, -38.6, -30.6, 30.6, null, 0, 0.7, wingFacadeMat, true);
+    addWallZ(floor2Group, floor2Colliders, 5.65, 5.0, -30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat, true);
+    addWallZ(floor2Group, floor2Colliders, 5.65, 5.0, 30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat, true);
 
     // 2F Facade Cutaway
     [
@@ -2334,6 +2362,8 @@
     );
     showerSpray.position.set(0, 1.32, 0);
     showerSpray.visible = false;
+    showerSpray.userData.noMerge = true;
+    showerSpray.userData.noFreeze = true;
     showerGroup.add(showerSpray);
     tagInteractable(showerGroup, 'shower_booth');
     addBox(floor2Colliders, -28.4, -28.0, 2.2, 2.2);
@@ -2393,10 +2423,10 @@
     addBox(floor3Colliders, 5.4, -28.65, 2.9, 0.32);
 
     // 3F Perimeter & Divider Walls
-    addWallX(floor3Group, floor3Colliders, 10.65, 3.6, -38.6, -30.6, 30.6, null, 0, 0.7, wingFacadeMat);
-    addWallZ(floor3Group, floor3Colliders, 10.65, 3.6, -30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat);
-    addWallZ(floor3Group, floor3Colliders, 10.65, 3.6, 30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat);
-    addWallX(floor3FrontCutaway, floor3Colliders, 10.65, 3.6, -17.4, -30.6, 30.6, null, 0, 0.7, wingFacadeMat);
+    addWallX(floor3Group, floor3Colliders, 10.65, 3.6, -38.6, -30.6, 30.6, null, 0, 0.7, wingFacadeMat, true);
+    addWallZ(floor3Group, floor3Colliders, 10.65, 3.6, -30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat, true);
+    addWallZ(floor3Group, floor3Colliders, 10.65, 3.6, 30.6, -38.6, -17.4, null, 0, 0.7, pavFacadeMat, true);
+    addWallX(floor3FrontCutaway, floor3Colliders, 10.65, 3.6, -17.4, -30.6, 30.6, null, 0, 0.7, wingFacadeMat, true);
 
     // 3F Corridor North Wall (`z = -25.0`)
     addWallX(floor3Group, floor3Colliders, 10.65, 3.5, -25.0, -30.4, -22.0, -26.2, 2.4, 0.28, ivoryMat);
@@ -2577,6 +2607,79 @@
       });
     }
 
+    // Merge static geometry across palace floors, cottages, palace shell, and exterior landscape buckets
+    if (kit && typeof kit.mergeStaticGroup === 'function') {
+      const nonInteractFilter = function (m) {
+        return !(m.userData && (m.userData.interactId || m.userData.noMerge));
+      };
+      [
+        floor1Group, floor1FrontCutaway,
+        floor2Group, floor2FrontCutaway,
+        floor3Group, floor3FrontCutaway,
+        roofAndDomesGroup,
+      ].forEach(function (fg) {
+        kit.mergeStaticGroup(fg, { filter: nonInteractFilter });
+      });
+
+      const palaceShellBatch = new THREE.Group();
+      const directPalaceChildren = palaceRoot.children.slice();
+      for (let pi = 0; pi < directPalaceChildren.length; pi++) {
+        const pch = directPalaceChildren[pi];
+        if (pch.isMesh && !pch.isInstancedMesh && nonInteractFilter(pch)) {
+          palaceShellBatch.add(pch);
+        }
+      }
+      if (palaceShellBatch.children.length > 0) {
+        palaceRoot.add(palaceShellBatch);
+        kit.mergeStaticGroup(palaceShellBatch, { filter: nonInteractFilter });
+      }
+
+      for (let ci = 0; ci < enterableCottages.length; ci++) {
+        const ct = enterableCottages[ci];
+        if (ct.roofGrp) {
+          kit.mergeStaticGroup(ct.roofGrp, { filter: nonInteractFilter });
+          ct.roofGrp.userData.noMerge = true;
+        }
+        if (ct.grp) {
+          kit.mergeStaticGroup(ct.grp, { filter: nonInteractFilter });
+        }
+      }
+
+      function hasSpecialSceneNode(node) {
+        if (!node) return false;
+        const ud = node.userData;
+        if (ud && (ud.interactId || ud.noMerge || ud.rig || ud.rotor)) return true;
+        if (node.isInstancedMesh || node.isLight) return true;
+        const ch = node.children;
+        for (let k = 0; k < ch.length; k++) {
+          if (hasSpecialSceneNode(ch[k])) return true;
+        }
+        return false;
+      }
+
+      const sceneStaticSkip = new Set([palaceRoot, grounds, seaMesh]);
+      const extZones = [new THREE.Group(), new THREE.Group(), new THREE.Group()];
+      const _extBox = new THREE.Box3();
+      const _extCtr = new THREE.Vector3();
+      scene.updateMatrixWorld(true);
+      const sceneOrigChildren = scene.children.slice();
+      for (let si = 0; si < sceneOrigChildren.length; si++) {
+        const sch = sceneOrigChildren[si];
+        if (sceneStaticSkip.has(sch) || hasSpecialSceneNode(sch)) continue;
+        _extBox.setFromObject(sch);
+        if (_extBox.isEmpty()) continue;
+        _extBox.getCenter(_extCtr);
+        const zi = _extCtr.x < -55 ? 0 : _extCtr.x <= 55 ? 1 : 2;
+        extZones[zi].add(sch);
+      }
+      for (let zi = 0; zi < extZones.length; zi++) {
+        if (extZones[zi].children.length > 0) {
+          scene.add(extZones[zi]);
+          kit.mergeStaticGroup(extZones[zi], { filter: nonInteractFilter });
+        }
+      }
+    }
+
     // -----------------------------------------------------------
     // 4. SIMS-4 CUTAWAY CONTROLLER (7 Palace Floors + 10 Cottages + Town Buildings!)
     // -----------------------------------------------------------
@@ -2606,6 +2709,8 @@
         floor2Group.visible = true;
         floor2FrontCutaway.visible = true;
         floor1FrontCutaway.visible = true;
+        hallPointLight.visible = false;
+        suiteLight.visible = false;
         if (upperFloors) upperFloors.setUpperCutaway(7, true);
         return;
       }
@@ -2635,6 +2740,8 @@
       floor2FrontCutaway.visible = activeLevel > 2;
       floor3Group.visible = activeLevel >= 3;
       floor3FrontCutaway.visible = activeLevel > 3;
+      hallPointLight.visible = activeLevel === 1;
+      suiteLight.visible = activeLevel === 2;
       if (upperFloors) upperFloors.setUpperCutaway(activeLevel, false);
     }
 
@@ -2679,9 +2786,40 @@
       });
       cloudGroup.add(cg);
     });
+    cloudGroup.userData.noMerge = true;
+    cloudGroup.userData.noFreeze = true;
     scene.add(cloudGroup);
 
-    function update(elapsedSec, activeTransport) {
+    // Freeze static mesh matrices across the scene while keeping animated/interactive rigs dynamic
+    const dynamicSubtrees = new Set([cloudGroup, showerSpray, hallPointLight, suiteLight]);
+    for (let fi = 0; fi < animatedFountains.length; fi++) {
+      if (animatedFountains[fi] && animatedFountains[fi].drops) {
+        dynamicSubtrees.add(animatedFountains[fi].drops);
+      }
+    }
+    for (let pi = 0; pi < palaceFlames.length; pi++) {
+      if (palaceFlames[pi]) dynamicSubtrees.add(palaceFlames[pi]);
+    }
+    if (townMod && Array.isArray(townMod.dynamicNodes)) {
+      for (let di = 0; di < townMod.dynamicNodes.length; di++) {
+        if (townMod.dynamicNodes[di]) dynamicSubtrees.add(townMod.dynamicNodes[di]);
+      }
+    }
+    scene.updateMatrixWorld(true);
+    (function freezeStaticMatrices(node, inDynSubtree) {
+      const ud = node.userData;
+      const isDyn = inDynSubtree || dynamicSubtrees.has(node) || node.isLight || node.isCamera || (ud && (ud.noFreeze || ud.rig || ud.rotor));
+      if (!isDyn && (node.isMesh || node.isInstancedMesh)) {
+        node.updateMatrix();
+        node.matrixAutoUpdate = false;
+      }
+      const ch = node.children;
+      for (let i = 0; i < ch.length; i++) {
+        freezeStaticMatrices(ch[i], isDyn);
+      }
+    })(scene, false);
+
+    function update(elapsedSec, activeTransport, playerPos) {
       waterUniforms.uWaterTime.value = elapsedSec;
       waterTex.offset.x = (elapsedSec * 0.028) % 1;
       waterTex.offset.y = (elapsedSec * 0.016) % 1;
@@ -2707,7 +2845,7 @@
         showerSpray.rotation.y = elapsedSec * 6.0;
       }
       if (townMod) {
-        townMod.update(elapsedSec, activeTransport);
+        townMod.update(elapsedSec, activeTransport, playerPos);
       }
     }
 
@@ -2781,6 +2919,8 @@
       vehicles: townMod ? townMod.vehicles : [],
       horses: townMod ? townMod.horses : [],
       townDirectory: townMod ? townMod.townDirectory : [],
+      townDoors: townMod ? townMod.townDoors : [],
+      toggleDoor: townMod && townMod.toggleDoor,
       setShowerActive: setShowerActive,
       update: update,
       dispose: dispose,

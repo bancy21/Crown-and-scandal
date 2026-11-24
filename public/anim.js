@@ -13,6 +13,8 @@
       if (actor.heldProps[k]) {
         if (activeKey === 'paint' && (k === 'brush' || k === 'palette')) {
           actor.heldProps[k].visible = true;
+        } else if (activeKey === 'work_examine' && (k === 'chart' || k === 'instrument')) {
+          actor.heldProps[k].visible = true;
         } else {
           actor.heldProps[k].visible = (k === activeKey);
         }
@@ -136,9 +138,13 @@
 
     let activeProp = null;
     if (poseName === 'read' || poseName === 'sit_read') activeProp = 'book';
-    else if (poseName === 'eat') activeProp = 'teacup';
+    else if (poseName === 'eat' || poseName === 'eat_in_bed') activeProp = 'teacup';
     else if (poseName === 'paint') activeProp = 'paint';
     else if (poseName === 'cook') activeProp = 'ladle';
+    else if (poseName === 'serve') activeProp = 'platter';
+    else if (poseName === 'work_operate') activeProp = 'instrument';
+    else if (poseName === 'work_examine') activeProp = 'work_examine';
+    else if (poseName === 'work_station') activeProp = 'chart';
     setHeldProp(actor, activeProp);
 
     let rigX = 0;
@@ -170,7 +176,7 @@
     let skirtScaleX = 1.0;
     let skirtScaleZ = 1.0;
 
-    if (poseName === 'sleep' || poseName === 'nap' || poseName === 'daydream') {
+    if (poseName === 'sleep' || poseName === 'nap' || poseName === 'daydream' || poseName === 'eat_in_bed') {
       if (actor.contactShadow) actor.contactShadow.visible = false;
       rigRotX = -Math.PI * 0.5;
       rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : 0.09;
@@ -190,6 +196,24 @@
         skirtScaleX = 0.88;
         skirtScaleZ = 0.52;
         skirtRotX = 0.04;
+      } else if (poseName === 'eat_in_bed') {
+        // Propped up comfortably against the headboard pillows tucked inside the blankets enjoying teacup & breakfast
+        const sip = Math.max(0, Math.sin(t * 2.1));
+        rigRotX = -Math.PI * 0.29;
+        rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY + 0.06 : 0.15;
+        hipLX = -0.52;
+        hipRX = -0.50;
+        kneeLX = 0.18;
+        kneeRX = 0.18;
+        armLX = -0.55;
+        armLZ = 0.12;
+        armRX = -0.95 - sip * 0.58;
+        armRZ = -0.08;
+        headRotX = 0.24 - sip * 0.06;
+        headRotY = Math.sin(t * 0.75) * 0.1;
+        skirtScaleX = 0.72;
+        skirtScaleZ = 0.28;
+        skirtRotX = -0.35;
       } else {
         // Arms relaxed gently along waist/collar cuff inside hollow blanket dome; head propped on pillow
         armLX = -0.26 + breath * 0.018;
@@ -203,6 +227,48 @@
         skirtRotX = 0.02;
       }
       bodyRotZ = breath * 0.015;
+    } else if (poseName === 'serve') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const sway = Math.sin(t * 1.4) * 0.025;
+      bodyRotX = 0.04;
+      armLX = -0.18;
+      armLZ = 0.12;
+      armRX = -1.32 + sway;
+      armRZ = -0.05;
+      headRotX = 0.04;
+      headRotY = Math.sin(t * 0.9) * 0.08;
+    } else if (poseName === 'work_operate') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const fine = Math.sin(t * 4.6) * 0.07;
+      const micro = Math.cos(t * 3.8) * 0.05;
+      bodyRotX = 0.14;
+      armLX = -1.06 + micro;
+      armLZ = 0.14;
+      armRX = -1.16 + fine;
+      armRZ = -0.14;
+      headRotX = 0.28;
+      headRotY = Math.sin(t * 1.1) * 0.08;
+    } else if (poseName === 'work_examine') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const check = Math.sin(t * 2.8) * 0.14;
+      bodyRotX = 0.10;
+      armLX = -0.78;
+      armLZ = 0.16;
+      armRX = -1.02 + check;
+      armRZ = -0.08;
+      headRotX = 0.18;
+      headRotY = Math.sin(t * 1.3) * 0.14;
+    } else if (poseName === 'work_station') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const typeL = Math.sin(t * 7.2) * 0.09;
+      const typeR = Math.cos(t * 7.8) * 0.09;
+      bodyRotX = 0.06;
+      armLX = -0.92 + typeL;
+      armLZ = 0.12;
+      armRX = -0.98 + typeR;
+      armRZ = -0.12;
+      headRotX = 0.08;
+      headRotY = Math.sin(t * 1.1) * 0.20;
     } else if (poseName === 'bath') {
       if (actor.contactShadow) actor.contactShadow.visible = false;
       rigY = typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : -baseLeg * 0.56;

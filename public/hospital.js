@@ -178,7 +178,7 @@
     const warmFloorGlowMat = keepMat(new THREE.MeshBasicMaterial({ color: 0xffd894, transparent: true, opacity: 0.42 }));
     const cognacMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xb55d35, roughness: 0.48 }));
     const surgicalDrapeMat = keepMat(new THREE.MeshStandardMaterial({ color: 0x266ab5, roughness: 0.52 }));
-    const sheerCurtainMat = keepMat(new THREE.MeshPhysicalMaterial({ color: 0xf4eee0, roughness: 0.7, transparent: true, opacity: 0.62 }));
+    const sheerCurtainMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xf4eee0, roughness: 0.7, transparent: true, opacity: 0.62 }));
     const beigeCurtainMat = keepMat(new THREE.MeshStandardMaterial({ color: 0xdccdb3, roughness: 0.78 }));
     const chromeMat = kit.palette.silver;
     const oakMat = kit.palette.oak;
@@ -186,20 +186,57 @@
     const whiteMat = kit.palette.ivory;
     const porcelainMat = kit.palette.porcelain;
 
-    function buildBayPlaque(numText) {
-      const plaqueTex = makeCanvasTex(128, 64, function (c, w, h) {
-        c.fillStyle = '#3f593b';
+    function buildBayPlaque(numText, bgHex, planeW, planeH, fontSize) {
+      const plaqueTex = makeCanvasTex(256, 64, function (c, w, h) {
+        c.fillStyle = bgHex || '#3f593b';
         c.fillRect(0, 0, w, h);
+        c.strokeStyle = 'rgba(255,255,255,0.42)';
+        c.lineWidth = 3;
+        c.strokeRect(3, 3, w - 6, h - 6);
         c.fillStyle = '#f8faf6';
-        c.font = 'bold 42px sans-serif';
+        c.font = 'bold ' + (fontSize || 34) + 'px sans-serif';
         c.textAlign = 'center';
         c.textBaseline = 'middle';
         c.fillText(numText, w * 0.5, h * 0.5 + 2);
       });
       return new THREE.Mesh(
-        keepGeo(new THREE.PlaneGeometry(0.46, 0.24)),
+        keepGeo(new THREE.PlaneGeometry(planeW || 0.52, planeH || 0.24)),
         keepMat(new THREE.MeshBasicMaterial({ map: plaqueTex }))
       );
+    }
+
+    function addInteriorSwingDoor(id, title, x, y, z, rotY, width, leafColor) {
+      if (typeof kit.buildHingedDoors !== 'function') return;
+      const dObj = kit.buildHingedDoors({
+        width: width,
+        height: 2.65,
+        count: width >= 1.8 ? 2 : 1,
+        frameMat: ivoryMat,
+        leafColor: leafColor || 0xf4f9fb,
+        handleMat: chromeMat,
+        filigree: false,
+      });
+      dObj.group.position.set(x, y, z);
+      dObj.group.rotation.y = rotY;
+      dObj.group.userData.noMerge = true;
+      dObj.group.userData.noFreeze = true;
+      townGroup.add(dObj.group);
+      tagInteractable(dObj.leftPivot, id);
+      if (dObj.rightPivot) tagInteractable(dObj.rightPivot, id);
+      if (Array.isArray(ctx.dynamicNodes)) ctx.dynamicNodes.push(dObj.group);
+      if (Array.isArray(ctx.townDoors)) {
+        ctx.townDoors.push({
+          id: id,
+          title: title,
+          x: x,
+          y: y,
+          z: z,
+          radius: 3.4,
+          doors: dObj,
+          openRatio: 0,
+          manualOpen: false,
+        });
+      }
     }
 
     // -----------------------------------------------------------
@@ -210,7 +247,7 @@
       title: 'Hôpital Royal de Versailles',
       signTitle: 'Royal Hospital',
       signColor: '#3f593b',
-      subtitle: 'Green Ward Bays 01-05, Walnut VIP Suite 06, Skytron Surgery, Curved Nurses Station & Healing Garden',
+      subtitle: 'Separated Operating Room (OR), Emergency Room (ER), Ward Bays 01-03, VIP Suites 06-07 & Healing Garden',
       dirCategory: 'town',
       x: 79.6, z: -23.0, w: 18.0, d: 13.0,
       wallH: 4.2,
@@ -225,6 +262,11 @@
     const hospPorch = kit.buildFrontPorch(6.6, 2.2, ivoryMat);
     hospPorch.position.set(hosp.cx, 0, hosp.cz + hosp.d * 0.5 + 1.1);
     townGroup.add(hospPorch);
+
+    // Exterior ER Canopy Badge on South-West Facade beside Ambulance Driveway
+    const erExtSign = buildBayPlaque('EMERGENCY · ER', '#a61f2e', 2.4, 0.48, 24);
+    erExtSign.position.set(hosp.cx - 5.2, 3.15, hosp.cz + hosp.d * 0.5 + 0.16);
+    townGroup.add(erExtSign);
 
     // Red Cross Rooflines
     [-1, 1].forEach(function (sideZ) {
@@ -250,46 +292,152 @@
     });
 
     // -----------------------------------------------------------
-    // 2 ENCLOSED PARTITIONED HOSPITAL WASHROOMS & DECONTAM SHOWERS
+    // SEPARATED NORTH-WEST OPERATING ROOM (OR: x 70.6..78.0, z -29.5..-24.7)
     // -----------------------------------------------------------
-    addWallZ(townGroup, sharedColliders, 0, 3.6, hosp.cx - 4.2, hosp.cz - 6.4, hosp.cz - 3.2, hosp.cz - 4.8, 1.5, 0.22, hospitalWallMat);
-    addWallX(townGroup, sharedColliders, 0, 3.6, hosp.cz - 3.2, hosp.cx - 8.9, hosp.cx - 4.2, null, 0, 0.22, hospitalWallMat);
-    addWallZ(townGroup, sharedColliders, 0, 3.6, hosp.cx + 4.2, hosp.cz - 6.4, hosp.cz - 3.2, hosp.cz - 4.8, 1.5, 0.22, hospitalWallMat);
-    addWallX(townGroup, sharedColliders, 0, 3.6, hosp.cz - 3.2, hosp.cx + 4.2, hosp.cx + 8.9, null, 0, 0.22, hospitalWallMat);
+    addWallX(townGroup, sharedColliders, 0, 3.6, -24.7, 70.7, 78.0, null, 0, 0.2, hospitalWallMat);
+    addWallZ(townGroup, sharedColliders, 0, 3.6, 78.0, -29.4, -24.7, -27.0, 1.7, 0.2, hospitalWallMat);
+    addInteriorSwingDoor('door_hospital_or', 'Operating Room (OR) Doors', 78.0, hosp.y, -27.0, Math.PI * 0.5, 1.62, 0xd8eef4);
+
+    const orPlaque = buildBayPlaque('OPERATING ROOM · OR', '#165b73', 1.65, 0.34, 18);
+    orPlaque.rotation.y = Math.PI * 0.5;
+    orPlaque.position.set(78.12, hosp.y + 2.45, -25.65);
+    townGroup.add(orPlaque);
+
+    // Sterile Stainless Instrument Table inside OR West Wing
+    const orPrep = new THREE.Group();
+    kit.addMesh(orPrep, kit.g.box1, chromeMat, 0.72, 0.86, 1.15, 0, 0.43, 0);
+    kit.addMesh(orPrep, kit.g.box1, surgicalDrapeMat, 0.66, 0.04, 1.06, 0, 0.88, 0);
+    kit.addMesh(orPrep, kit.g.box1, chromeMat, 0.38, 0.05, 0.26, 0, 0.92, -0.22);
+    kit.addMesh(orPrep, kit.g.box1, whiteMat, 0.26, 0.08, 0.22, 0, 0.93, 0.24);
+    orPrep.position.set(71.8, hosp.y, -27.2);
+    townGroup.add(orPrep);
+    addBox(sharedColliders, 71.8, -27.2, 0.82, 1.25);
+
+    // -----------------------------------------------------------
+    // SEPARATED SOUTH-WEST EMERGENCY ROOM (ER: x 70.6..78.0, z -20.5..-16.5)
+    // -----------------------------------------------------------
+    const erCrimsonMat = kit.palette.fabricColors.crimson;
+    addWallX(townGroup, sharedColliders, 0, 3.6, -20.5, 70.7, 78.0, null, 0, 0.2, hospitalWallMat);
+    addWallZ(townGroup, sharedColliders, 0, 3.6, 78.0, -20.5, -16.6, -18.5, 1.95, 0.2, hospitalWallMat);
+    addInteriorSwingDoor('door_hospital_er', 'Emergency Room (ER) Doors', 78.0, hosp.y, -18.5, Math.PI * 0.5, 1.88, 0xfbf4f4);
+
+    const erPlaque = buildBayPlaque('EMERGENCY · ER', '#a61f2e', 1.55, 0.34, 21);
+    erPlaque.rotation.y = Math.PI * 0.5;
+    erPlaque.position.set(78.12, hosp.y + 2.45, -17.15);
+    townGroup.add(erPlaque);
+
+    // ER Headwall Accent Strip along North ER Partition (-20.38)
+    kit.addMesh(townGroup, kit.g.box1, erCrimsonMat, 4.9, 0.16, 0.08, 73.2, hosp.y + 1.35, -20.36);
+    ['ER 01', 'ER 02'].forEach(function (elbl, ei) {
+      const ep = buildBayPlaque(elbl, '#a61f2e', 0.62, 0.24, 24);
+      ep.position.set(ei === 0 ? 72.0 : 74.35, hosp.y + 2.25, -20.38);
+      townGroup.add(ep);
+    });
+
+    // ER Triage & Trauma Stabilization Counter (North-East inside ER)
+    const erTriageGrp = new THREE.Group();
+    kit.addMesh(erTriageGrp, kit.g.box1, whiteMat, 1.35, 0.96, 0.62, 0, 0.48, 0);
+    kit.addMesh(erTriageGrp, kit.g.box1, erCrimsonMat, 1.42, 0.08, 0.68, 0, 0.99, 0);
+    kit.addMesh(erTriageGrp, kit.g.box1, erCrimsonMat, 0.34, 0.10, 0.04, 0, 0.56, 0.32);
+    kit.addMesh(erTriageGrp, kit.g.box1, erCrimsonMat, 0.10, 0.34, 0.04, 0, 0.56, 0.32);
+    kit.addMesh(erTriageGrp, kit.g.cyl1, chromeMat, 0.05, 0.26, 0.05, -0.35, 1.14, 0);
+    kit.addMesh(erTriageGrp, kit.g.box1, ironMat, 0.44, 0.30, 0.06, -0.35, 1.32, 0);
+    const erScr = new THREE.Mesh(keepGeo(new THREE.PlaneGeometry(0.38, 0.24)), ecgScreenMat);
+    erScr.position.set(-0.35, 1.32, 0.035);
+    erTriageGrp.add(erScr);
+    erTriageGrp.position.set(76.6, hosp.y, -19.85);
+    townGroup.add(erTriageGrp);
+    tagInteractable(erTriageGrp, 'hospital_er_triage');
+    addBox(sharedColliders, 76.6, -19.85, 1.45, 0.72);
+    registerSpot({
+      id: 'hospital_er_triage',
+      title: 'Emergency Room (ER) Triage & Trauma Bay',
+      floor: 0,
+      category: 'town',
+      shortcut: true,
+      x: 76.6, y: hosp.y, z: -19.85,
+      radius: 3.6,
+      actions: [
+        {
+          id: 'er_rapid_triage',
+          label: 'Rapid ER Trauma Stabilization & IV Boost (₡30)',
+          hint: 'Restores +85 Energy, +50 Hygiene & +20 Poise immediately',
+          instant: true,
+          onInstant: function (actCtx) {
+            if ((actCtx.game.money || 0) < 30) return actCtx.toast('Need ₡30 Crowns.');
+            actCtx.game.money -= 30;
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 85, hygiene: 50, composure: 20 });
+            actCtx.toast('ER trauma check complete · Vitals stabilized! (+85 Energy, +50 Bath)');
+          },
+        },
+        {
+          id: 'er_assist_shift',
+          label: 'Lead Emergency Room (ER) Trauma Shift (+₡150)',
+          hint: '+₡150 Crowns, +14 Poise & +3 Clout',
+          instant: true,
+          onInstant: function (actCtx) {
+            actCtx.game.money = (actCtx.game.money || 0) + 150;
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 14, energy: -5 });
+            recordDispatchGossip(actCtx, 'Royal Heroine: Princess spotted assisting Dr. Vance inside the separated Hôpital Royal ER!', 3, 0);
+            actCtx.toast('ER shift complete! Earned +₡150 Crowns & +3 Clout.');
+          },
+        },
+      ],
+    });
+
+    // ER Waiting Bench (South-East corner inside ER)
+    const erWaitChair = new THREE.Group();
+    kit.addMesh(erWaitChair, kit.g.box1, ironMat, 0.08, 0.40, 1.45, 0.18, 0.20, 0);
+    [-0.42, 0.42].forEach(function (cz) {
+      kit.addMesh(erWaitChair, kit.g.cushion, sageWallMat, 0.56, 0.12, 0.62, 0, 0.44, cz);
+      kit.addMesh(erWaitChair, kit.g.cushion, sageWallMat, 0.12, 0.48, 0.60, 0.22, 0.70, cz);
+    });
+    erWaitChair.position.set(76.95, hosp.y, -17.3);
+    townGroup.add(erWaitChair);
+    addBox(sharedColliders, 76.95, -17.3, 0.68, 1.5);
+
+    // -----------------------------------------------------------
+    // 2 ENCLOSED HOSPITAL WASHROOMS & DECONTAM SHOWERS (North-East Alcove)
+    // Alcove x: 83.4..88.5, z: -29.4..-25.2 (Doors face South at z = -25.2)
+    // -----------------------------------------------------------
+    addWallZ(townGroup, sharedColliders, 0, 3.6, 83.4, -29.4, -25.2, null, 0, 0.2, hospitalWallMat);
+    addWallZ(townGroup, sharedColliders, 0, 3.6, 86.0, -29.4, -25.2, null, 0, 0.2, hospitalWallMat);
+    addWallX(townGroup, sharedColliders, 0, 3.6, -25.2, 83.4, 86.0, 84.7, 1.35, 0.2, hospitalWallMat);
+    addWallX(townGroup, sharedColliders, 0, 3.6, -25.2, 86.0, 88.5, 87.25, 1.35, 0.2, hospitalWallMat);
 
     placeToilet(townGroup, sharedColliders, {
       id: 'hosp_toilet_1', title: 'Hospital West Toilet', floor: 0, rustic: true,
-      x: hosp.cx - 8.0, y: hosp.y, z: hosp.cz - 5.6, yaw: 0,
+      x: 84.0, y: hosp.y, z: -28.65, yaw: 0,
     });
     placeVanitySink(townGroup, sharedColliders, {
       id: 'hosp_sink_1', title: 'Hospital West Scrub Sink', floor: 0, rustic: true,
-      x: hosp.cx - 6.2, y: hosp.y, z: hosp.cz - 5.7, yaw: 0,
+      x: 85.3, y: hosp.y, z: -28.75, yaw: 0,
     });
     if (placeShower) {
       placeShower(townGroup, sharedColliders, {
         id: 'hosp_shower_1', title: 'Hospital Decontam Shower #1', floor: 0, rustic: true,
-        x: hosp.cx - 5.2, y: hosp.y, z: hosp.cz - 4.4, yaw: -Math.PI * 0.5, exitZOffset: 1.0,
+        x: 85.2, y: hosp.y, z: -26.85, yaw: -Math.PI * 0.5, exitZOffset: 1.0,
       });
     }
 
     placeToilet(townGroup, sharedColliders, {
       id: 'hosp_toilet_2', title: 'Hospital East Toilet', floor: 0, rustic: true,
-      x: hosp.cx + 8.0, y: hosp.y, z: hosp.cz - 5.6, yaw: 0,
+      x: 87.95, y: hosp.y, z: -28.65, yaw: 0,
     });
     placeVanitySink(townGroup, sharedColliders, {
       id: 'hosp_sink_2', title: 'Hospital East Scrub Sink', floor: 0, rustic: true,
-      x: hosp.cx + 6.2, y: hosp.y, z: hosp.cz - 5.7, yaw: 0,
+      x: 86.7, y: hosp.y, z: -28.75, yaw: 0,
     });
     if (placeShower) {
       placeShower(townGroup, sharedColliders, {
         id: 'hosp_shower_2', title: 'Hospital East Shower #2', floor: 0, rustic: true,
-        x: hosp.cx + 5.2, y: hosp.y, z: hosp.cz - 4.4, yaw: Math.PI * 0.5, exitZOffset: 1.0,
+        x: 86.8, y: hosp.y, z: -26.85, yaw: Math.PI * 0.5, exitZOffset: 1.0,
       });
     }
 
     // -----------------------------------------------------------
     // IMAGE 3: SURGICAL OPERATING THEATER & ARTICULATED BOOM LIGHTS (hospital_exam)
-    // Positioned cleanly East of North Garden Corridor (x = 82.0, z = -27.9)
+    // Centered inside the separated North-West Operating Room (74.3, -27.1)
     // -----------------------------------------------------------
     function buildSurgicalSuite() {
       const grp = new THREE.Group();
@@ -298,14 +446,13 @@
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.28, 0.62, 0.28, 0, 0.42, 0);
       kit.addMesh(grp, kit.g.box1, whiteMat, 0.88, 0.12, 1.95, 0, 0.76, 0);
       kit.addMesh(grp, kit.g.cushion, surgicalDrapeMat, 0.96, 0.14, 1.48, 0, 0.86, 0.12);
-      kit.addMesh(grp, kit.g.box1, surgicalDrapeMat, 0.96, 0.28, 0.04, 0, 0.98, -0.42, 0.18, 0, 0); // elevated sterile screen drape
+      kit.addMesh(grp, kit.g.box1, surgicalDrapeMat, 0.96, 0.28, 0.04, 0, 0.98, -0.42, 0.18, 0, 0);
 
-      // Twin Articulated Overhead Skytron-Style Surgical Boom Lights (arm labeled 3)
+      // Twin Articulated Overhead Skytron-Style Surgical Boom Lights
       kit.addMesh(grp, kit.g.cyl1, whiteMat, 0.22, 0.45, 0.22, 0, 3.72, -0.15);
       [-1, 1].forEach(function (side) {
         kit.addMesh(grp, kit.g.box1, whiteMat, 0.82, 0.11, 0.12, side * 0.42, 3.44, -0.15, 0, 0, side * -0.12);
         kit.addMesh(grp, kit.g.cyl1, whiteMat, 0.22, 0.56, 0.22, side * 0.78, 3.16, 0.08, 0.22, 0, 0);
-        // Saucer Boom Light Dome + Glowing Multi-LED Lens
         const domeX = side * 0.72;
         const domeY = 2.74;
         const domeZ = 0.22;
@@ -313,33 +460,31 @@
         kit.addMesh(grp, kit.g.cyl1, warmGlowMat, 0.76, 0.04, 0.76, domeX, domeY - 0.06, domeZ + 0.02, 0.28, 0, side * -0.25);
       });
 
-      // Anesthesia & High-Contrast Telemetry Vitals Tower (right side, Image 3: 62 / 99 / 89/54)
+      // Anesthesia & High-Contrast Telemetry Vitals Tower
       kit.addMesh(grp, kit.g.cushion, whiteMat, 0.68, 1.15, 0.56, 0.92, 0.58, -0.45);
       kit.addMesh(grp, kit.g.box1, chromeMat, 0.06, 0.55, 0.06, 0.92, 1.38, -0.45);
-      // Monitor Housing + Glowing Screen
       kit.addMesh(grp, kit.g.box1, whiteMat, 0.62, 0.46, 0.09, 0.92, 1.56, -0.42, 0, -0.35, 0);
       const scr = new THREE.Mesh(keepGeo(new THREE.PlaneGeometry(0.54, 0.38)), ecgScreenMat);
       scr.position.set(0.905, 1.56, -0.37);
       scr.rotation.y = -0.35;
       grp.add(scr);
-      // Corrugated white anesthesia breathing tubes + IV pole
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.04, 1.95, 0.04, -0.78, 0.98, -0.58);
       kit.addMesh(grp, kit.g.cyl1, whiteMat, 0.055, 0.75, 0.055, 0.55, 1.04, -0.32, 0.35, 0, 0.48);
       return grp;
     }
 
     const surgSuite = buildSurgicalSuite();
-    surgSuite.position.set(hosp.cx + 2.1, hosp.y, hosp.cz - 4.9);
+    surgSuite.position.set(74.3, hosp.y, -27.1);
     townGroup.add(surgSuite);
     tagInteractable(surgSuite, 'hospital_exam');
-    addBox(sharedColliders, hosp.cx + 2.1, hosp.cz - 4.9, 2.3, 1.85);
+    addBox(sharedColliders, 74.3, -27.1, 2.25, 1.85);
     registerSpot({
       id: 'hospital_exam',
-      title: 'Skytron Surgical Theater & Diagnostic Exam',
+      title: 'Separated Operating Room (OR) & Skytron Surgery',
       floor: 0,
       category: 'town',
       shortcut: true,
-      x: hosp.cx + 2.1, y: hosp.y, z: hosp.cz - 4.9,
+      x: 74.3, y: hosp.y, z: -27.1,
       radius: 4.0,
       actions: [
         {
@@ -362,7 +507,7 @@
           onInstant: function (actCtx) {
             actCtx.game.money = (actCtx.game.money || 0) + 180;
             if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 15, energy: -6 });
-            recordDispatchGossip(actCtx, 'Patron of Healing: Princess spotted leading rounds under the Skytron OR booms at Hôpital Royal!', 4, 0);
+            recordDispatchGossip(actCtx, 'Patron of Healing: Princess spotted leading rounds inside the separated Skytron OR at Hôpital Royal!', 4, 0);
             actCtx.toast('Surgical rounds completed! Earned +₡180 Crowns & +4 Clout');
           },
         },
@@ -372,13 +517,13 @@
 
     // -----------------------------------------------------------
     // IMAGE 2: CURVED SAGE-GREEN & OAK ILLUMINATED NURSES' STATION
-    // Facing the Ward Bays along the East side of Central Corridor (x = 82.0, z = -20.6)
+    // Facing the Ward Bays along East side of Central Corridor (82.0, -21.8)
     // -----------------------------------------------------------
     function buildCurvedNursesStation() {
       const grp = new THREE.Group();
       const segs = 7;
       for (let i = 0; i < segs; i++) {
-        const ang = -0.78 + (i / (segs - 1)) * 1.56; // curve facing -X
+        const ang = -0.78 + (i / (segs - 1)) * 1.56;
         const rad = 1.45;
         const px = 1.15 - Math.cos(ang) * rad;
         const pz = Math.sin(ang) * rad;
@@ -397,7 +542,6 @@
         top.rotation.y = ang;
         grp.add(top);
       }
-      // Dual Clinical Monitors + Clinician Chair inside curved desk
       [-0.42, 0.42].forEach(function (mz) {
         kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.05, 0.25, 0.05, -0.18, 1.12, mz);
         const mon = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(0.05, 0.34, 0.52)), ironMat);
@@ -408,7 +552,6 @@
         scr.position.set(-0.145, 1.32, mz);
         grp.add(scr);
       });
-      // Rolling clinician chair behind desk
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.36, 0.06, 0.36, 0.72, 0.06, 0);
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.07, 0.42, 0.07, 0.72, 0.27, 0);
       kit.addMesh(grp, kit.g.cushion, sageWallMat, 0.50, 0.10, 0.48, 0.72, 0.50, 0);
@@ -417,16 +560,16 @@
     }
 
     const nursesStation = buildCurvedNursesStation();
-    nursesStation.position.set(hosp.cx + 1.8, hosp.y, hosp.cz + 2.4);
+    nursesStation.position.set(82.0, hosp.y, -21.8);
     townGroup.add(nursesStation);
     tagInteractable(nursesStation, 'hospital_nurses_station');
-    addBox(sharedColliders, hosp.cx + 1.8, hosp.cz + 2.4, 1.35, 2.5);
+    addBox(sharedColliders, 82.0, -21.8, 1.35, 2.45);
     registerSpot({
       id: 'hospital_nurses_station',
       title: 'Illuminated Sage-Green Nurses\' Station',
       floor: 0,
       category: 'town',
-      x: hosp.cx + 1.8, y: hosp.y, z: hosp.cz + 2.4,
+      x: 82.0, y: hosp.y, z: -21.8,
       radius: 3.6,
       actions: [
         {
@@ -437,7 +580,7 @@
           onInstant: function (actCtx) {
             actCtx.game.money = (actCtx.game.money || 0) + 110;
             if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 14, fun: 8 });
-            actCtx.toast('Ward & VIP Suite telemetry verified! Earned +₡110 Crowns.');
+            actCtx.toast('Ward, ER & VIP Suite telemetry verified! Earned +₡110 Crowns.');
           },
         },
         {
@@ -454,19 +597,20 @@
     });
 
     // -----------------------------------------------------------
-    // HOSPITAL PHARMACY & DISPENSARY (North Lobby Alcove, Facing South)
+    // HOSPITAL PHARMACY & DISPENSARY (North-East Lobby Corridor, Facing -X)
     // -----------------------------------------------------------
     const pharm = kit.buildPharmacyShelves('hospital_pharmacy');
-    pharm.position.set(hosp.cx - 2.6, hosp.y, hosp.cz - 6.0);
+    pharm.rotation.y = -Math.PI * 0.5;
+    pharm.position.set(82.5, hosp.y, -27.8);
     townGroup.add(pharm);
     tagInteractable(pharm, 'hospital_pharmacy');
-    addBox(sharedColliders, hosp.cx - 2.6, hosp.cz - 6.0, 2.4, 0.55);
+    addBox(sharedColliders, 82.5, -27.8, 0.6, 2.4);
     registerSpot({
       id: 'hospital_pharmacy',
       title: 'Hospital Apothecary & Vitamin Dispensary',
       floor: 0,
       category: 'town',
-      x: hosp.cx - 2.6, y: hosp.y, z: hosp.cz - 6.0,
+      x: 82.5, y: hosp.y, z: -27.8,
       radius: 3.4,
       actions: [{
         id: 'buy_vitamins', label: 'Collect Royal Rosewater Tonics (₡20)', hint: '+45 Energy & +35 Hygiene', instant: true,
@@ -484,20 +628,16 @@
     // -----------------------------------------------------------
     function buildWardHeadwall(width, labels, bedXs) {
       const grp = new THREE.Group();
-      kit.addMesh(grp, kit.g.box1, sageWallMat, width, 3.25, 0.22, 0, 1.625, 0);
-      // Continuous Horizontal Medical Gas & Oxygen Outlet Rail (Image 2)
-      kit.addMesh(grp, kit.g.box1, whiteMat, width - 0.25, 0.22, 0.08, 0, 1.25, 0.14);
+      kit.addMesh(grp, kit.g.box1, sageWallMat, width, 3.25, 0.20, 0, 1.625, 0);
+      kit.addMesh(grp, kit.g.box1, whiteMat, width - 0.25, 0.22, 0.08, 0, 1.25, 0.13);
       bedXs.forEach(function (bx, i) {
-        // Linear Warm Sconce Light Fixture above bed
-        kit.addMesh(grp, kit.g.box1, warmGlowMat, 1.05, 0.07, 0.11, bx, 2.05, 0.15);
-        // Numbered Bay Plaque ('01', '02', ...)
-        const plaque = buildBayPlaque(labels[i]);
-        plaque.position.set(bx, 2.38, 0.13);
+        kit.addMesh(grp, kit.g.box1, warmGlowMat, 1.05, 0.07, 0.11, bx, 2.05, 0.14);
+        const plaque = buildBayPlaque(labels[i], '#3f593b', 0.48, 0.24, 34);
+        plaque.position.set(bx, 2.38, 0.12);
         grp.add(plaque);
-        // Color-coded O2 / Air / Suction outlet ports on medical rail
         [-0.22, 0, 0.22].forEach(function (ox, oi) {
           const pCol = [kit.palette.fabricColors.emerald, kit.palette.fabricColors.sapphire, kit.palette.fabricColors.crimson][oi];
-          kit.addMesh(grp, kit.g.box1, pCol, 0.08, 0.08, 0.04, bx + ox, 1.25, 0.185);
+          kit.addMesh(grp, kit.g.box1, pCol, 0.08, 0.08, 0.04, bx + ox, 1.25, 0.175);
         });
       });
       return grp;
@@ -506,11 +646,9 @@
     function buildCurvedCurtainTrack(lenZ) {
       const grp = new THREE.Group();
       const l = lenZ || 2.35;
-      // Overhead metallic track rod
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.045, l, 0.045, 0, 2.85, 0, Math.PI * 0.5, 0, 0);
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.025, 0.72, 0.025, 0, 3.2, -l * 0.35);
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.025, 0.72, 0.025, 0, 3.2, l * 0.35);
-      // Top sheer mesh band + Lower beige pleated drape (Image 2 aesthetic)
       kit.addMesh(grp, kit.g.box1, sheerCurtainMat, 0.04, 0.58, l * 0.88, 0, 2.52, 0.05);
       kit.addMesh(grp, kit.g.cushion, beigeCurtainMat, 0.06, 1.68, l * 0.88, 0, 1.38, 0.05);
       return grp;
@@ -520,14 +658,12 @@
       const grp = new THREE.Group();
       const isVip = Boolean(opts && opts.isVip);
 
-      // Image 1: VIP Floor Glowing Under-Bed Plinth
       if (isVip) {
         const plinth = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(1.65, 0.03, 2.65)), warmFloorGlowMat);
         plinth.position.set(0, 0.025, 0.05);
         grp.add(plinth);
       }
 
-      // 4 Lockable Chrome Casters & Sculpted Motorized Base Frame
       [[-0.50, -0.92], [0.50, -0.92], [-0.50, 0.92], [0.50, 0.92]].forEach(function (wc) {
         kit.addMesh(grp, kit.g.cyl1, ironMat, 0.11, 0.05, 0.11, wc[0], 0.06, wc[1], 0, 0, Math.PI * 0.5);
       });
@@ -535,7 +671,7 @@
       kit.addMesh(grp, kit.g.box1, whiteMat, 1.18, 0.14, 2.22, 0, 0.42, 0);
       kit.addMesh(grp, kit.g.cushion, porcelainMat, 1.08, 0.20, 2.12, 0, 0.48, 0);
 
-      // HOLLOW QUILTED BLANKET DOME (Sleeper lies inside cleanly with zero clipping!)
+      // HOLLOW QUILTED BLANKET DOME
       const duvetGeo = typeof kit.getHollowDuvet === 'function' ? kit.getHollowDuvet(1.14, 0.43, 1.38) : null;
       if (duvetGeo) {
         const duvetMesh = new THREE.Mesh(duvetGeo, isVip ? vipBlanketMat : wardBlanketMat);
@@ -546,7 +682,6 @@
         grp.add(cuffMesh);
       }
 
-      // Contoured Pillows + Headboard + Footboard + Split Safety Side Rails
       kit.addMesh(grp, kit.g.pillow, porcelainMat, 0.78, 0.14, 0.44, 0, 0.64, -0.78, 0.12, 0, 0);
       if (isVip) {
         kit.addMesh(grp, kit.g.pillow, porcelainMat, 0.62, 0.12, 0.32, 0, 0.73, -0.84, 0.28, 0, 0);
@@ -557,24 +692,20 @@
         kit.addMesh(grp, kit.g.cushion, whiteMat, 0.06, 0.20, 1.02, rx, 0.68, -0.18);
       });
 
-      // Oak & Crisp-White Bedside Drawer Cabinet (-X side, Image 2)
       kit.addMesh(grp, kit.g.box1, whiteMat, 0.46, 0.64, 0.48, -0.88, 0.34, -0.82);
       kit.addMesh(grp, kit.g.box1, oakMat, 0.42, 0.44, 0.04, -0.88, 0.30, -0.57);
 
-      // Clinical IV Pole & Monitor Stand
       kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.04, 1.92, 0.04, -0.82, 0.96, -1.04);
       kit.addMesh(grp, kit.g.box1, chromeMat, 0.30, 0.04, 0.04, -0.72, 1.90, -1.04);
       kit.addMesh(grp, kit.g.cushion, kit.palette.crystal, 0.12, 0.24, 0.08, -0.62, 1.72, -1.04);
 
       if (isVip) {
-        // Image 1: Fluted Walnut Feature Wall Behind VIP Suite + Suspended Ceiling Cove + Twin ICU Monitor Towers
         kit.addMesh(grp, kit.g.box1, walnutFluteMat, 3.6, 3.85, 0.20, 0.2, 1.92, -1.32);
         kit.addMesh(grp, kit.g.box1, warmGlowMat, 2.8, 0.06, 0.08, 0.2, 3.65, -1.19);
-        kit.addMesh(grp, kit.g.box1, warmGlowMat, 2.3, 0.08, 2.8, 0, 3.92, 0); // overhead cove halo
+        kit.addMesh(grp, kit.g.box1, warmGlowMat, 2.3, 0.08, 2.8, 0, 3.92, 0);
         [-0.96, 0.96].forEach(function (mx) {
           kit.addMesh(grp, kit.g.cushion, whiteMat, 0.48, 1.15, 0.44, mx, 0.58, -0.86);
           kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.05, 0.95, 0.05, mx, 1.55, -0.86);
-          // Lower & upper dual ICU monitor screens per tower!
           [1.35, 1.88].forEach(function (my) {
             kit.addMesh(grp, kit.g.box1, whiteMat, 0.48, 0.36, 0.07, mx, my, -0.82);
             const mScr = new THREE.Mesh(keepGeo(new THREE.PlaneGeometry(0.42, 0.30)), icuScreenMat);
@@ -583,7 +714,6 @@
           });
         });
       } else {
-        // Standard Ward Monitor (+X side)
         kit.addMesh(grp, kit.g.cyl1, chromeMat, 0.05, 1.48, 0.05, 0.82, 0.74, -0.86);
         kit.addMesh(grp, kit.g.box1, ironMat, 0.44, 0.34, 0.08, 0.82, 1.46, -0.86);
         const mScr = new THREE.Mesh(keepGeo(new THREE.PlaneGeometry(0.38, 0.28)), ecgScreenMat);
@@ -595,51 +725,45 @@
       return grp;
     }
 
-    // Sage-Green Headwall Partition Spines for Ward Rows 1 (01-03) and 2 (04-05)
-    const row1Headwall = buildWardHeadwall(7.5, ['01', '02', '03'], [-2.5, 0, 2.5]);
-    row1Headwall.position.set(hosp.cx - 4.7, hosp.y, hosp.cz - 1.9);
-    townGroup.add(row1Headwall);
-    addBox(sharedColliders, hosp.cx - 4.7, hosp.cz - 1.9, 7.5, 0.3);
-
-    const row2Headwall = buildWardHeadwall(5.0, ['04', '05'], [-1.25, 1.25]);
-    row2Headwall.position.set(hosp.cx - 5.95, hosp.y, hosp.cz + 2.5);
-    townGroup.add(row2Headwall);
-    addBox(sharedColliders, hosp.cx - 5.95, hosp.cz + 2.5, 5.0, 0.3);
+    // Sage-Green Headwall Partition Spine for Ward Bays 01-03 (south side of OR wall)
+    const wardHeadwall = buildWardHeadwall(7.1, ['01', '02', '03'], [-2.35, 0, 2.35]);
+    wardHeadwall.position.set(74.3, hosp.y, -24.42);
+    townGroup.add(wardHeadwall);
+    addBox(sharedColliders, 74.3, -24.42, 7.1, 0.28);
 
     // Enclosed East Wing Partition Walls for Private VIP Recovery Suites (VIP 06 & VIP 07)
-    addWallZ(townGroup, sharedColliders, 0, 3.6, hosp.cx + 4.1, hosp.cz - 3.2, hosp.cz + 1.6, hosp.cz - 0.8, 1.55, 0.2, walnutFluteMat);
-    addWallZ(townGroup, sharedColliders, 0, 3.6, hosp.cx + 4.1, hosp.cz + 1.6, hosp.cz + 6.4, hosp.cz + 4.0, 1.55, 0.2, walnutFluteMat);
-    addWallX(townGroup, sharedColliders, 0, 3.6, hosp.cz + 1.6, hosp.cx + 4.1, hosp.cx + 8.9, null, 0, 0.2, walnutFluteMat);
+    addWallZ(townGroup, sharedColliders, 0, 3.6, 83.7, -25.2, -20.8, -23.0, 1.55, 0.2, walnutFluteMat);
+    addWallZ(townGroup, sharedColliders, 0, 3.6, 83.7, -20.8, -16.6, -18.5, 1.55, 0.2, walnutFluteMat);
+    addWallX(townGroup, sharedColliders, 0, 3.6, -20.8, 83.7, 88.5, null, 0, 0.2, walnutFluteMat);
     [
-      { label: 'VIP 06', z: hosp.cz - 2.0 },
-      { label: 'VIP 07', z: hosp.cz + 2.8 },
+      { label: 'VIP 06', z: -24.1 },
+      { label: 'VIP 07', z: -19.6 },
     ].forEach(function (vp) {
-      const vPlaque = buildBayPlaque(vp.label);
+      const vPlaque = buildBayPlaque(vp.label, '#3f593b', 0.62, 0.25, 28);
       vPlaque.rotation.y = -Math.PI * 0.5;
-      vPlaque.scale.set(1.25, 1.0, 1);
-      vPlaque.position.set(hosp.cx + 3.98, hosp.y + 2.15, vp.z);
+      vPlaque.position.set(83.58, hosp.y + 2.15, vp.z);
       townGroup.add(vPlaque);
     });
 
-    // Build all 7 Hospital Recovery Beds (5 Sage-Green Clinical Bays + 2 Enclosed Walnut VIP Suites!)
+    // Build all 7 Hospital Recovery Beds (3 Ward Bays + 2 ER Trauma Bays + 2 VIP Suites)
     const bedSpecs = [
-      { id: 'hospital_bed_1', x: hosp.cx - 7.2, z: hosp.cz - 0.6, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 01' },
-      { id: 'hospital_bed_2', x: hosp.cx - 4.7, z: hosp.cz - 0.6, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 02' },
-      { id: 'hospital_bed_3', x: hosp.cx - 2.2, z: hosp.cz - 0.6, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 03' },
-      { id: 'hospital_bed_4', x: hosp.cx - 7.2, z: hosp.cz + 3.8, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 04' },
-      { id: 'hospital_bed_5', x: hosp.cx - 4.7, z: hosp.cz + 3.8, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 05' },
-      { id: 'hospital_bed_6', x: hosp.cx + 6.7, z: hosp.cz - 1.1, exOff: -1.45, isVip: true, label: 'Walnut VIP Recovery Suite 06' },
-      { id: 'hospital_bed_7', x: hosp.cx + 6.7, z: hosp.cz + 3.6, exOff: -1.45, isVip: true, label: 'Imperial Walnut VIP Suite 07' },
+      { id: 'hospital_bed_1', x: 71.95, z: -23.15, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 01' },
+      { id: 'hospital_bed_2', x: 74.30, z: -23.15, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 02' },
+      { id: 'hospital_bed_3', x: 76.65, z: -23.15, exOff: 1.15, isVip: false, label: 'Sage Clinical Bay 03' },
+      { id: 'hospital_bed_4', x: 72.00, z: -19.05, exOff: 1.15, isVip: false, label: 'ER Trauma Bay 01' },
+      { id: 'hospital_bed_5', x: 74.35, z: -19.05, exOff: 1.15, isVip: false, label: 'ER Trauma Bay 02' },
+      { id: 'hospital_bed_6', x: 86.30, z: -23.10, exOff: -1.45, isVip: true, label: 'Walnut VIP Recovery Suite 06' },
+      { id: 'hospital_bed_7', x: 86.30, z: -18.60, exOff: -1.45, isVip: true, label: 'Imperial Walnut VIP Suite 07' },
     ];
     bedSpecs.forEach(function (bp, bi) {
       const hBed = buildStyledHospitalBed(bp.id, { isVip: bp.isVip });
       hBed.position.set(bp.x, hosp.y, bp.z);
       townGroup.add(hBed);
-      addBox(sharedColliders, bp.x, bp.z, bp.isVip ? 2.1 : 1.32, 2.25);
+      addBox(sharedColliders, bp.x, bp.z, bp.isVip ? 2.1 : 1.32, 2.22);
 
       if (bi === 0 || bi === 1 || bi === 3) {
-        const curt = buildCurvedCurtainTrack(2.35);
-        curt.position.set(bp.x + 1.25, hosp.y, bp.z);
+        const curt = buildCurvedCurtainTrack(2.25);
+        curt.position.set(bp.x + 1.18, hosp.y, bp.z);
         townGroup.add(curt);
       }
 
@@ -665,24 +789,24 @@
       });
     });
 
-    // Image 2: Rolling Sage-Green & White Medical Crash/Supply Cart in Ward Corridor
+    // Rolling ER Crash/Supply Cart inside Separated ER beside Trauma Bays
     const crashCart = new THREE.Group();
     kit.addMesh(crashCart, kit.g.box1, whiteMat, 0.72, 0.92, 0.54, 0, 0.50, 0);
     [0.24, 0.44, 0.64, 0.82].forEach(function (dy) {
-      kit.addMesh(crashCart, kit.g.box1, sageWallMat, 0.64, 0.14, 0.05, 0, dy, 0.27);
+      kit.addMesh(crashCart, kit.g.box1, erCrimsonMat, 0.64, 0.14, 0.05, 0, dy, 0.27);
     });
     kit.addMesh(crashCart, kit.g.box1, ironMat, 0.42, 0.30, 0.08, 0, 1.15, 0);
     const cScr = new THREE.Mesh(keepGeo(new THREE.PlaneGeometry(0.36, 0.24)), ecgScreenMat);
     cScr.position.set(0, 1.15, 0.045);
     crashCart.add(cScr);
-    crashCart.position.set(hosp.cx - 2.3, hosp.y, hosp.cz + 3.9);
+    crashCart.position.set(75.55, hosp.y, -19.85);
     townGroup.add(crashCart);
-    addBox(sharedColliders, hosp.cx - 2.3, hosp.cz + 3.9, 0.8, 0.65);
+    addBox(sharedColliders, 75.55, -19.85, 0.78, 0.62);
 
     // Image 1: Cognac Leather VIP Visitor Lounge Armchairs inside VIP Suite 06 & VIP Suite 07
     [
-      { id: 'hosp_waiting_sofa', title: 'VIP Suite 06 Cognac Lounge Chair', x: hosp.cx + 5.0, z: hosp.cz + 0.5, yaw: Math.PI * 0.32, exitX: hosp.cx + 5.0, exitZ: hosp.cz - 0.6 },
-      { id: 'hosp_vip_chair_2', title: 'VIP Suite 07 Cognac Lounge Chair', x: hosp.cx + 5.0, z: hosp.cz + 5.2, yaw: Math.PI * 0.32, exitX: hosp.cx + 5.0, exitZ: hosp.cz + 4.1 },
+      { id: 'hosp_waiting_sofa', title: 'VIP Suite 06 Cognac Lounge Chair', x: 85.0, z: -21.5, yaw: Math.PI * 0.32, exitX: 85.0, exitZ: -22.5 },
+      { id: 'hosp_vip_chair_2', title: 'VIP Suite 07 Cognac Lounge Chair', x: 85.0, z: -17.3, yaw: Math.PI * 0.32, exitX: 85.0, exitZ: -18.2 },
     ].forEach(function (vc) {
       const vipChair = new THREE.Group();
       kit.addMesh(vipChair, kit.g.cyl1, ironMat, 0.52, 0.08, 0.52, 0, 0.04, 0);

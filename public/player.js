@@ -112,34 +112,78 @@
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
 
+  const _sharedTexCache = Object.create(null);
+  const _sharedMatCache = Object.create(null);
+  const _sharedGeoCache = Object.create(null);
+
+  function markShared(res) {
+    if (res) {
+      if (!res.userData) res.userData = {};
+      res.userData._sharedCache = true;
+    }
+    return res;
+  }
+
+  function getCachedGeo(key, builder) {
+    if (!_sharedGeoCache[key]) {
+      _sharedGeoCache[key] = markShared(builder());
+    }
+    return _sharedGeoCache[key];
+  }
+
+  function getCachedStdMat(key, params) {
+    if (!_sharedMatCache[key]) {
+      _sharedMatCache[key] = markShared(new THREE.MeshStandardMaterial(params));
+    }
+    return _sharedMatCache[key];
+  }
+
+  function clearSharedCaches() {
+    Object.keys(_sharedTexCache).forEach(function (k) {
+      if (_sharedTexCache[k] && typeof _sharedTexCache[k].dispose === 'function') _sharedTexCache[k].dispose();
+      delete _sharedTexCache[k];
+    });
+    Object.keys(_sharedMatCache).forEach(function (k) {
+      if (_sharedMatCache[k] && typeof _sharedMatCache[k].dispose === 'function') _sharedMatCache[k].dispose();
+      delete _sharedMatCache[k];
+    });
+    Object.keys(_sharedGeoCache).forEach(function (k) {
+      if (_sharedGeoCache[k] && typeof _sharedGeoCache[k].dispose === 'function') _sharedGeoCache[k].dispose();
+      delete _sharedGeoCache[k];
+    });
+  }
+
   /**
-   * 512x512 crisp planar-projected royal face texture.
+   * 512x512 (player) / 256x256 (NPC) crisp planar-projected royal face texture.
    * Front face vertices map cleanly into x=[0.16..0.84], y=[0.06..0.94]; back-of-head maps to [0..0.12].
    */
-  function createRoyalFaceTexture(lookInfo) {
+  function createRoyalFaceTexture(lookInfo, texSize) {
     const THREE = window.THREE;
-    const size = 512;
+    const size = texSize || 512;
+    const s = size / 512;
     const c = document.createElement('canvas');
     c.width = size;
     c.height = size;
     const ctx = c.getContext('2d');
+    if (s !== 1) ctx.scale(s, s);
+    const vSize = 512;
 
     ctx.fillStyle = lookInfo.skinHex;
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, vSize, vSize);
 
     // Subtle facial volumetric sculpting (forehead light, temple & jaw contour)
-    const cx = size * 0.5;
-    const faceGlow = ctx.createRadialGradient(cx, size * 0.48, size * 0.04, cx, size * 0.5, size * 0.36);
+    const cx = vSize * 0.5;
+    const faceGlow = ctx.createRadialGradient(cx, vSize * 0.48, vSize * 0.04, cx, vSize * 0.5, vSize * 0.36);
     faceGlow.addColorStop(0, hexToRgba(lookInfo.skinHighlightHex, 0.36));
     faceGlow.addColorStop(0.65, hexToRgba(lookInfo.skinHex, 0));
     faceGlow.addColorStop(1, hexToRgba(lookInfo.skinShadowHex, 0.42));
     ctx.fillStyle = faceGlow;
-    ctx.fillRect(size * 0.1, 0, size * 0.85, size);
+    ctx.fillRect(vSize * 0.1, 0, vSize * 0.85, vSize);
 
     // Eye anchors match planar projection of sculptural head (+y = top of canvas in UV, canvas y=0 is top!)
-    // In BufferGeometry UV v=0 is chin (bottom -> canvas y=size), v=1 is crown (top -> canvas y=0)
-    const eyeY = size * 0.47;
-    const eyeSep = size * 0.095 * lookInfo.eyeSpacing;
+    // In BufferGeometry UV v=0 is chin (bottom -> canvas y=vSize), v=1 is crown (top -> canvas y=0)
+    const eyeY = vSize * 0.47;
+    const eyeSep = vSize * 0.095 * lookInfo.eyeSpacing;
     const eyeScale = 0.92 + (lookInfo.eyeSize - 0.85) * 0.55;
     const rx = 25 * eyeScale;
     const ry = (lookInfo.eyeShape === 'doe' ? 16.5 : lookInfo.eyeShape === 'hooded' ? 12.2 : 14.5) * eyeScale;
@@ -147,8 +191,8 @@
     // Airbrushed Cheekbone Blush
     if (lookInfo.blushIntensity > 0.02) {
       [-1, 1].forEach(function (side) {
-        const bx = cx + side * size * 0.14;
-        const by = size * 0.585;
+        const bx = cx + side * vSize * 0.14;
+        const by = vSize * 0.585;
         const bg = ctx.createRadialGradient(bx, by, 4, bx, by, 44);
         bg.addColorStop(0, hexToRgba(lookInfo.blushHex, Math.min(0.55, lookInfo.blushIntensity * 0.5)));
         bg.addColorStop(1, hexToRgba(lookInfo.blushHex, 0));
@@ -160,7 +204,7 @@
     }
 
     // Soft sculpted nose bridge highlight + subtle nostrils shadow (zero cone polygon needed!)
-    const noseBridge = ctx.createLinearGradient(cx, eyeY - 4, cx, size * 0.615);
+    const noseBridge = ctx.createLinearGradient(cx, eyeY - 4, cx, vSize * 0.615);
     noseBridge.addColorStop(0, hexToRgba(lookInfo.skinHighlightHex, 0.45));
     noseBridge.addColorStop(1, hexToRgba(lookInfo.skinHighlightHex, 0.14));
     ctx.strokeStyle = noseBridge;
@@ -168,17 +212,17 @@
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(cx, eyeY - 2);
-    ctx.lineTo(cx, size * 0.6);
+    ctx.lineTo(cx, vSize * 0.6);
     ctx.stroke();
 
     ctx.fillStyle = hexToRgba(lookInfo.skinShadowHex, 0.34);
     ctx.beginPath();
-    ctx.ellipse(cx, size * 0.616, 15, 5.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, vSize * 0.616, 15, 5.2, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = hexToRgba(lookInfo.skinShadowHex, 0.55);
     [-1, 1].forEach(function (s) {
       ctx.beginPath();
-      ctx.ellipse(cx + s * 6.5, size * 0.62, 2.8, 1.6, s * 0.25, 0, Math.PI * 2);
+      ctx.ellipse(cx + s * 6.5, vSize * 0.62, 2.8, 1.6, s * 0.25, 0, Math.PI * 2);
       ctx.fill();
     });
 
@@ -188,7 +232,7 @@
       const count = lookInfo.freckles === 'full-cheek' ? 32 : 16;
       for (let i = 0; i < count; i++) {
         const fx = cx + Math.sin(i * 7.3) * (lookInfo.freckles === 'light-nose' ? 28 : 66);
-        const fy = size * 0.555 + Math.cos(i * 4.1) * 14;
+        const fy = vSize * 0.555 + Math.cos(i * 4.1) * 14;
         ctx.beginPath();
         ctx.arc(fx, fy, 1.6, 0, Math.PI * 2);
         ctx.fill();
@@ -199,10 +243,10 @@
     if (lookInfo.mole && lookInfo.mole !== 'none') {
       ctx.fillStyle = '#331d19';
       let mx = cx - 44;
-      let my = size * 0.57;
+      let my = vSize * 0.57;
       if (lookInfo.mole === 'lip-corner') {
         mx = cx + 32;
-        my = size * 0.695;
+        my = vSize * 0.695;
       } else if (lookInfo.mole === 'brow-arch') {
         mx = cx + 48;
         my = eyeY - 30;
@@ -366,7 +410,7 @@
     });
 
     // Sculpted Cupid's Bow Couture Lips
-    const lipY = size * 0.71;
+    const lipY = vSize * 0.71;
     const lipW = 28 * (0.9 + lookInfo.lipFullness * 0.14);
     const lipH = 10.5 * (0.82 + lookInfo.lipFullness * 0.28);
 
@@ -406,35 +450,36 @@
   }
 
   /**
-   * 512x512 tailored haute-couture bodice, bra/panties, or gown fabric texture.
+   * 512x512 (player) / 256x256 (NPC) tailored haute-couture bodice, bra/panties, or gown fabric texture.
    */
-  function createCoutureFabricTexture(primaryHex, goldHex, trimHex, outfitId, role, skinHex) {
+  function createCoutureFabricTexture(primaryHex, goldHex, trimHex, outfitId, role, skinHex, texSize) {
     const THREE = window.THREE;
-    const size = 512;
+    const size = texSize || 512;
+    const s = size / 512;
     const c = document.createElement('canvas');
     c.width = size;
     c.height = size;
     const ctx = c.getContext('2d');
+    if (s !== 1) ctx.scale(s, s);
+    const vSize = 512;
 
     if (role === 'royal' && outfitId === 'foundation-slip') {
       // Crisp satin lacy bralette & high-cut panties painted directly on bare skin torso
       ctx.fillStyle = skinHex || '#f0cbb4';
-      ctx.fillRect(0, 0, size, size);
+      ctx.fillRect(0, 0, vSize, vSize);
 
-      // Bra band (v=0.60..0.76 -> canvas y from top: v=1 is top y=0, v=0 is bottom y=size)
-      const braTop = size * 0.22;
-      const braBot = size * 0.4;
+      const braTop = vSize * 0.22;
+      const braBot = vSize * 0.4;
       ctx.fillStyle = primaryHex;
-      ctx.fillRect(0, braTop, size, braBot - braTop);
+      ctx.fillRect(0, braTop, vSize, braBot - braTop);
       ctx.strokeStyle = goldHex;
       ctx.lineWidth = 4;
-      ctx.strokeRect(0, braTop, size, braBot - braTop);
+      ctx.strokeRect(0, braTop, vSize, braBot - braTop);
 
-      // Satin briefs (v=0.0..0.20 -> bottom y=size*0.80..size)
       ctx.fillStyle = primaryHex;
-      ctx.fillRect(0, size * 0.8, size, size * 0.2);
+      ctx.fillRect(0, vSize * 0.8, vSize, vSize * 0.2);
       ctx.strokeStyle = goldHex;
-      ctx.strokeRect(0, size * 0.8, size, size * 0.2);
+      ctx.strokeRect(0, vSize * 0.8, vSize, vSize * 0.2);
 
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -442,20 +487,20 @@
       return tex;
     }
 
-    const baseGrad = ctx.createLinearGradient(0, 0, 0, size);
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, vSize);
     baseGrad.addColorStop(0, primaryHex);
     baseGrad.addColorStop(0.55, primaryHex);
     baseGrad.addColorStop(1, hexToRgba(primaryHex, 1));
     ctx.fillStyle = baseGrad;
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, vSize, vSize);
 
     // Subtle silk satin weave & vertical couture princess seams
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
     ctx.lineWidth = 2.5;
-    for (let x = 16; x < size; x += 48) {
+    for (let x = 16; x < vSize; x += 48) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x + 8, size);
+      ctx.lineTo(x + 8, vSize);
       ctx.stroke();
     }
 
@@ -463,8 +508,8 @@
       // Gold embroidered corset boning & Baroque floral damask
       ctx.strokeStyle = hexToRgba(goldHex, 0.52);
       ctx.lineWidth = 2.4;
-      for (let gx = 48; gx < size; gx += 96) {
-        for (let gy = 56; gy < size - 64; gy += 96) {
+      for (let gx = 48; gx < vSize; gx += 96) {
+        for (let gy = 56; gy < vSize - 64; gy += 96) {
           ctx.beginPath();
           ctx.ellipse(gx, gy, 16, 26, 0, 0, Math.PI * 2);
           ctx.stroke();
@@ -475,9 +520,9 @@
       }
       // Ornate gold & cream embroidered gown hem band
       ctx.fillStyle = hexToRgba(goldHex, 0.88);
-      ctx.fillRect(0, size - 42, size, 14);
+      ctx.fillRect(0, vSize - 42, vSize, 14);
       ctx.fillStyle = trimHex;
-      ctx.fillRect(0, size - 22, size, 8);
+      ctx.fillRect(0, vSize - 22, vSize, 8);
     }
 
     const tex = new THREE.CanvasTexture(c);
@@ -1004,85 +1049,104 @@
 
     const textures = [];
     function keepTex(t) {
-      textures.push(t);
+      if (t && (!t.userData || !t.userData._sharedCache)) textures.push(t);
       return t;
     }
 
-    const faceTex = keepTex(createRoyalFaceTexture(lookInfo));
-    const fabricTex = keepTex(
-      createCoutureFabricTexture(dressHex, goldHex, trimHex, outfitPal.outfitId, role, lookInfo.skinHex)
-    );
-    const hairTex = keepTex(
-      createHairStrandTexture(lookInfo.hairRootHex, lookInfo.hairTipHex, lookInfo.hairHighlightHex)
-    );
+    const isNPC = !opts.showPlumbob;
+    let faceTex;
+    let fabricTex;
+    let hairTex;
 
-    const skinMat = new THREE.MeshPhysicalMaterial({
-      color: skinColor,
-      roughness: 0.44,
-      metalness: 0.01,
-      sheen: 0.42,
-      sheenRoughness: 0.45,
-      sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
-      clearcoat: 0.14,
-      clearcoatRoughness: 0.56,
-    });
+    if (isNPC) {
+      const faceKey = 'f256|' + lookInfo.skinHex + '|' + lookInfo.eyeHex + '|' + lookInfo.lipHex + '|' + lookInfo.hairRootHex + '|' + lookInfo.eyeShape + '|' + lookInfo.browStyle;
+      faceTex = _sharedTexCache[faceKey] || (_sharedTexCache[faceKey] = markShared(createRoyalFaceTexture(lookInfo, 256)));
+      const fabKey = 'fab256|' + dressHex + '|' + goldHex + '|' + trimHex + '|' + outfitPal.outfitId + '|' + role + '|' + lookInfo.skinHex;
+      fabricTex = _sharedTexCache[fabKey] || (_sharedTexCache[fabKey] = markShared(createCoutureFabricTexture(dressHex, goldHex, trimHex, outfitPal.outfitId, role, lookInfo.skinHex, 256)));
+    } else {
+      faceTex = keepTex(createRoyalFaceTexture(lookInfo, 512));
+      fabricTex = keepTex(createCoutureFabricTexture(dressHex, goldHex, trimHex, outfitPal.outfitId, role, lookInfo.skinHex, 512));
+    }
+    const hairKey = 'hair|' + lookInfo.hairRootHex + '|' + lookInfo.hairTipHex + '|' + lookInfo.hairHighlightHex;
+    hairTex = _sharedTexCache[hairKey] || (_sharedTexCache[hairKey] = markShared(createHairStrandTexture(lookInfo.hairRootHex, lookInfo.hairTipHex, lookInfo.hairHighlightHex)));
 
-    const headFaceMat = new THREE.MeshPhysicalMaterial({
-      map: faceTex,
-      roughness: 0.4,
-      metalness: 0.01,
-      sheen: 0.32,
-      sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
-      clearcoat: 0.18,
-      clearcoatRoughness: 0.52,
-    });
+    const skinMat = isNPC
+      ? getCachedStdMat('skin|' + lookInfo.skinHex, { color: skinColor, roughness: 0.48, metalness: 0.01 })
+      : new THREE.MeshPhysicalMaterial({
+          color: skinColor,
+          roughness: 0.44,
+          metalness: 0.01,
+          sheen: 0.42,
+          sheenRoughness: 0.45,
+          sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
+          clearcoat: 0.14,
+          clearcoatRoughness: 0.56,
+        });
 
-    const fabricMat = new THREE.MeshPhysicalMaterial({
-      map: fabricTex,
-      roughness: 0.36,
-      metalness: 0.08,
-      sheen: 0.72,
-      sheenRoughness: 0.4,
-      sheenColor: dressGold,
-      side: THREE.DoubleSide,
-    });
+    const headFaceMat = isNPC
+      ? getCachedStdMat('hface|' + (faceTex.uuid || lookInfo.skinHex), { map: faceTex, roughness: 0.44, metalness: 0.01 })
+      : new THREE.MeshPhysicalMaterial({
+          map: faceTex,
+          roughness: 0.4,
+          metalness: 0.01,
+          sheen: 0.32,
+          sheenColor: new THREE.Color(lookInfo.skinHighlightHex),
+          clearcoat: 0.18,
+          clearcoatRoughness: 0.52,
+        });
 
-    const trimMat = new THREE.MeshStandardMaterial({
+    const fabricMat = isNPC
+      ? getCachedStdMat('fab|' + (fabricTex.uuid || dressHex), { map: fabricTex, roughness: 0.4, metalness: 0.08, side: THREE.DoubleSide })
+      : new THREE.MeshPhysicalMaterial({
+          map: fabricTex,
+          roughness: 0.36,
+          metalness: 0.08,
+          sheen: 0.72,
+          sheenRoughness: 0.4,
+          sheenColor: dressGold,
+          side: THREE.DoubleSide,
+        });
+
+    const trimMat = getCachedStdMat('trim|' + trimHex, {
       color: dressTrim,
       roughness: 0.36,
       metalness: 0.08,
     });
 
-    const goldMat = new THREE.MeshStandardMaterial({
+    const goldMat = getCachedStdMat('gold|' + goldHex, {
       color: dressGold,
       roughness: 0.2,
       metalness: 0.88,
     });
 
-    const hairCardMat = new THREE.MeshPhysicalMaterial({
-      map: hairTex,
-      roughness: 0.38,
-      metalness: 0.05,
-      sheen: 0.65,
-      sheenColor: new THREE.Color(lookInfo.hairHighlightHex),
-      alphaTest: 0.28,
-      side: THREE.DoubleSide,
-    });
+    const hairCardMat = isNPC
+      ? getCachedStdMat('hcard|' + (hairTex.uuid || lookInfo.hairRootHex), { map: hairTex, roughness: 0.44, metalness: 0.05, alphaTest: 0.28, side: THREE.DoubleSide })
+      : new THREE.MeshPhysicalMaterial({
+          map: hairTex,
+          roughness: 0.38,
+          metalness: 0.05,
+          sheen: 0.65,
+          sheenColor: new THREE.Color(lookInfo.hairHighlightHex),
+          alphaTest: 0.28,
+          side: THREE.DoubleSide,
+        });
 
-    const hairSolidMat = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(lookInfo.hairRootHex),
-      roughness: 0.42,
-      sheen: 0.5,
-      sheenColor: new THREE.Color(lookInfo.hairHighlightHex),
-    });
+    const hairSolidMat = isNPC
+      ? getCachedStdMat('hsolid|' + lookInfo.hairRootHex, { color: new THREE.Color(lookInfo.hairRootHex), roughness: 0.48 })
+      : new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(lookInfo.hairRootHex),
+          roughness: 0.42,
+          sheen: 0.5,
+          sheenColor: new THREE.Color(lookInfo.hairHighlightHex),
+        });
 
     const gloveMat =
       role === 'guard'
         ? trimMat
         : acc.gloves === 'noir-satin'
-          ? new THREE.MeshStandardMaterial({ color: 0x221d24, roughness: 0.36 })
+          ? getCachedStdMat('glove|noir', { color: 0x221d24, roughness: 0.36 })
           : acc.gloves === 'ivory-opera'
-            ? new THREE.MeshStandardMaterial({ color: 0xf7f1e8, roughness: 0.36 })
+            ? getCachedStdMat('glove|ivory', { color: 0xf7f1e8, roughness: 0.36 })
             : acc.gloves === 'lace-mittens'
               ? goldMat
               : skinMat;
@@ -1098,19 +1162,24 @@
               ? new THREE.Color('#2a1e1a')
               : dressGold.clone().lerp(new THREE.Color('#23181d'), 0.34);
 
-    const shoeMat = new THREE.MeshStandardMaterial({
+    const isBarefootRoyal = acc.shoes === 'barefoot' && role === 'royal';
+    const shoeMat = getCachedStdMat('shoe|' + shoeColor.getHexString() + '|' + (isBarefootRoyal ? 'b' : 's'), {
       color: shoeColor,
-      roughness: acc.shoes === 'barefoot' && role === 'royal' ? 0.58 : 0.24,
-      metalness: acc.shoes === 'barefoot' && role === 'royal' ? 0.02 : 0.38,
+      roughness: isBarefootRoyal ? 0.58 : 0.24,
+      metalness: isBarefootRoyal ? 0.02 : 0.38,
     });
 
-    // Ground Contact Shadow
-    const shadowGeo = new THREE.CircleGeometry(0.45 * hipScale, 22);
-    shadowGeo.rotateX(-Math.PI / 2);
-    const contactShadow = new THREE.Mesh(
-      shadowGeo,
+    // Ground Contact Shadow (shared unit disc scaled per hipScale)
+    const shadowGeo = getCachedGeo('contactShadow', function () {
+      const g = new THREE.CircleGeometry(0.45, 16);
+      g.rotateX(-Math.PI / 2);
+      return g;
+    });
+    const shadowMat = _sharedMatCache['contactShadowMat'] || (_sharedMatCache['contactShadowMat'] = markShared(
       new THREE.MeshBasicMaterial({ color: 0x1e1318, transparent: true, opacity: 0.32, depthWrite: false })
-    );
+    ));
+    const contactShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    contactShadow.scale.set(hipScale, 1, hipScale);
     contactShadow.position.y = 0.026;
     root.add(contactShadow);
 
@@ -1132,6 +1201,39 @@
       outfitPal.outfitId === 'equestrian-tailored';
     const isBoot = role === 'guard' || role === 'chauffeur' || acc.shoes === 'riding-boots';
 
+    const thighKey = 'thigh|' + thighR.toFixed(3) + '|' + thighLen.toFixed(3);
+    const shinKey = 'shin|' + thighR.toFixed(3) + '|' + shinLen.toFixed(3);
+    const thighGeo = getCachedGeo(thighKey, function () { return buildSculptedThighGeometry(thighR, thighLen); });
+    const shinGeo = getCachedGeo(shinKey, function () { return buildSculptedShinGeometry(thighR, shinLen); });
+
+    const pumpExtrudeKey = 'pump|' + shinLen.toFixed(3);
+    const sharedPumpGeo = getCachedGeo(pumpExtrudeKey, function () {
+      const shape = new THREE.Shape();
+      shape.moveTo(-0.042, 0.004);
+      shape.lineTo(-0.042, 0.072);
+      shape.lineTo(-0.022, 0.072);
+      shape.lineTo(-0.016, 0.026);
+      shape.quadraticCurveTo(0.022, 0.045, 0.068, 0.022);
+      shape.lineTo(0.118, 0.008);
+      shape.quadraticCurveTo(0.128, 0.002, 0.116, 0.0);
+      shape.lineTo(0.056, 0.0);
+      shape.quadraticCurveTo(0.015, 0.032, -0.02, 0.004);
+      shape.closePath();
+      const eg = new THREE.ExtrudeGeometry(shape, {
+        depth: 0.052,
+        bevelEnabled: true,
+        bevelThickness: 0.006,
+        bevelSize: 0.005,
+        bevelSegments: 1,
+      });
+      eg.rotateY(-Math.PI / 2);
+      eg.translate(0.026, -shinLen, 0.0);
+      return eg;
+    });
+    const sharedBootCuffGeo = isBoot ? getCachedGeo('bootcuff|' + shinLen.toFixed(3), function () {
+      return new THREE.CylinderGeometry(0.052, 0.041, shinLen * 0.78, 12);
+    }) : null;
+
     function makeLeg(side) {
       const hipPivot = new THREE.Group();
       hipPivot.position.set(side * 0.088 * Math.max(0.92, hipScale * 0.9), pelvisY, 0);
@@ -1142,19 +1244,25 @@
           : isTrousers
             ? fabricMat
             : skinMat;
-      const thighMesh = new THREE.Mesh(buildSculptedThighGeometry(thighR, thighLen), legMat);
-      thighMesh.castShadow = true;
+      const thighMesh = new THREE.Mesh(thighGeo, legMat);
       hipPivot.add(thighMesh);
 
       const kneePivot = new THREE.Group();
       kneePivot.position.set(0, -thighLen, 0);
       hipPivot.add(kneePivot);
 
-      const shinMesh = new THREE.Mesh(buildSculptedShinGeometry(thighR, shinLen), legMat);
-      shinMesh.castShadow = true;
+      const shinMesh = new THREE.Mesh(shinGeo, legMat);
       kneePivot.add(shinMesh);
 
-      kneePivot.add(buildCouturePumpMesh(shoeMat, isBoot, shinLen));
+      const footGroup = new THREE.Group();
+      const pumpMesh = new THREE.Mesh(sharedPumpGeo, shoeMat);
+      footGroup.add(pumpMesh);
+      if (isBoot && sharedBootCuffGeo) {
+        const cuff = new THREE.Mesh(sharedBootCuffGeo, shoeMat);
+        cuff.position.set(0, -shinLen * 0.56, 0.004);
+        footGroup.add(cuff);
+      }
+      kneePivot.add(footGroup);
       return { hip: hipPivot, knee: kneePivot };
     }
 
@@ -1173,12 +1281,15 @@
     rig.add(bodyGroup);
 
     const isLingerie = role === 'royal' && outfitPal.outfitId === 'foundation-slip';
-    const torsoGeo = buildAnatomicalTorsoGeometry({
-      shoulders: shoulderScale,
-      bust: bustScale,
-      waist: waistScale,
-      highHip: highHipScale,
-      hips: hipScale,
+    const torsoKey = 'torso|' + shoulderScale.toFixed(2) + '|' + bustScale.toFixed(2) + '|' + waistScale.toFixed(2) + '|' + highHipScale.toFixed(2) + '|' + hipScale.toFixed(2);
+    const torsoGeo = getCachedGeo(torsoKey, function () {
+      return buildAnatomicalTorsoGeometry({
+        shoulders: shoulderScale,
+        bust: bustScale,
+        waist: waistScale,
+        highHip: highHipScale,
+        hips: hipScale,
+      });
     });
     const torsoMesh = new THREE.Mesh(torsoGeo, fabricMat);
     torsoMesh.castShadow = true;
@@ -1200,18 +1311,25 @@
 
     let skirtMesh = null;
     if (isBallgown) {
-      const skirtGeo = buildPleatedSkirtGeometry(0.132 * waistScale, 0.52 * hipScale, legLen + 0.1, 0.19, 14);
+      const skirtKey = 'bskirt|' + waistScale.toFixed(2) + '|' + hipScale.toFixed(2) + '|' + legLen.toFixed(2);
+      const skirtGeo = getCachedGeo(skirtKey, function () {
+        return buildPleatedSkirtGeometry(0.132 * waistScale, 0.52 * hipScale, legLen + 0.1, 0.19, 14);
+      });
       skirtMesh = new THREE.Mesh(skirtGeo, fabricMat);
       skirtMesh.castShadow = true;
       skirtMesh.receiveShadow = true;
       bodyGroup.add(skirtMesh);
 
-      const peplumPts = [
-        new THREE.Vector2(0.25 * hipScale, -0.18),
-        new THREE.Vector2(0.23 * hipScale, 0.02),
-        new THREE.Vector2(0.134 * waistScale, 0.195),
-      ];
-      const peplum = new THREE.Mesh(new THREE.LatheGeometry(peplumPts, 24, -0.2, Math.PI + 0.4), goldMat);
+      const pepKey = 'peplum|' + waistScale.toFixed(2) + '|' + hipScale.toFixed(2);
+      const peplumGeo = getCachedGeo(pepKey, function () {
+        const peplumPts = [
+          new THREE.Vector2(0.25 * hipScale, -0.18),
+          new THREE.Vector2(0.23 * hipScale, 0.02),
+          new THREE.Vector2(0.134 * waistScale, 0.195),
+        ];
+        return new THREE.LatheGeometry(peplumPts, 18, -0.2, Math.PI + 0.4);
+      });
+      const peplum = new THREE.Mesh(peplumGeo, goldMat);
       peplum.rotation.y = Math.PI * 0.5;
       peplum.scale.set(1.04, 1, 0.94);
       bodyGroup.add(peplum);
@@ -1223,29 +1341,34 @@
             ? legLen * 0.94
             : legLen * 0.58;
       const flare = outfitPal.outfitId === 'midnight-opera-slip' ? 0.24 * hipScale : 0.34 * hipScale;
-      const skirtGeo = buildPleatedSkirtGeometry(0.13 * waistScale, flare, skirtLen, 0.19, 10);
+      const cSkirtKey = 'cskirt|' + waistScale.toFixed(2) + '|' + flare.toFixed(2) + '|' + skirtLen.toFixed(2);
+      const skirtGeo = getCachedGeo(cSkirtKey, function () {
+        return buildPleatedSkirtGeometry(0.13 * waistScale, flare, skirtLen, 0.19, 10);
+      });
       skirtMesh = new THREE.Mesh(skirtGeo, fabricMat);
       skirtMesh.castShadow = true;
       bodyGroup.add(skirtMesh);
 
       if (role === 'maid') {
         const apron = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.135 * waistScale, 0.28 * hipScale, skirtLen * 0.82, 16, 1, false, -0.7, 1.4),
+          getCachedGeo('maidApron|' + waistScale.toFixed(2) + '|' + hipScale.toFixed(2) + '|' + skirtLen.toFixed(2), function () {
+            return new THREE.CylinderGeometry(0.135 * waistScale, 0.28 * hipScale, skirtLen * 0.82, 12, 1, false, -0.7, 1.4);
+          }),
           trimMat
         );
         apron.position.y = 0.17 - skirtLen * 0.42;
         bodyGroup.add(apron);
 
-        const bib = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.22, 0.03), trimMat);
+        const bib = new THREE.Mesh(getCachedGeo('maidBib', function () { return new THREE.BoxGeometry(0.15, 0.22, 0.03); }), trimMat);
         bib.position.set(0, 0.36, 0.11);
         bodyGroup.add(bib);
 
-        const collarRing = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.015, 8, 18), trimMat);
+        const collarRing = new THREE.Mesh(getCachedGeo('maidCollar', function () { return new THREE.TorusGeometry(0.068, 0.015, 6, 14); }), trimMat);
         collarRing.rotation.x = Math.PI * 0.46;
         collarRing.position.set(0, 0.56, 0.014);
         bodyGroup.add(collarRing);
 
-        const bowBack = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.04), trimMat);
+        const bowBack = new THREE.Mesh(getCachedGeo('maidBow', function () { return new THREE.BoxGeometry(0.16, 0.08, 0.04); }), trimMat);
         bowBack.position.set(0, 0.19, -0.14);
         bodyGroup.add(bowBack);
       }
@@ -1260,7 +1383,10 @@
       role !== 'anesthesiologist' &&
       role !== 'nurse'
     ) {
-      const belt = new THREE.Mesh(new THREE.TorusGeometry(0.128 * waistScale, 0.014, 10, 26), goldMat);
+      const belt = new THREE.Mesh(
+        getCachedGeo('belt|' + waistScale.toFixed(2), function () { return new THREE.TorusGeometry(0.128 * waistScale, 0.014, 8, 18); }),
+        goldMat
+      );
       belt.rotation.x = Math.PI / 2;
       belt.scale.set(1.02, 0.78, 1);
       belt.position.set(0, 0.2, 0.004);
@@ -1268,96 +1394,109 @@
     }
 
     if (role === 'guard') {
-      const sash = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.42, 12, 1, true, -0.35, 0.7), trimMat);
+      const sash = new THREE.Mesh(
+        getCachedGeo('guardSash', function () { return new THREE.CylinderGeometry(0.14, 0.14, 0.42, 10, 1, true, -0.35, 0.7); }),
+        trimMat
+      );
       sash.position.set(0, 0.34, 0.015);
       sash.rotation.z = 0.42;
       bodyGroup.add(sash);
     }
 
     // Distinct 3D Role Uniform Details (Butlers, Chauffeurs, Chefs, Doctors & Nurses)
-    const medicalRedMat = new THREE.MeshStandardMaterial({ color: 0xc82b3f, roughness: 0.35 });
-    const ebonyMat = new THREE.MeshStandardMaterial({ color: 0x181920, roughness: 0.45 });
+    const medicalRedMat = getCachedStdMat('medicalRed', { color: 0xc82b3f, roughness: 0.35 });
+    const ebonyMat = getCachedStdMat('ebony', { color: 0x181920, roughness: 0.45 });
     if (role === 'butler' || role === 'chauffeur') {
-      const shirtBib = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.26, 0.04), trimMat);
+      const shirtBib = new THREE.Mesh(getCachedGeo('shirtBib', function () { return new THREE.BoxGeometry(0.105, 0.26, 0.04); }), trimMat);
       shirtBib.position.set(0, 0.41, 0.095);
       bodyGroup.add(shirtBib);
 
       if (role === 'butler') {
-        const tieLeft = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.048, 6), ebonyMat);
+        const tieGeo = getCachedGeo('bowtie', function () { return new THREE.ConeGeometry(0.022, 0.048, 6); });
+        const tailGeo = getCachedGeo('tailcoat', function () { return new THREE.BoxGeometry(0.11, 0.36, 0.025); });
+        const tieLeft = new THREE.Mesh(tieGeo, ebonyMat);
         tieLeft.rotation.z = -Math.PI * 0.5;
         tieLeft.position.set(-0.024, 0.545, 0.085);
         bodyGroup.add(tieLeft);
-        const tieRight = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.048, 6), ebonyMat);
+        const tieRight = new THREE.Mesh(tieGeo, ebonyMat);
         tieRight.rotation.z = Math.PI * 0.5;
         tieRight.position.set(0.024, 0.545, 0.085);
         bodyGroup.add(tieRight);
-        const tailCoatL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.36, 0.025), fabricMat);
+        const tailCoatL = new THREE.Mesh(tailGeo, fabricMat);
         tailCoatL.position.set(-0.068, 0.02, -0.108);
         tailCoatL.rotation.x = 0.08;
         bodyGroup.add(tailCoatL);
-        const tailCoatR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.36, 0.025), fabricMat);
+        const tailCoatR = new THREE.Mesh(tailGeo, fabricMat);
         tailCoatR.position.set(0.068, 0.02, -0.108);
         tailCoatR.rotation.x = 0.08;
         bodyGroup.add(tailCoatR);
       } else {
-        const tie = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.22, 0.02), ebonyMat);
+        const tie = new THREE.Mesh(getCachedGeo('chTie', function () { return new THREE.BoxGeometry(0.032, 0.22, 0.02); }), ebonyMat);
         tie.position.set(0, 0.42, 0.116);
         bodyGroup.add(tie);
       }
 
+      const btnGeo = getCachedGeo('btnSphere', function () { return new THREE.SphereGeometry(0.011, 6, 5); });
       [-1, 1].forEach(function (side) {
         for (let bi = 0; bi < 3; bi++) {
-          const btn = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), goldMat);
+          const btn = new THREE.Mesh(btnGeo, goldMat);
           btn.position.set(side * 0.042, 0.25 + bi * 0.075, 0.114);
           bodyGroup.add(btn);
         }
       });
     } else if (role === 'chef') {
-      const kerchief = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.014, 8, 18), medicalRedMat);
+      const kerchief = new THREE.Mesh(getCachedGeo('kerchief', function () { return new THREE.TorusGeometry(0.062, 0.014, 6, 14); }), medicalRedMat);
       kerchief.rotation.x = Math.PI * 0.46;
       kerchief.position.set(0, 0.555, 0.014);
       bodyGroup.add(kerchief);
+      const btnGeo = getCachedGeo('btnSphere', function () { return new THREE.SphereGeometry(0.011, 6, 5); });
       [-1, 1].forEach(function (side) {
         for (let bi = 0; bi < 3; bi++) {
-          const btn = new THREE.Mesh(new THREE.SphereGeometry(0.011, 8, 6), ebonyMat);
+          const btn = new THREE.Mesh(btnGeo, ebonyMat);
           btn.position.set(side * 0.048, 0.27 + bi * 0.075, 0.112);
           bodyGroup.add(btn);
         }
       });
       const waistApron = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.138 * waistScale, 0.185 * hipScale, 0.42, 14, 1, false, -0.68, 1.36),
+        getCachedGeo('chefApron|' + waistScale.toFixed(2) + '|' + hipScale.toFixed(2), function () {
+          return new THREE.CylinderGeometry(0.138 * waistScale, 0.185 * hipScale, 0.42, 12, 1, false, -0.68, 1.36);
+        }),
         trimMat
       );
       waistApron.position.set(0, -0.02, 0.018);
       bodyGroup.add(waistApron);
     } else if (role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist' || role === 'nurse') {
-      const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.056, 0.016), medicalRedMat);
+      const crossV = new THREE.Mesh(getCachedGeo('medCV', function () { return new THREE.BoxGeometry(0.018, 0.056, 0.016); }), medicalRedMat);
       crossV.position.set(-0.078, 0.44, 0.118);
       bodyGroup.add(crossV);
-      const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.018, 0.016), medicalRedMat);
+      const crossH = new THREE.Mesh(getCachedGeo('medCH', function () { return new THREE.BoxGeometry(0.056, 0.018, 0.016); }), medicalRedMat);
       crossH.position.set(-0.078, 0.44, 0.118);
       bodyGroup.add(crossH);
 
       if (role === 'surgeon' || role === 'anesthesiologist') {
-        const pocketMat = new THREE.MeshStandardMaterial({ color: role === 'surgeon' ? 0x16536a : 0x184252, roughness: 0.45 });
-        const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.085, 0.02), pocketMat);
+        const pocketHex = role === 'surgeon' ? 0x16536a : 0x184252;
+        const pocketMat = getCachedStdMat('pocket|' + pocketHex, { color: pocketHex, roughness: 0.45 });
+        const pocket = new THREE.Mesh(getCachedGeo('medPocket', function () { return new THREE.BoxGeometry(0.08, 0.085, 0.02); }), pocketMat);
         pocket.position.set(0.072, 0.42, 0.112);
         bodyGroup.add(pocket);
       }
 
-      const stethMat = new THREE.MeshStandardMaterial({ color: 0x26313d, roughness: 0.35, metalness: 0.25 });
-      const stethCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-0.068, 0.42, 0.102),
-        new THREE.Vector3(-0.066, 0.555, 0.04),
-        new THREE.Vector3(0, 0.575, -0.055),
-        new THREE.Vector3(0.066, 0.555, 0.04),
-        new THREE.Vector3(0.062, 0.39, 0.108),
-      ]);
-      const stethTube = new THREE.Mesh(new THREE.TubeGeometry(stethCurve, 18, 0.008, 8, false), stethMat);
+      const stethMat = getCachedStdMat('stethMat', { color: 0x26313d, roughness: 0.35, metalness: 0.25 });
+      const stethTubeGeo = getCachedGeo('stethTube', function () {
+        const stethCurve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(-0.068, 0.42, 0.102),
+          new THREE.Vector3(-0.066, 0.555, 0.04),
+          new THREE.Vector3(0, 0.575, -0.055),
+          new THREE.Vector3(0.066, 0.555, 0.04),
+          new THREE.Vector3(0.062, 0.39, 0.108),
+        ]);
+        return new THREE.TubeGeometry(stethCurve, 14, 0.008, 6, false);
+      });
+      const stethTube = new THREE.Mesh(stethTubeGeo, stethMat);
       bodyGroup.add(stethTube);
       const stethBell = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.018, 0.018, 0.012, 12),
-        new THREE.MeshStandardMaterial({ color: 0xd0d6de, roughness: 0.18, metalness: 0.85 })
+        getCachedGeo('stethBell', function () { return new THREE.CylinderGeometry(0.018, 0.018, 0.012, 10); }),
+        getCachedStdMat('stethBellMat', { color: 0xd0d6de, roughness: 0.18, metalness: 0.85 })
       );
       stethBell.rotation.x = Math.PI * 0.5;
       stethBell.position.set(0.062, 0.375, 0.114);
@@ -1365,15 +1504,21 @@
     }
 
     // Slender Sculpted Neck & Collarbone Necklace
-    const neckPts = [
-      new THREE.Vector2(0.052, 0.565),
-      new THREE.Vector2(0.039, 0.64),
-      new THREE.Vector2(0.041, 0.705),
-    ];
-    bodyGroup.add(new THREE.Mesh(new THREE.LatheGeometry(neckPts, 14), skinMat));
+    const neckGeo = getCachedGeo('neckGeo', function () {
+      const neckPts = [
+        new THREE.Vector2(0.052, 0.565),
+        new THREE.Vector2(0.039, 0.64),
+        new THREE.Vector2(0.041, 0.705),
+      ];
+      return new THREE.LatheGeometry(neckPts, 12);
+    });
+    bodyGroup.add(new THREE.Mesh(neckGeo, skinMat));
 
     if (role === 'royal' && acc.necklace && acc.necklace !== 'none') {
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.009, 8, 20), goldMat);
+      const collar = new THREE.Mesh(
+        getCachedGeo('necklaceCollar', function () { return new THREE.TorusGeometry(0.056, 0.009, 6, 16); }),
+        goldMat
+      );
       collar.rotation.x = Math.PI * 0.44;
       collar.position.set(0, 0.585, 0.012);
       bodyGroup.add(collar);
@@ -1408,8 +1553,10 @@
             ? gloveMat
             : skinMat;
 
-      const armMesh = new THREE.Mesh(buildContinuousArmGeometry(side, armR), armMat);
-      armMesh.castShadow = true;
+      const armMesh = new THREE.Mesh(
+        getCachedGeo('arm|' + side + '|' + armR.toFixed(3), function () { return buildContinuousArmGeometry(side, armR); }),
+        armMat
+      );
       armPivot.add(armMesh);
 
       if (role === 'butler' || role === 'chauffeur' || role === 'surgeon' || role === 'anesthesiologist') {
@@ -1417,30 +1564,39 @@
           ? trimMat
           : role === 'chauffeur'
             ? ebonyMat
-            : new THREE.MeshStandardMaterial({ color: 0xccebf7, roughness: 0.34 });
-        const gloveHand = new THREE.Mesh(new THREE.SphereGeometry(armR * 0.72, 10, 8), handGloveMat);
+            : getCachedStdMat('surgGlove', { color: 0xccebf7, roughness: 0.34 });
+        const gloveHand = new THREE.Mesh(
+          getCachedGeo('gloveH|' + armR.toFixed(3), function () { return new THREE.SphereGeometry(armR * 0.72, 8, 6); }),
+          handGloveMat
+        );
         gloveHand.scale.set(0.85, 1.55, 0.65);
         gloveHand.position.set(side * 0.049, -0.545, 0.061);
         armPivot.add(gloveHand);
       } else if (role === 'maid') {
-        const cuffLace = new THREE.Mesh(new THREE.TorusGeometry(armR * 0.92, 0.012, 8, 14), trimMat);
+        const cuffLace = new THREE.Mesh(
+          getCachedGeo('maidCuff|' + armR.toFixed(3), function () { return new THREE.TorusGeometry(armR * 0.92, 0.012, 6, 12); }),
+          trimMat
+        );
         cuffLace.rotation.x = Math.PI / 2;
         cuffLace.position.set(side * 0.014, -0.045, 0);
         armPivot.add(cuffLace);
       }
 
       if (role === 'royal' && outfitPal.outfitId === 'versailles-ivory-gown') {
-        const cuff = new THREE.Mesh(new THREE.TorusGeometry(armR * 1.15, 0.013, 8, 16), trimMat);
+        const cuff = new THREE.Mesh(
+          getCachedGeo('royCuff|' + armR.toFixed(3), function () { return new THREE.TorusGeometry(armR * 1.15, 0.013, 6, 14); }),
+          trimMat
+        );
         cuff.rotation.x = Math.PI / 2;
         cuff.position.set(side * 0.015, -0.055, 0);
         armPivot.add(cuff);
       }
 
       if (role === 'guard' && side === 1) {
-        const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.85, 8), goldMat);
+        const staff = new THREE.Mesh(getCachedGeo('guardStaff', function () { return new THREE.CylinderGeometry(0.015, 0.015, 1.85, 6); }), goldMat);
         staff.position.set(0.055, -0.1, 0.075);
         armPivot.add(staff);
-        const spearHead = new THREE.Mesh(new THREE.ConeGeometry(0.048, 0.2, 6), goldMat);
+        const spearHead = new THREE.Mesh(getCachedGeo('guardSpear', function () { return new THREE.ConeGeometry(0.048, 0.2, 6); }), goldMat);
         spearHead.position.set(0.055, 0.9, 0.075);
         armPivot.add(spearHead);
       }
@@ -1453,7 +1609,7 @@
     bodyGroup.add(leftArm);
     bodyGroup.add(rightArm);
 
-    // 3B. Handheld Interactive 3D Props (toggled dynamically per pose in anim.js)
+    // 3B. Handheld Interactive 3D Props (toggled dynamically per pose in anim.js, all shared geo/mat/tex!)
     const heldProps = {};
 
     // Open Leather-Bound Gilded Royal Book (held between both hands during 'read' / 'sit_read')
@@ -1463,45 +1619,48 @@
     bookGroup.position.set(0, 0.25, 0.34);
     bookGroup.rotation.set(-0.68, 0, 0);
 
-    const pageCanvas = document.createElement('canvas');
-    pageCanvas.width = 128;
-    pageCanvas.height = 128;
-    const pCtx = pageCanvas.getContext('2d');
-    pCtx.fillStyle = '#fbf3df';
-    pCtx.fillRect(0, 0, 128, 128);
-    pCtx.strokeStyle = '#c5993b';
-    pCtx.lineWidth = 4;
-    pCtx.strokeRect(8, 8, 112, 112);
-    pCtx.fillStyle = '#9e2b3e';
-    pCtx.fillRect(18, 18, 26, 26);
-    pCtx.fillStyle = '#3c2e28';
-    for (let ln = 0; ln < 9; ln++) {
-      const yLn = 22 + ln * 10;
-      const xStart = ln < 3 ? 50 : 18;
-      pCtx.fillRect(xStart, yLn, 110 - xStart - ((ln % 3) * 8), 3);
-    }
-    const pageTex = new THREE.CanvasTexture(pageCanvas);
-    pageTex.colorSpace = THREE.SRGBColorSpace;
-    textures.push(pageTex);
+    const pageTex = _sharedTexCache['bookPage'] || (_sharedTexCache['bookPage'] = markShared((function () {
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = 128;
+      pageCanvas.height = 128;
+      const pCtx = pageCanvas.getContext('2d');
+      pCtx.fillStyle = '#fbf3df';
+      pCtx.fillRect(0, 0, 128, 128);
+      pCtx.strokeStyle = '#c5993b';
+      pCtx.lineWidth = 4;
+      pCtx.strokeRect(8, 8, 112, 112);
+      pCtx.fillStyle = '#9e2b3e';
+      pCtx.fillRect(18, 18, 26, 26);
+      pCtx.fillStyle = '#3c2e28';
+      for (let ln = 0; ln < 9; ln++) {
+        const yLn = 22 + ln * 10;
+        const xStart = ln < 3 ? 50 : 18;
+        pCtx.fillRect(xStart, yLn, 110 - xStart - ((ln % 3) * 8), 3);
+      }
+      const pt = new THREE.CanvasTexture(pageCanvas);
+      pt.colorSpace = THREE.SRGBColorSpace;
+      return pt;
+    })()));
 
-    const bookCoverMat = new THREE.MeshStandardMaterial({ color: 0x7b1f32, roughness: 0.45, metalness: 0.12 });
-    const bookPageMat = new THREE.MeshStandardMaterial({ map: pageTex, roughness: 0.84 });
-    const bookSpine = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.24, 0.025), goldMat);
+    const bookCoverMat = getCachedStdMat('bookCover', { color: 0x7b1f32, roughness: 0.45, metalness: 0.12 });
+    const bookPageMat = getCachedStdMat('bookPageMat', { map: pageTex, roughness: 0.84 });
+    const bookSpine = new THREE.Mesh(getCachedGeo('bookSpine', function () { return new THREE.BoxGeometry(0.032, 0.24, 0.025); }), goldMat);
     bookGroup.add(bookSpine);
+    const bookCoverGeo = getCachedGeo('bookCoverG', function () { return new THREE.BoxGeometry(0.15, 0.245, 0.012); });
+    const bookPageGeo = getCachedGeo('bookPageG', function () { return new THREE.BoxGeometry(0.138, 0.228, 0.016); });
     [-1, 1].forEach(function (side) {
       const leaf = new THREE.Group();
       leaf.position.set(side * 0.012, 0, 0);
       leaf.rotation.y = side * -0.34;
-      const cover = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.245, 0.012), bookCoverMat);
+      const cover = new THREE.Mesh(bookCoverGeo, bookCoverMat);
       cover.position.set(side * 0.075, 0, -0.008);
-      cover.castShadow = true;
       leaf.add(cover);
-      const pageBlock = new THREE.Mesh(new THREE.BoxGeometry(0.138, 0.228, 0.016), bookPageMat);
+      const pageBlock = new THREE.Mesh(bookPageGeo, bookPageMat);
       pageBlock.position.set(side * 0.072, 0, 0.004);
       leaf.add(pageBlock);
       bookGroup.add(leaf);
     });
-    const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.27, 0.005), goldMat);
+    const ribbon = new THREE.Mesh(getCachedGeo('bookRib', function () { return new THREE.BoxGeometry(0.012, 0.27, 0.005); }), goldMat);
     ribbon.position.set(0.01, -0.02, 0.012);
     ribbon.rotation.z = 0.08;
     bookGroup.add(ribbon);
@@ -1514,17 +1673,20 @@
     teacupGroup.visible = false;
     teacupGroup.position.set(0.048, -0.535, 0.068);
     teacupGroup.rotation.x = Math.PI * 0.44;
-    const chinaMat = new THREE.MeshPhysicalMaterial({ color: 0xfefaf5, roughness: 0.14, clearcoat: 0.9 });
-    const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.035, 0.014, 16), chinaMat);
+    const chinaMat = getCachedStdMat('teaChina', { color: 0xfefaf5, roughness: 0.16, metalness: 0.05 });
+    const saucer = new THREE.Mesh(getCachedGeo('teaSaucer', function () { return new THREE.CylinderGeometry(0.068, 0.035, 0.014, 12); }), chinaMat);
     teacupGroup.add(saucer);
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.024, 0.048, 14), chinaMat);
+    const cup = new THREE.Mesh(getCachedGeo('teaCup', function () { return new THREE.CylinderGeometry(0.036, 0.024, 0.048, 10); }), chinaMat);
     cup.position.y = 0.028;
     teacupGroup.add(cup);
-    const cupRim = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.003, 6, 16), goldMat);
+    const cupRim = new THREE.Mesh(getCachedGeo('teaRim', function () { return new THREE.TorusGeometry(0.036, 0.003, 5, 12); }), goldMat);
     cupRim.rotation.x = Math.PI * 0.5;
     cupRim.position.y = 0.052;
     teacupGroup.add(cupRim);
-    const teaFill = new THREE.Mesh(new THREE.CircleGeometry(0.032, 12), new THREE.MeshStandardMaterial({ color: 0x9b4d2b, roughness: 0.2 }));
+    const teaFill = new THREE.Mesh(
+      getCachedGeo('teaFill', function () { return new THREE.CircleGeometry(0.032, 10); }),
+      getCachedStdMat('teaFillMat', { color: 0x9b4d2b, roughness: 0.2 })
+    );
     teaFill.rotation.x = -Math.PI * 0.5;
     teaFill.position.y = 0.046;
     teacupGroup.add(teaFill);
@@ -1537,14 +1699,14 @@
     brushGroup.position.set(0.048, -0.545, 0.072);
     brushGroup.rotation.x = Math.PI * 0.45;
     const brushHandle = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.005, 0.008, 0.26, 8),
-      new THREE.MeshStandardMaterial({ color: 0x5c2f1c, roughness: 0.5 })
+      getCachedGeo('brushH', function () { return new THREE.CylinderGeometry(0.005, 0.008, 0.26, 6); }),
+      getCachedStdMat('brushHMat', { color: 0x5c2f1c, roughness: 0.5 })
     );
     brushHandle.position.y = 0.06;
     brushGroup.add(brushHandle);
     const brushTip = new THREE.Mesh(
-      new THREE.ConeGeometry(0.009, 0.034, 8),
-      new THREE.MeshStandardMaterial({ color: 0xc84b6b, roughness: 0.6 })
+      getCachedGeo('brushT', function () { return new THREE.ConeGeometry(0.009, 0.034, 6); }),
+      getCachedStdMat('brushTMat', { color: 0xc84b6b, roughness: 0.6 })
     );
     brushTip.position.y = 0.205;
     brushGroup.add(brushTip);
@@ -1556,13 +1718,14 @@
     paletteGroup.position.set(-0.048, -0.53, 0.075);
     paletteGroup.rotation.set(Math.PI * 0.46, 0, -0.15);
     const board = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.11, 0.11, 0.012, 16),
-      new THREE.MeshStandardMaterial({ color: 0xa47449, roughness: 0.65 })
+      getCachedGeo('palBoard', function () { return new THREE.CylinderGeometry(0.11, 0.11, 0.012, 12); }),
+      getCachedStdMat('palBoardMat', { color: 0xa47449, roughness: 0.65 })
     );
     board.scale.set(1.18, 1, 0.88);
     paletteGroup.add(board);
+    const dabGeo = getCachedGeo('palDab', function () { return new THREE.SphereGeometry(0.016, 6, 5); });
     [0xc93b52, 0xe8b948, 0x3f6ba8, 0x4b8f5c].forEach(function (hex, pi) {
-      const dab = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 6), new THREE.MeshStandardMaterial({ color: hex, roughness: 0.35 }));
+      const dab = new THREE.Mesh(dabGeo, getCachedStdMat('palDabMat|' + hex, { color: hex, roughness: 0.35 }));
       const a = -0.9 + pi * 0.58;
       dab.scale.set(1, 0.45, 1);
       dab.position.set(Math.cos(a) * 0.068, 0.008, Math.sin(a) * 0.052);
@@ -1577,37 +1740,122 @@
     ladleGroup.position.set(0.048, -0.545, 0.07);
     ladleGroup.rotation.x = Math.PI * 0.48;
     const ladleShaft = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.007, 0.008, 0.34, 8),
-      new THREE.MeshStandardMaterial({ color: 0x7c4e2d, roughness: 0.6 })
+      getCachedGeo('ladleS', function () { return new THREE.CylinderGeometry(0.007, 0.008, 0.34, 6); }),
+      getCachedStdMat('ladleSMat', { color: 0x7c4e2d, roughness: 0.6 })
     );
     ladleShaft.position.y = 0.1;
     ladleGroup.add(ladleShaft);
-    const ladleBowl = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), goldMat);
+    const ladleBowl = new THREE.Mesh(getCachedGeo('ladleB', function () { return new THREE.SphereGeometry(0.032, 8, 6); }), goldMat);
     ladleBowl.scale.set(1, 0.55, 1.15);
     ladleBowl.position.y = 0.27;
     ladleGroup.add(ladleBowl);
     rightArm.add(ladleGroup);
     heldProps.ladle = ladleGroup;
 
+    // Royal Silver Breakfast-in-Bed & Meal Serving Platter ('serve')
+    const platterGroup = new THREE.Group();
+    platterGroup.name = 'held-platter';
+    platterGroup.visible = false;
+    platterGroup.position.set(0.06, -0.52, 0.20);
+    platterGroup.rotation.x = Math.PI * 0.46;
+    const silverTrayMat = getCachedStdMat('silverTrayMat', { color: 0xeaf0f5, roughness: 0.16, metalness: 0.85 });
+    const trayDisc = new THREE.Mesh(
+      getCachedGeo('trayDisc', function () { return new THREE.CylinderGeometry(0.24, 0.21, 0.02, 16); }),
+      silverTrayMat
+    );
+    trayDisc.scale.set(1.22, 1, 0.92);
+    platterGroup.add(trayDisc);
+    const clocheDome = new THREE.Mesh(
+      getCachedGeo('trayCloche', function () { return new THREE.SphereGeometry(0.115, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5); }),
+      silverTrayMat
+    );
+    clocheDome.position.set(-0.06, 0.012, 0);
+    platterGroup.add(clocheDome);
+    const clocheKnob = new THREE.Mesh(getCachedGeo('trayKnob', function () { return new THREE.SphereGeometry(0.018, 6, 5); }), goldMat);
+    clocheKnob.position.set(-0.06, 0.132, 0);
+    platterGroup.add(clocheKnob);
+    const potBody = new THREE.Mesh(getCachedGeo('trayPot', function () { return new THREE.CylinderGeometry(0.042, 0.048, 0.095, 10); }), chinaMat);
+    potBody.position.set(0.12, 0.058, -0.04);
+    platterGroup.add(potBody);
+    const cupMini = new THREE.Mesh(getCachedGeo('trayCup', function () { return new THREE.CylinderGeometry(0.028, 0.02, 0.042, 8); }), chinaMat);
+    cupMini.position.set(0.11, 0.032, 0.07);
+    platterGroup.add(cupMini);
+    const pastryBerry = new THREE.Mesh(
+      getCachedGeo('trayBerry', function () { return new THREE.SphereGeometry(0.024, 6, 5); }),
+      getCachedStdMat('trayBerryMat', { color: 0xc82644, roughness: 0.35 })
+    );
+    pastryBerry.position.set(0.02, 0.03, 0.10);
+    platterGroup.add(pastryBerry);
+    rightArm.add(platterGroup);
+    heldProps.platter = platterGroup;
+
+    // Medical Clipboard Chart ('work_examine', 'work_station') held on left forearm
+    const chartGroup = new THREE.Group();
+    chartGroup.name = 'held-chart';
+    chartGroup.visible = false;
+    chartGroup.position.set(-0.04, -0.50, 0.14);
+    chartGroup.rotation.set(Math.PI * 0.42, 0.12, 0);
+    const chartBoard = new THREE.Mesh(
+      getCachedGeo('medChartBoard', function () { return new THREE.BoxGeometry(0.18, 0.24, 0.016); }),
+      getCachedStdMat('medChartMat', { color: 0x3f593b, roughness: 0.5 })
+    );
+    const chartPaper = new THREE.Mesh(
+      getCachedGeo('medChartPaper', function () { return new THREE.BoxGeometry(0.15, 0.20, 0.018); }),
+      chinaMat
+    );
+    chartPaper.position.y = -0.01;
+    const chartClip = new THREE.Mesh(
+      getCachedGeo('medChartClip', function () { return new THREE.BoxGeometry(0.06, 0.025, 0.024); }),
+      silverTrayMat
+    );
+    chartClip.position.y = 0.105;
+    chartGroup.add(chartBoard, chartPaper, chartClip);
+    leftArm.add(chartGroup);
+    heldProps.chart = chartGroup;
+
+    // Medical Instrument / Surgical Probe ('work_operate', 'work_examine') held in right hand
+    const instGroup = new THREE.Group();
+    instGroup.name = 'held-instrument';
+    instGroup.visible = false;
+    instGroup.position.set(0.02, -0.53, 0.08);
+    instGroup.rotation.x = Math.PI * 0.48;
+    const instStem = new THREE.Mesh(
+      getCachedGeo('medInstStem', function () { return new THREE.CylinderGeometry(0.008, 0.008, 0.22, 6); }),
+      silverTrayMat
+    );
+    instStem.position.y = 0.10;
+    const instTip = new THREE.Mesh(
+      getCachedGeo('medInstTip', function () { return new THREE.SphereGeometry(0.018, 6, 5); }),
+      getCachedStdMat('medInstTipMat', { color: 0x3b8ea5, roughness: 0.25, metalness: 0.45 })
+    );
+    instTip.position.y = 0.21;
+    instGroup.add(instStem, instTip);
+    rightArm.add(instGroup);
+    heldProps.instrument = instGroup;
+
     // 4. Sculpted Planar-UV Royal Head + Feathered Layered Hair Cards
     const headGroup = new THREE.Group();
     headGroup.position.set(0, 0.775, 0.008);
     bodyGroup.add(headGroup);
 
-    const headMesh = new THREE.Mesh(buildSculptedHeadGeometry(), headFaceMat);
+    const headMesh = new THREE.Mesh(
+      getCachedGeo('sculptedHead', function () { return buildSculptedHeadGeometry(); }),
+      headFaceMat
+    );
     headMesh.castShadow = true;
     headGroup.add(headMesh);
 
     // Delicate Sculpted Ears
+    const earGeo = getCachedGeo('earGeo', function () { return new THREE.SphereGeometry(0.018, 6, 5); });
     [-1, 1].forEach(function (side) {
-      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), skinMat);
+      const ear = new THREE.Mesh(earGeo, skinMat);
       ear.scale.set(0.42, 1.28, 0.72);
       ear.position.set(side * 0.088, -0.004, -0.004);
       headGroup.add(ear);
     });
 
     // Natural 3D Blinking Eyelid Caps (sits smoothly over eye sockets during blink cycles)
-    const lidGeo = new THREE.SphereGeometry(0.019, 10, 6);
+    const lidGeo = getCachedGeo('eyelidGeo', function () { return new THREE.SphereGeometry(0.019, 8, 5); });
     const leftLid = new THREE.Mesh(lidGeo, skinMat);
     leftLid.position.set(-0.032, 0.016, 0.092);
     leftLid.scale.set(1.15, 0.12, 0.42);
@@ -1620,12 +1868,16 @@
     headGroup.add(rightLid);
 
     if (role === 'royal' && acc.eyewear && acc.eyewear !== 'none') {
-      const lensMat = new THREE.MeshPhysicalMaterial({ color: 0x1e1928, transparent: true, opacity: 0.68, clearcoat: 1 });
+      const lensMat = _sharedMatCache['eyewearLens'] || (_sharedMatCache['eyewearLens'] = markShared(
+        new THREE.MeshPhysicalMaterial({ color: 0x1e1928, transparent: true, opacity: 0.68, clearcoat: 1 })
+      ));
+      const rimGeo = getCachedGeo('eyeRim', function () { return new THREE.TorusGeometry(0.021, 0.0028, 5, 14); });
+      const lensGeo = getCachedGeo('eyeLens', function () { return new THREE.CircleGeometry(0.02, 12); });
       [-1, 1].forEach(function (side) {
-        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.021, 0.0028, 6, 16), goldMat);
+        const rim = new THREE.Mesh(rimGeo, goldMat);
         rim.position.set(side * 0.032, 0.01, 0.098);
         headGroup.add(rim);
-        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.02, 14), lensMat);
+        const lens = new THREE.Mesh(lensGeo, lensMat);
         lens.position.set(side * 0.032, 0.01, 0.098);
         headGroup.add(lens);
       });
@@ -1633,32 +1885,32 @@
 
     // Hair Crown Skull Cap + Sweeping Parted Bangs + Feathered Hair-Card Tresses (Zero Play-Doh Tubes!)
     const hairCap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.108, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.58),
+      getCachedGeo('hairCap', function () { return new THREE.SphereGeometry(0.108, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.58); }),
       hairSolidMat
     );
     hairCap.scale.set(0.95, 1.06, 1.04);
     hairCap.position.set(0, 0.018, -0.008);
-    hairCap.castShadow = true;
     headGroup.add(hairCap);
 
     // Soft feathered front-temple curtain bangs hugging face sides cleanly
     [-1, 1].forEach(function (side) {
       const a0 = side < 0 ? -Math.PI * 0.22 : Math.PI * 0.22;
       const a1 = side < 0 ? -Math.PI * 0.65 : Math.PI * 0.65;
-      const bangGeo = buildHairRibbonShell({
-        rows: 7,
-        cols: 8,
-        startAngle: Math.min(a0, a1),
-        endAngle: Math.max(a0, a1),
-        topY: 0.11,
-        botY: -0.14,
-        topR: 0.104,
-        botR: 0.112,
-        zShiftBot: -0.012,
-        waveAmp: 0.008,
+      const bangGeo = getCachedGeo('bang|' + side, function () {
+        return buildHairRibbonShell({
+          rows: 6,
+          cols: 6,
+          startAngle: Math.min(a0, a1),
+          endAngle: Math.max(a0, a1),
+          topY: 0.11,
+          botY: -0.14,
+          topR: 0.104,
+          botR: 0.112,
+          zShiftBot: -0.012,
+          waveAmp: 0.008,
+        });
       });
       const bang = new THREE.Mesh(bangGeo, hairCardMat);
-      bang.castShadow = true;
       headGroup.add(bang);
     });
 
@@ -1678,164 +1930,170 @@
       lookInfo.hairStyle === 'slick-gala';
 
     if (isUpdo) {
-      const chignon = new THREE.Mesh(new THREE.SphereGeometry(0.072, 16, 12), hairSolidMat);
+      const chignon = new THREE.Mesh(getCachedGeo('chignon', function () { return new THREE.SphereGeometry(0.072, 12, 9); }), hairSolidMat);
       chignon.scale.set(1.05, 0.9, 0.85);
       chignon.position.set(0, 0.068, -0.102);
-      chignon.castShadow = true;
       headGroup.add(chignon);
 
       const napeWisps = new THREE.Mesh(
-        buildHairRibbonShell({
-          rows: 6,
-          cols: 12,
-          startAngle: Math.PI * 0.55,
-          endAngle: Math.PI * 1.45,
-          topY: 0.06,
-          botY: -0.12,
-          topR: 0.106,
-          botR: 0.095,
-          zShiftBot: -0.01,
-          waveAmp: 0.005,
+        getCachedGeo('napeWisps', function () {
+          return buildHairRibbonShell({
+            rows: 5,
+            cols: 10,
+            startAngle: Math.PI * 0.55,
+            endAngle: Math.PI * 1.45,
+            topY: 0.06,
+            botY: -0.12,
+            topR: 0.106,
+            botR: 0.095,
+            zShiftBot: -0.01,
+            waveAmp: 0.005,
+          });
         }),
         hairCardMat
       );
       headGroup.add(napeWisps);
     } else if (isShort) {
       const bobShell = new THREE.Mesh(
-        buildHairRibbonShell({
-          rows: 8,
-          cols: 16,
-          startAngle: Math.PI * 0.42,
-          endAngle: Math.PI * 1.58,
-          topY: 0.09,
-          botY: -0.15,
-          topR: 0.106,
-          botR: 0.126,
-          zShiftBot: -0.015,
-          waveAmp: 0.01,
+        getCachedGeo('bobShell', function () {
+          return buildHairRibbonShell({
+            rows: 6,
+            cols: 12,
+            startAngle: Math.PI * 0.42,
+            endAngle: Math.PI * 1.58,
+            topY: 0.09,
+            botY: -0.15,
+            topR: 0.106,
+            botR: 0.126,
+            zShiftBot: -0.015,
+            waveAmp: 0.01,
+          });
         }),
         hairCardMat
       );
-      bobShell.castShadow = true;
       headGroup.add(bobShell);
     } else {
       // Multi-layered flowing feathered silk hair-card cape draping down upper back
       const innerLayer = new THREE.Mesh(
-        buildHairRibbonShell({
-          rows: 10,
-          cols: 16,
-          startAngle: Math.PI * 0.46,
-          endAngle: Math.PI * 1.54,
-          topY: 0.095,
-          botY: -0.34,
-          topR: 0.105,
-          botR: 0.145,
-          zShiftBot: -0.04,
-          waveAmp: 0.016,
+        getCachedGeo('hairInner', function () {
+          return buildHairRibbonShell({
+            rows: 8,
+            cols: 12,
+            startAngle: Math.PI * 0.46,
+            endAngle: Math.PI * 1.54,
+            topY: 0.095,
+            botY: -0.34,
+            topR: 0.105,
+            botR: 0.145,
+            zShiftBot: -0.04,
+            waveAmp: 0.016,
+          });
         }),
         hairCardMat
       );
-      innerLayer.castShadow = true;
       headGroup.add(innerLayer);
 
       const outerLayer = new THREE.Mesh(
-        buildHairRibbonShell({
-          rows: 10,
-          cols: 14,
-          startAngle: Math.PI * 0.58,
-          endAngle: Math.PI * 1.42,
-          topY: 0.09,
-          botY: -0.39,
-          topR: 0.114,
-          botR: 0.16,
-          zShiftBot: -0.055,
-          waveAmp: 0.022,
+        getCachedGeo('hairOuter', function () {
+          return buildHairRibbonShell({
+            rows: 8,
+            cols: 10,
+            startAngle: Math.PI * 0.58,
+            endAngle: Math.PI * 1.42,
+            topY: 0.09,
+            botY: -0.39,
+            topR: 0.114,
+            botR: 0.16,
+            zShiftBot: -0.055,
+            waveAmp: 0.022,
+          });
         }),
         hairCardMat
       );
-      outerLayer.castShadow = true;
       headGroup.add(outerLayer);
     }
 
     // Headgear: Guards (Shako), Maids (Lace Cap), Chefs (Toque), Chauffeurs (Visor Cap), Nurses (Cross Cap), Royals (Tiara ONLY!)
     if (role === 'guard') {
       const shako = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.11, 0.21, 16),
-        new THREE.MeshStandardMaterial({ color: 0x1b1921, roughness: 0.75 })
+        getCachedGeo('guardShako', function () { return new THREE.CylinderGeometry(0.1, 0.11, 0.21, 12); }),
+        getCachedStdMat('shakoMat', { color: 0x1b1921, roughness: 0.75 })
       );
       shako.position.set(0, 0.17, 0);
       headGroup.add(shako);
-      const plume = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 8), goldMat);
+      const plume = new THREE.Mesh(getCachedGeo('guardPlume', function () { return new THREE.ConeGeometry(0.03, 0.12, 6); }), goldMat);
       plume.position.set(0, 0.31, 0.025);
       headGroup.add(plume);
     } else if (role === 'maid') {
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.104, 14, 10), trimMat);
+      const cap = new THREE.Mesh(getCachedGeo('maidCap', function () { return new THREE.SphereGeometry(0.104, 12, 8); }), trimMat);
       cap.scale.set(1.04, 0.44, 0.92);
       cap.position.set(0, 0.118, -0.01);
       headGroup.add(cap);
-      const frill = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.011, 6, 18), trimMat);
+      const frill = new THREE.Mesh(getCachedGeo('maidFrill', function () { return new THREE.TorusGeometry(0.088, 0.011, 5, 14); }), trimMat);
       frill.rotation.x = Math.PI * 0.48;
       frill.position.set(0, 0.118, -0.006);
       headGroup.add(frill);
     } else if (role === 'chef') {
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.092, 0.085, 16), trimMat);
+      const band = new THREE.Mesh(getCachedGeo('chefBand', function () { return new THREE.CylinderGeometry(0.095, 0.092, 0.085, 12); }), trimMat);
       band.position.set(0, 0.135, -0.005);
       headGroup.add(band);
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.115, 14, 10), trimMat);
+      const puff = new THREE.Mesh(getCachedGeo('chefPuff', function () { return new THREE.SphereGeometry(0.115, 12, 8); }), trimMat);
       puff.scale.set(1.06, 0.78, 1.06);
       puff.position.set(0, 0.215, -0.008);
       headGroup.add(puff);
     } else if (role === 'chauffeur') {
-      const navyCapMat = new THREE.MeshStandardMaterial({ color: 0x1a2233, roughness: 0.45 });
-      const capCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.106, 0.096, 0.075, 16), navyCapMat);
+      const navyCapMat = getCachedStdMat('chaufCap', { color: 0x1a2233, roughness: 0.45 });
+      const capCrown = new THREE.Mesh(getCachedGeo('chCrown', function () { return new THREE.CylinderGeometry(0.106, 0.096, 0.075, 12); }), navyCapMat);
       capCrown.position.set(0, 0.128, -0.006);
       headGroup.add(capCrown);
-      const capBand = new THREE.Mesh(new THREE.CylinderGeometry(0.098, 0.098, 0.018, 16), goldMat);
+      const capBand = new THREE.Mesh(getCachedGeo('chBand', function () { return new THREE.CylinderGeometry(0.098, 0.098, 0.018, 12); }), goldMat);
       capBand.position.set(0, 0.1, -0.006);
       headGroup.add(capBand);
       const visor = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.095, 0.1, 0.014, 12, 1, false, -0.95, 1.9),
-        new THREE.MeshStandardMaterial({ color: 0x101218, roughness: 0.2 })
+        getCachedGeo('chVisor', function () { return new THREE.CylinderGeometry(0.095, 0.1, 0.014, 10, 1, false, -0.95, 1.9); }),
+        getCachedStdMat('chVisorMat', { color: 0x101218, roughness: 0.2 })
       );
       visor.rotation.x = 0.28;
       visor.position.set(0, 0.088, 0.056);
       headGroup.add(visor);
     } else if (role === 'surgeon' || role === 'anesthesiologist') {
-      const capMat = new THREE.MeshStandardMaterial({ color: role === 'surgeon' ? 0x2682a4 : 0x2c6e82, roughness: 0.62 });
-      const scrubCap = new THREE.Mesh(new THREE.SphereGeometry(0.108, 16, 10), capMat);
+      const capHex = role === 'surgeon' ? 0x2682a4 : 0x2c6e82;
+      const capMat = getCachedStdMat('scrubCap|' + capHex, { color: capHex, roughness: 0.62 });
+      const scrubCap = new THREE.Mesh(getCachedGeo('scrubCapG', function () { return new THREE.SphereGeometry(0.108, 12, 8); }), capMat);
       scrubCap.scale.set(1.06, 0.62, 1.08);
       scrubCap.position.set(0, 0.088, -0.005);
       headGroup.add(scrubCap);
-      const maskMat = new THREE.MeshStandardMaterial({ color: 0xbde6f5, roughness: 0.72 });
-      const mask = new THREE.Mesh(new THREE.BoxGeometry(0.112, 0.058, 0.036), maskMat);
+      const maskMat = getCachedStdMat('medMaskMat', { color: 0xbde6f5, roughness: 0.72 });
+      const mask = new THREE.Mesh(getCachedGeo('medMaskG', function () { return new THREE.BoxGeometry(0.112, 0.058, 0.036); }), maskMat);
       mask.position.set(0, -0.048, 0.095);
       headGroup.add(mask);
     } else if (role === 'nurse') {
-      const nurseCap = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.072, 0.085), trimMat);
+      const nurseCap = new THREE.Mesh(getCachedGeo('nurseCapG', function () { return new THREE.BoxGeometry(0.16, 0.072, 0.085); }), trimMat);
       nurseCap.position.set(0, 0.132, -0.01);
       headGroup.add(nurseCap);
-      const cV = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.036, 0.014), medicalRedMat);
+      const cV = new THREE.Mesh(getCachedGeo('nurseCV', function () { return new THREE.BoxGeometry(0.012, 0.036, 0.014); }), medicalRedMat);
       cV.position.set(0, 0.132, 0.034);
       headGroup.add(cV);
-      const cH = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.012, 0.014), medicalRedMat);
+      const cH = new THREE.Mesh(getCachedGeo('nurseCH', function () { return new THREE.BoxGeometry(0.036, 0.012, 0.014); }), medicalRedMat);
       cH.position.set(0, 0.132, 0.034);
       headGroup.add(cH);
     } else if (role === 'royal' && (!acc.crown || acc.crown !== 'none')) {
       const tiaraGroup = new THREE.Group();
       tiaraGroup.position.set(0, 0.116, 0.012);
-      const band = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.008, 8, 22), goldMat);
+      const band = new THREE.Mesh(getCachedGeo('tiaraBand', function () { return new THREE.TorusGeometry(0.078, 0.008, 6, 16); }), goldMat);
       band.rotation.x = Math.PI * 0.48;
       tiaraGroup.add(band);
       for (let i = -2; i <= 2; i++) {
         const ang = i * 0.32;
         const hPeak = i === 0 ? 0.058 : Math.abs(i) === 1 ? 0.038 : 0.024;
-        const spire = new THREE.Mesh(new THREE.ConeGeometry(0.009, hPeak, 6), goldMat);
+        const spire = new THREE.Mesh(getCachedGeo('tiaraSpire|' + hPeak, function () { return new THREE.ConeGeometry(0.009, hPeak, 5); }), goldMat);
         spire.position.set(Math.sin(ang) * 0.074, hPeak * 0.5, Math.cos(ang) * 0.074);
         tiaraGroup.add(spire);
       }
+      const gemMat = getCachedStdMat('tiaraGem|' + dressHex, { color: dressPrimary, roughness: 0.12, metalness: 0.25 });
       const gem = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.014, 0),
-        new THREE.MeshPhysicalMaterial({ color: dressPrimary, roughness: 0.08, clearcoat: 1 })
+        getCachedGeo('tiaraGemG', function () { return new THREE.OctahedronGeometry(0.014, 0); }),
+        gemMat
       );
       gem.position.set(0, 0.034, 0.078);
       tiaraGroup.add(gem);
@@ -1862,8 +2120,10 @@
 
     // Pool Swimming Water Ripple Ring
     const swimRipple = new THREE.Mesh(
-      new THREE.RingGeometry(0.28, 0.48, 24),
-      new THREE.MeshBasicMaterial({ color: 0xe6fbff, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
+      getCachedGeo('swimRipple', function () { return new THREE.RingGeometry(0.28, 0.48, 16); }),
+      _sharedMatCache['swimRippleMat'] || (_sharedMatCache['swimRippleMat'] = markShared(
+        new THREE.MeshBasicMaterial({ color: 0xe6fbff, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false })
+      ))
     );
     swimRipple.rotation.x = -Math.PI / 2;
     swimRipple.position.y = 0.22;
@@ -1891,16 +2151,16 @@
       baseLeg: pelvisY,
       dispose: function () {
         textures.forEach(function (t) {
-          t.dispose();
+          if (t && (!t.userData || !t.userData._sharedCache)) t.dispose();
         });
         root.traverse(function (obj) {
-          if (obj.geometry) obj.geometry.dispose();
+          if (obj.geometry && (!obj.geometry.userData || !obj.geometry.userData._sharedCache)) obj.geometry.dispose();
           if (obj.material) {
             if (Array.isArray(obj.material)) {
               obj.material.forEach(function (m) {
-                m.dispose();
+                if (m && (!m.userData || !m.userData._sharedCache)) m.dispose();
               });
-            } else {
+            } else if (!obj.material.userData || !obj.material.userData._sharedCache) {
               obj.material.dispose();
             }
           }
@@ -2195,6 +2455,11 @@
       if (!carDef || !carDef.group) return;
       if (currentActivity) clearActivityPose(false);
       if (transport) exitTransport();
+      const cd = carDef.group.userData && carDef.group.userData.carDoors;
+      if (cd) {
+        cd.doorBurstTimer = 1.25;
+        cd.manualOpen = false;
+      }
       transport = {
         kind: 'car',
         entity: carDef,
@@ -2205,6 +2470,15 @@
       inWater = false;
       speedMag = 0;
       notifyTransport();
+    }
+
+    function toggleCarDoors(carDef) {
+      const target = carDef || (transport && transport.kind === 'car' ? transport.entity : null);
+      if (!target || !target.group || !target.group.userData || !target.group.userData.carDoors) return false;
+      const cd = target.group.userData.carDoors;
+      cd.manualOpen = !cd.manualOpen;
+      cd.doorBurstTimer = cd.manualOpen ? 0 : 0;
+      return cd.manualOpen;
     }
 
     function mountHorse(horseDef) {
@@ -2230,6 +2504,10 @@
       const wasKind = transport.kind;
       transport = null;
       speedMag = 0;
+      if (wasKind === 'car' && ent && ent.group && ent.group.userData && ent.group.userData.carDoors) {
+        ent.group.userData.carDoors.manualOpen = false;
+        ent.group.userData.carDoors.doorBurstTimer = 1.45;
+      }
       const sideOff = wasKind === 'car' ? -1.65 : -1.25;
       const grpPos = ent && ent.group ? ent.group.position : actor.root.position;
       const yaw = ent && ent.group ? ent.group.rotation.y : actor.root.rotation.y;
@@ -2517,10 +2795,10 @@
 
       if (window.CrownGame && window.CrownGame.world) {
         if (!window.CrownGame.world.playerPos) window.CrownGame.world.playerPos = {};
-        window.CrownGame.world.playerPos.x = Number(actor.root.position.x.toFixed(2));
-        window.CrownGame.world.playerPos.y = Number(actor.root.position.y.toFixed(2));
-        window.CrownGame.world.playerPos.z = Number(actor.root.position.z.toFixed(2));
-        window.CrownGame.world.playerYaw = Number(actor.root.rotation.y.toFixed(3));
+        window.CrownGame.world.playerPos.x = Math.round(actor.root.position.x * 100) * 0.01;
+        window.CrownGame.world.playerPos.y = Math.round(actor.root.position.y * 100) * 0.01;
+        window.CrownGame.world.playerPos.z = Math.round(actor.root.position.z * 100) * 0.01;
+        window.CrownGame.world.playerYaw = Math.round(actor.root.rotation.y * 1000) * 0.001;
       }
 
       return {
@@ -2558,6 +2836,7 @@
       clearActivityPose: clearActivityPose,
       getActivity: getActivity,
       enterCar: enterCar,
+      toggleCarDoors: toggleCarDoors,
       mountHorse: mountHorse,
       exitTransport: exitTransport,
       getTransport: function () { return transport; },
@@ -2577,5 +2856,6 @@
     buildRoyalCharacterMesh: buildRoyalCharacterMesh,
     buildRoyalHorseMesh: buildRoyalHorseMesh,
     createController: createPlayerController,
+    clearSharedCaches: clearSharedCaches,
   };
 })();
