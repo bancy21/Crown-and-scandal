@@ -110,6 +110,9 @@
         statusText: spec.statusText || '',
         rates: spec.rates || {},
         usesShowerSpray: Boolean(spec.usesShowerSpray),
+        partnerAnchor: anc.partnerAnchor || spec.partnerAnchor || null,
+        seats: anc.seats || spec.seats || null,
+        spotId: spec.spotId || null,
       };
       playerCtrl.setActivityPose({
         pose: spec.pose,
@@ -144,6 +147,14 @@
         }
         return;
       }
+      if (action.type === 'chauffeur_drive' && window.CrownCommands && typeof window.CrownCommands.openChauffeurRideSheet === 'function') {
+        window.CrownCommands.openChauffeurRideSheet(action.vehicleId);
+        return;
+      }
+      if (action.type === 'invite_car_passengers' && window.CrownCommands && typeof window.CrownCommands.openCarPassengersSheet === 'function') {
+        window.CrownCommands.openCarPassengersSheet(action.vehicleId);
+        return;
+      }
       if (action.type === 'toggle_car_doors' && playerCtrl && castle && Array.isArray(castle.vehicles)) {
         const vh = castle.vehicles.find(function (v) { return v.id === action.vehicleId; });
         if (vh && typeof playerCtrl.toggleCarDoors === 'function') {
@@ -158,6 +169,19 @@
           playerCtrl.mountHorse(hr);
           toast('Mounted ' + hr.title + ' — ride through the stables, avenues & gardens!');
         }
+        return;
+      }
+      if (action.type === 'board_boat' && playerCtrl && castle && Array.isArray(castle.boats)) {
+        const bt = castle.boats.find(function (b) { return b.id === action.boatId; });
+        if (bt && typeof playerCtrl.enterBoat === 'function') {
+          playerCtrl.enterBoat(bt);
+          toast((bt.isYacht ? 'Piloting ' : 'Rowing ') + bt.title + ' across Riviera Bay!');
+        }
+        return;
+      }
+      if (action.type === 'call_to_meal' && window.CrownCommands && typeof window.CrownCommands.callGroupToMeal === 'function') {
+        const spot = action.spotId ? catalog[action.spotId] : null;
+        window.CrownCommands.callGroupToMeal(spot, action);
         return;
       }
       if (action.instant && typeof action.onInstant === 'function') {

@@ -360,14 +360,31 @@
       actions: [
         {
           id: 'er_rapid_triage',
-          label: 'Rapid ER Trauma Stabilization & IV Boost (₡30)',
-          hint: 'Restores +85 Energy, +50 Hygiene & +20 Poise immediately',
+          label: 'Get ER Doctor & Nurse Emergency Check-Up (₡30)',
+          hint: 'ER Doctor & Nurse examine vitals on you (+85 Energy, +50 Bath)',
           instant: true,
           onInstant: function (actCtx) {
             if ((actCtx.game.money || 0) < 30) return actCtx.toast('Need ₡30 Crowns.');
+            if (window.CrownHospitalCheckup && typeof window.CrownHospitalCheckup.startCheckup === 'function') {
+              window.CrownHospitalCheckup.startCheckup('er', actCtx);
+              return;
+            }
             actCtx.game.money -= 30;
             if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 85, hygiene: 50, composure: 20 });
             actCtx.toast('ER trauma check complete · Vitals stabilized! (+85 Energy, +50 Bath)');
+          },
+        },
+        {
+          id: 'er_trigger_live',
+          label: 'Call Incoming Ambulance Emergency to ER',
+          hint: 'Watch local residents rush in & ER doctors/nurses treat them live',
+          instant: true,
+          onInstant: function (actCtx) {
+            if (window.CrownCommands && typeof window.CrownCommands.triggerEmergency === 'function') {
+              window.CrownCommands.triggerEmergency(true);
+            } else {
+              actCtx.toast('ER emergency team is standing by!');
+            }
           },
         },
         {
@@ -489,11 +506,15 @@
       actions: [
         {
           id: 'full_checkup',
-          label: 'Get Full Royal Medical Checkup & Telemetry Scan (₡40)',
-          hint: 'Restores +100 Energy, +100 Hygiene & +25 Poise',
+          label: 'Get Full Medical Checkup by Doctor & Nurse (₡40)',
+          hint: 'Doctor & Nurse examine & scan vitals on you (+100 Energy & Bath)',
           instant: true,
           onInstant: function (actCtx) {
             if ((actCtx.game.money || 0) < 40) return actCtx.toast('Need ₡40 Crowns.');
+            if (window.CrownHospitalCheckup && typeof window.CrownHospitalCheckup.startCheckup === 'function') {
+              window.CrownHospitalCheckup.startCheckup('or', actCtx);
+              return;
+            }
             actCtx.game.money -= 40;
             if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 100, hygiene: 100, composure: 25, hunger: 25 });
             actCtx.toast('Telemetry Vitals 62 BPM · SpO2 99% · Full health restored!');

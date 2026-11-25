@@ -316,9 +316,10 @@
     const floor2Colliders = [];
     const floor3Colliders = [];
 
-    function addBox(targetArr, cx, cz, w, d) {
+    function addBox(targetArr, cx, cz, w, d, isWall) {
       targetArr.push({
         type: 'box',
+        isWall: Boolean(isWall),
         minX: cx - w * 0.5,
         maxX: cx + w * 0.5,
         minZ: cz - d * 0.5,
@@ -433,45 +434,64 @@
         }
       }
 
-      // Riviera Timber Yacht Pier & Golden Sandy Beach
+      // Riviera Timber Yacht Pier, Golden Sandy Beach & Swimmable Ocean Shallows
       if (yNow < 2.0 && Math.abs(x) <= 2.6 && z >= 51.8 && z <= 67.0) {
         return 0.26;
       }
       if (yNow < 2.0 && z >= 51.8 && z <= 59.4) {
         return 0.03;
       }
+      if (yNow < 1.5 && z > 59.4 && z <= 145 && Math.abs(x) <= 158) {
+        return -0.35;
+      }
 
       return 0;
     }
 
-    function resolveList(list, rx, rz, radius) {
+    function resolveList(list, rx, rz, radius, wallsOnly) {
       let x = rx;
       let z = rz;
-      for (let i = 0; i < list.length; i++) {
-        const c = list[i];
-        if (c.type === 'circle') {
-          const dx = x - c.x;
-          const dz = z - c.z;
-          const minDist = c.r + radius;
-          const distSq = dx * dx + dz * dz;
-          if (distSq < minDist * minDist && distSq > 0.0001) {
-            const d = Math.sqrt(distSq);
-            x = c.x + (dx / d) * minDist;
-            z = c.z + (dz / d) * minDist;
-          }
-        } else {
-          const cx = THREE.MathUtils.clamp(x, c.minX, c.maxX);
-          const cz = THREE.MathUtils.clamp(z, c.minZ, c.maxZ);
-          const dx = x - cx;
-          const dz = z - cz;
-          const dSq = dx * dx + dz * dz;
-          if (dSq < radius * radius) {
-            if (dSq > 0.00001) {
-              const d = Math.sqrt(dSq);
-              x = cx + (dx / d) * radius;
-              z = cz + (dz / d) * radius;
-            } else {
-              x = c.minX - radius;
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < list.length; i++) {
+          const c = list[i];
+          if (wallsOnly && !c.isWall) continue;
+          if (c.type === 'circle') {
+            const dx = x - c.x;
+            const dz = z - c.z;
+            const minDist = c.r + radius;
+            const distSq = dx * dx + dz * dz;
+            if (distSq < minDist * minDist) {
+              if (distSq > 0.0001) {
+                const d = Math.sqrt(distSq);
+                x = c.x + (dx / d) * minDist;
+                z = c.z + (dz / d) * minDist;
+              } else {
+                z = c.z + minDist;
+              }
+            }
+          } else {
+            const cx = THREE.MathUtils.clamp(x, c.minX, c.maxX);
+            const cz = THREE.MathUtils.clamp(z, c.minZ, c.maxZ);
+            const dx = x - cx;
+            const dz = z - cz;
+            const dSq = dx * dx + dz * dz;
+            if (dSq < radius * radius) {
+              if (dSq > 0.00001) {
+                const d = Math.sqrt(dSq);
+                x = cx + (dx / d) * radius;
+                z = cz + (dz / d) * radius;
+              } else {
+                // Push out along the minimum penetration axis (never teleport across long horizontal walls!)
+                const penLeft = x - c.minX;
+                const penRight = c.maxX - x;
+                const penTop = z - c.minZ;
+                const penBot = c.maxZ - z;
+                const minPen = Math.min(penLeft, penRight, penTop, penBot);
+                if (minPen === penLeft) x = c.minX - radius;
+                else if (minPen === penRight) x = c.maxX + radius;
+                else if (minPen === penTop) z = c.minZ - radius;
+                else z = c.maxZ + radius;
+              }
             }
           }
         }
@@ -479,14 +499,11 @@
       return { x: x, z: z };
     }
 
-    function resolveCollision(nx, nz, radius, currentY, opts) {
+    function resolveSingleStepCollision(nx, nz, radius, currentY, opts) {
       const yNow = typeof currentY === 'number' ? currentY : 0;
       const cfg = opts || {};
-      const maxZBound = cfg.ignoreEntityId
-        ? 50.2
-        : Math.abs(nx) <= 2.2
-          ? 66.2
-          : 58.6;
+      const wallsOnly = Boolean(cfg.wallsOnly);
+      const maxZBound = (cfg.ignoreEntityId || cfg.excludePools) ? 50.2 : 136;
       let rx = THREE.MathUtils.clamp(nx, -162, 162);
       let rz = THREE.MathUtils.clamp(nz, -56, maxZBound);
 
@@ -495,38 +512,31 @@
         if (upCol) {
           rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
           rz = THREE.MathUtils.clamp(rz, -38.0, -17.6);
-          return resolveList(upCol.list, rx, rz, radius);
+          return resolveList(upCol.list, rx, rz, radius, wallsOnly);
         }
       }
 
       if (yNow >= 8.2 && Math.abs(nx) <= 34 && nz <= -13) {
         rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
         rz = THREE.MathUtils.clamp(rz, -38.0, -17.6);
-        return resolveList(floor3Colliders, rx, rz, radius);
+        return resolveList(floor3Colliders, rx, rz, radius, wallsOnly);
       }
 
-      // Hotel 2F Honeymoon Suite slab bounds (x: 133.6 ± 8, z: 10.5 ± 6.1)
-      if (yNow >= 3.2 && nx >= 125.6 && nx <= 141.6 && nz >= 4.4 && nz <= 16.6) {
-        rx = THREE.MathUtils.clamp(rx, 126.2, 141.0);
-        rz = THREE.MathUtils.clamp(rz, 5.0, 16.0);
-        return { x: rx, z: rz };
-      }
-
-      // Wallflour & Maison Brioche 2F Tasting Loft (x: [-90.6..-77.4], z: [35.6..44.0])
-      if (townMod && typeof townMod.isOnUpperFloor === 'function' && townMod.isOnUpperFloor(nx, nz, yNow)) {
-        rx = THREE.MathUtils.clamp(rx, -90.1, -77.9);
-        rz = THREE.MathUtils.clamp(rz, 36.1, 43.5);
-        return { x: rx, z: rz };
+      // Town Multi-Storey Interiors (Montieri Hotel 2F/3F & Wallflour Bakery 2F)
+      if (townMod && typeof townMod.resolveUpperCollision === 'function' && yNow >= 2.2) {
+        const upTown = townMod.resolveUpperCollision(rx, rz, radius, yNow);
+        if (upTown) return upTown;
       }
 
       if (yNow >= 3.2 && Math.abs(nx) <= 34 && nz <= -12) {
         rx = THREE.MathUtils.clamp(rx, -29.8, 29.8);
         rz = THREE.MathUtils.clamp(rz, -38.0, -14.8);
-        return resolveList(floor2Colliders, rx, rz, radius);
+        return resolveList(floor2Colliders, rx, rz, radius, wallsOnly);
       }
 
-      let res = resolveList(sharedColliders, rx, rz, radius);
-      res = resolveList(floor1Colliders, res.x, res.z, radius);
+      let res = resolveList(sharedColliders, rx, rz, radius, wallsOnly);
+      res = resolveList(floor1Colliders, res.x, res.z, radius, wallsOnly);
+      if (wallsOnly) return res;
 
       if (townMod) {
         if (Array.isArray(townMod.vehicles)) {
@@ -541,6 +551,20 @@
               const dist = Math.sqrt(dSq);
               res.x = vh.x + (dx / dist) * minDist;
               res.z = vh.z + (dz / dist) * minDist;
+            }
+          }
+        }
+        if (Array.isArray(townMod.cruisers)) {
+          for (let c = 0; c < townMod.cruisers.length; c++) {
+            const cr = townMod.cruisers[c];
+            const dx = res.x - cr.x;
+            const dz = res.z - cr.z;
+            const minDist = (cr.radius || 1.5) + radius;
+            const dSq = dx * dx + dz * dz;
+            if (dSq < minDist * minDist && dSq > 0.0001) {
+              const dist = Math.sqrt(dSq);
+              res.x = cr.x + (dx / dist) * minDist;
+              res.z = cr.z + (dz / dist) * minDist;
             }
           }
         }
@@ -573,7 +597,15 @@
                 res.x = cx + (dx / dist) * radius;
                 res.z = cz + (dz / dist) * radius;
               } else {
-                res.z = pz.maxZ + radius;
+                const pL = res.x - pz.minX;
+                const pR = pz.maxX - res.x;
+                const pT = res.z - pz.minZ;
+                const pB = pz.maxZ - res.z;
+                const mP = Math.min(pL, pR, pT, pB);
+                if (mP === pL) res.x = pz.minX - radius;
+                else if (mP === pR) res.x = pz.maxX + radius;
+                else if (mP === pT) res.z = pz.minZ - radius;
+                else res.z = pz.maxZ + radius;
               }
             }
           }
@@ -581,6 +613,126 @@
       }
 
       return res;
+    }
+
+    function resolveCollision(nx, nz, radius, currentY, opts) {
+      const cfg = opts || {};
+      if (typeof cfg.prevX === 'number' && typeof cfg.prevZ === 'number') {
+        const dx = nx - cfg.prevX;
+        const dz = nz - cfg.prevZ;
+        const moveDist = Math.hypot(dx, dz);
+        if (moveDist > 0.16 && moveDist < 6.0) {
+          const steps = Math.min(16, Math.ceil(moveDist / 0.15));
+          let cur = { x: cfg.prevX, z: cfg.prevZ };
+          for (let s = 1; s <= steps; s++) {
+            const t = s / steps;
+            const stepX = cfg.prevX + dx * t;
+            const stepZ = cfg.prevZ + dz * t;
+            // Blend toward target constrained by prior resolved position so walls never get tunneled
+            const nextCandX = s === 1 ? stepX : cur.x + (stepX - (cfg.prevX + dx * ((s - 1) / steps)));
+            const nextCandZ = s === 1 ? stepZ : cur.z + (stepZ - (cfg.prevZ + dz * ((s - 1) / steps)));
+            cur = resolveSingleStepCollision(nextCandX, nextCandZ, radius, currentY, cfg);
+          }
+          return cur;
+        }
+      }
+      return resolveSingleStepCollision(nx, nz, radius, currentY, cfg);
+    }
+
+    function hasBlockedSegment(x0, z0, x1, z1, radius, currentY, wallsOnly) {
+      const dist = Math.hypot(x1 - x0, z1 - z0);
+      if (dist < 0.05) return false;
+      const r = radius || 0.24;
+      const yNow = typeof currentY === 'number' ? currentY : 0;
+      const steps = Math.max(2, Math.ceil(dist / 0.22));
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        const px = x0 + (x1 - x0) * t;
+        const pz = z0 + (z1 - z0) * t;
+        const res = resolveSingleStepCollision(px, pz, r, yNow, { wallsOnly: Boolean(wallsOnly) });
+        if (Math.hypot(res.x - px, res.z - pz) > 0.08) return true;
+      }
+      return false;
+    }
+
+    function isDrivableSurface(x, z, radius) {
+      const r = typeof radius === 'number' ? radius : 0.4;
+      // Explicitly keep cars OFF all 8 Versailles Parterre Grass Lawns
+      for (let p = 0; p < parterreBeds.length; p++) {
+        const pb = parterreBeds[p];
+        if (Math.abs(x - pb.x) < pb.w * 0.5 + r && Math.abs(z - pb.z) < pb.d * 0.5 + r) {
+          return false;
+        }
+      }
+      // Waterfront Riviera Boulevard (z = 48.0, width 5.6 + curb lip)
+      if (x >= -158.0 && x <= 158.0 && z >= 44.8 && z <= 50.8) return true;
+      // Château Side Lanes (x = -44.0 and x = 44.0)
+      if ((Math.abs(x - -44.0) <= 3.0 || Math.abs(x - 44.0) <= 3.0) && z >= -26.5 && z <= 50.5) return true;
+      // West & East Auto Pavilions & connecting gravel apron
+      if ((x >= -44.8 && x <= -33.2 && z >= -27.2 && z <= -13.0) || (x >= 33.2 && x <= 44.8 && z >= -27.2 && z <= -13.0)) return true;
+      // Château Gravel Courtyard (x in [-41, 41], z in [-14.2, 44.6], parterres already excluded above)
+      if (x >= -41.5 && x <= 41.5 && z >= -14.2 && z <= 44.8) return true;
+      // West Willow Creek Streets & Driveways
+      if (x >= -156.5 && x <= -41.0) {
+        if (Math.abs(z - -10.5) <= 2.6 || Math.abs(z - 0.0) <= 2.6 || Math.abs(z - 19.2) <= 2.5) return true;
+        if (Math.abs(x - -67.0) <= 2.5 && z >= -42.0 && z <= 50.5) return true;
+        if (Math.abs(x - -95.0) <= 2.6 && z >= -13.0 && z <= 50.5) return true;
+        if (Math.abs(x - -123.5) <= 2.6 && z >= -13.0 && z <= 50.5) return true;
+        if (Math.abs(x - -153.5) <= 2.5 && z >= -42.0 && z <= 50.5) return true;
+        // 3-Bed Family House driveways connecting East into -67 / -95 streets
+        if (x >= -75.0 && x <= -64.5 && ((z >= 10.6 && z <= 15.6) || (z >= 29.3 && z <= 34.3))) return true;
+        if (x >= -103.0 && x <= -92.5 && ((z >= 10.6 && z <= 15.6) || (z >= 29.3 && z <= 34.3))) return true;
+        // Stone Mansionette driveways connecting South into z = -10.5 street
+        if (((x >= -78.2 && x <= -72.6) || (x >= -110.2 && x <= -104.6)) && z >= -17.2 && z <= -8.0) return true;
+      }
+      // East Campus, Hospital & Hôtel Montieri Streets & Paved Courtyards
+      if (x >= 41.0 && x <= 159.5) {
+        if (Math.abs(z - -10.5) <= 2.6 || Math.abs(z - 0.0) <= 2.6 || Math.abs(z - 19.2) <= 2.5) return true;
+        if (Math.abs(x - 67.0) <= 2.5 && z >= -42.0 && z <= 50.5) return true;
+        if (Math.abs(x - 92.5) <= 2.6 && z >= -42.0 && z <= 50.5) return true;
+        if (Math.abs(x - 120.5) <= 2.6 && z >= -42.0 && z <= 50.5) return true;
+        if (Math.abs(x - 156.5) <= 2.5 && z >= -42.0 && z <= 50.5) return true;
+        // Hospital Ambulance Apron & Front Pull-up
+        if (x >= 83.2 && x <= 90.0 && z >= -17.8 && z <= -8.0) return true;
+        // Hôtel Montieri Cobblestone Valet Courtyard (connects cleanly at x = 120.5)
+        if (x >= 118.0 && x <= 133.2 && z >= 3.4 && z <= 16.2) return true;
+      }
+      return false;
+    }
+
+    function snapToDrivableSurface(x, z) {
+      if (isDrivableSurface(x, z, 0.3)) return { x: x, z: z };
+      let best = null;
+      let bestDistSq = Infinity;
+      const roadZs = [48.0, 19.2, 0.0, -10.5];
+      const roadXs = [-153.5, -123.5, -95.0, -67.0, -44.0, 44.0, 67.0, 92.5, 120.5, 156.5];
+      for (let i = 0; i < roadZs.length; i++) {
+        const rz = roadZs[i];
+        const rx = THREE.MathUtils.clamp(x, -154.0, 156.0);
+        if (isDrivableSurface(rx, rz, 0.2)) {
+          const dSq = (rx - x) * (rx - x) + (rz - z) * (rz - z);
+          if (dSq < bestDistSq) { bestDistSq = dSq; best = { x: rx, z: rz }; }
+        }
+      }
+      for (let j = 0; j < roadXs.length; j++) {
+        const rx = roadXs[j];
+        const minZ = (rx === -95.0 || rx === -123.5) ? -10.5 : (Math.abs(rx) === 44.0 ? -22.5 : -38.0);
+        const rz = THREE.MathUtils.clamp(z, minZ, 48.0);
+        if (isDrivableSurface(rx, rz, 0.2)) {
+          const dSq = (rx - x) * (rx - x) + (rz - z) * (rz - z);
+          if (dSq < bestDistSq) { bestDistSq = dSq; best = { x: rx, z: rz }; }
+        }
+      }
+      if (Math.abs(x) <= 38 && z >= -14 && z <= 44) {
+        const candPts = [[0, 6.2], [0, 20.0], [0, 36.5], [-20.0, 36.5], [20.0, 36.5], [-6.5, 18.0], [6.5, 18.0]];
+        for (let k = 0; k < candPts.length; k++) {
+          const cx = candPts[k][0];
+          const cz = candPts[k][1];
+          const dSq = (cx - x) * (cx - x) + (cz - z) * (cz - z);
+          if (dSq < bestDistSq) { bestDistSq = dSq; best = { x: cx, z: cz }; }
+        }
+      }
+      return best || { x: 0, z: 48.0 };
     }
 
     // Helper: Partition Wall along X (z = const, x from x0..x1) with optional centered doorway gap
@@ -599,7 +751,7 @@
           mA.castShadow = doCast;
           mA.receiveShadow = true;
           group.add(mA);
-          addBox(colList, cxA, z, wA, t + 0.1);
+          addBox(colList, cxA, z, wA, t + 0.1, true);
         }
         if (x1 - g1 > 0.15) {
           const wB = x1 - g1;
@@ -609,7 +761,7 @@
           mB.castShadow = doCast;
           mB.receiveShadow = true;
           group.add(mB);
-          addBox(colList, cxB, z, wB, t + 0.1);
+          addBox(colList, cxB, z, wB, t + 0.1, true);
         }
         // Overhead doorway lintel
         const lintelH = Math.max(0.5, wallH - 2.6);
@@ -625,7 +777,7 @@
         mAll.castShadow = doCast;
         mAll.receiveShadow = true;
         group.add(mAll);
-        addBox(colList, cxAll, z, wAll, t + 0.1);
+        addBox(colList, cxAll, z, wAll, t + 0.1, true);
       }
     }
 
@@ -647,7 +799,7 @@
           mA.castShadow = doCast;
           mA.receiveShadow = true;
           group.add(mA);
-          addBox(colList, x, czA, t + 0.1, dA);
+          addBox(colList, x, czA, t + 0.1, dA, true);
         }
         if (hi - g1 > 0.15) {
           const dB = hi - g1;
@@ -657,7 +809,7 @@
           mB.castShadow = doCast;
           mB.receiveShadow = true;
           group.add(mB);
-          addBox(colList, x, czB, t + 0.1, dB);
+          addBox(colList, x, czB, t + 0.1, dB, true);
         }
         const lintelH = Math.max(0.5, wallH - 2.6);
         const lintel = new THREE.Mesh(new THREE.BoxGeometry(t, lintelH, doorW), goldMatteMat);
@@ -672,7 +824,7 @@
         mAll.castShadow = doCast;
         mAll.receiveShadow = true;
         group.add(mAll);
-        addBox(colList, x, czAll, t + 0.1, dAll);
+        addBox(colList, x, czAll, t + 0.1, dAll, true);
       }
     }
 
@@ -1125,12 +1277,26 @@
     yachtPier.position.set(0, 0.14, 59.5);
     yachtPier.receiveShadow = true;
     scene.add(yachtPier);
+    const boatsList = [];
     if (kit) {
       const yacht = kit.buildRoyalYacht('riviera_royal_yacht');
       yacht.position.set(5.4, -0.42, 65.5);
       yacht.rotation.y = Math.PI * 0.42;
+      yacht.userData.noMerge = true;
+      yacht.userData.noFreeze = true;
       scene.add(yacht);
       tagInteractable(yacht, 'riviera_royal_yacht');
+      boatsList.push({
+        id: 'riviera_royal_yacht',
+        title: 'Riviera Royal Superyacht',
+        isYacht: true,
+        baseWaterY: -0.42,
+        phase: 0.4,
+        x: 5.4,
+        z: 65.5,
+        yaw: Math.PI * 0.42,
+        group: yacht,
+      });
       registerSpot({
         id: 'riviera_royal_yacht',
         title: 'Riviera Royal Superyacht',
@@ -1141,8 +1307,15 @@
         radius: 6.8,
         actions: [
           {
+            id: 'yacht_pilot',
+            label: 'Pilot Royal Superyacht Across Ocean',
+            hint: 'Sail anywhere along Riviera Bay with stick or WASD!',
+            type: 'board_boat',
+            boatId: 'riviera_royal_yacht',
+          },
+          {
             id: 'yacht_cruise',
-            label: 'Board Royal Yacht & Champagne Deck (₡80)',
+            label: 'Champagne Sun Deck Party (₡80)',
             hint: '+30 Fun, +20 Poise & +4 Crown Dispatch Clout',
             instant: true,
             onInstant: function (ctx) {
@@ -1155,6 +1328,111 @@
           },
         ],
       });
+
+      // Interactive Wooden Rowboats along Riviera Beach
+      [
+        { id: 'riviera_rowboat_west', title: 'Ivory Cedar Rowboat (West)', x: -14, z: 61.2, yaw: 0.15, hull: 0xf6efe2, phase: 0.8 },
+        { id: 'riviera_rowboat_east', title: 'Sapphire Cedar Rowboat (East)', x: 15, z: 61.2, yaw: -0.18, hull: 0x2a5c8a, phase: 2.1 },
+        { id: 'riviera_rowboat_villa', title: 'Crimson Riviera Rowboat (Villa Shore)', x: 79.6, z: 61.2, yaw: 0.08, hull: 0x9e2b3e, phase: 3.4 },
+      ].forEach(function (rbCfg) {
+        if (typeof kit.buildRowboat !== 'function') return;
+        const rb = kit.buildRowboat(rbCfg.hull, rbCfg.id);
+        rb.position.set(rbCfg.x, -0.40, rbCfg.z);
+        rb.rotation.y = rbCfg.yaw;
+        rb.userData.noMerge = true;
+        rb.userData.noFreeze = true;
+        scene.add(rb);
+        tagInteractable(rb, rbCfg.id);
+        boatsList.push({
+          id: rbCfg.id,
+          title: rbCfg.title,
+          isYacht: false,
+          baseWaterY: -0.40,
+          phase: rbCfg.phase,
+          x: rbCfg.x,
+          z: rbCfg.z,
+          yaw: rbCfg.yaw,
+          group: rb,
+        });
+        registerSpot({
+          id: rbCfg.id,
+          title: rbCfg.title,
+          floor: 0,
+          category: 'town',
+          shortcut: rbCfg.id === 'riviera_rowboat_west',
+          x: rbCfg.x, y: 0.03, z: rbCfg.z - 2.0,
+          radius: 4.8,
+          actions: [
+            {
+              id: 'row_' + rbCfg.id,
+              label: 'Row Boat Across Ocean',
+              hint: '+Fun & real oar-rowing across Riviera Bay!',
+              type: 'board_boat',
+              boatId: rbCfg.id,
+            },
+            {
+              id: 'swim_from_' + rbCfg.id,
+              label: 'Swim Into Riviera Ocean From Shore',
+              hint: 'Changes into swimwear automatically — swim freely!',
+              instant: true,
+              onInstant: function (actCtx) {
+                if (actCtx && actCtx.playerCtrl) {
+                  actCtx.playerCtrl.teleport(rbCfg.x + 2.4, 62.6, 0, -0.35);
+                  if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 12, hygiene: 10 });
+                  actCtx.toast('Changed into swimwear and dove into Riviera Ocean!');
+                }
+              },
+            },
+          ],
+        });
+      });
+
+      // Sims 4 Ocean Swim & Float Hotspot along the Riviera Sandy Shoreline
+      registerSpot({
+        id: 'riviera_ocean_swim',
+        title: 'Riviera Ocean Shoreline',
+        floor: 0,
+        category: 'town',
+        shortcut: true,
+        x: 0, y: 0.03, z: 60.5,
+        bounds: { minX: -145, maxX: 145, minZ: 58.6, maxZ: 74 },
+        radius: 3.0,
+        actions: [
+          {
+            id: 'ocean_swim_laps',
+            label: 'Swim Laps in Riviera Ocean',
+            hint: '+18 Fun/s & +12 Hygiene/s (switches into swimwear!)',
+            instant: true,
+            onInstant: function (actCtx) {
+              if (actCtx && actCtx.playerCtrl) {
+                const pxNow = actCtx.playerCtrl.actor.root.position.x || 8;
+                actCtx.playerCtrl.teleport(pxNow, 63.2, 0, -0.35);
+                if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 14, hygiene: 10 });
+                actCtx.toast('Swimming in Riviera Ocean! Move with stick/WASD.');
+              }
+            },
+          },
+          {
+            id: 'ocean_back_float',
+            label: 'Float on Back Under Sun',
+            hint: '+14 Energy/s, +16 Fun/s & +10 Poise/s',
+            pose: 'swim_float',
+            anchor: { x: 8, y: -0.35, z: 64.5, yaw: 0, rigOffsetY: 0.08, floorY: -0.35, exitX: 8, exitZ: 57.6, exitYaw: Math.PI },
+            rates: { energy: 14, fun: 16, composure: 10, hygiene: 10 },
+            statusText: 'Floating peacefully on the warm Riviera waves...',
+          },
+          {
+            id: 'ocean_splash_play',
+            label: 'Splash & Play in the Waves',
+            hint: '+22 Fun/s & +12 Hygiene/s',
+            pose: 'swim_splash',
+            anchor: { x: 5.5, y: -0.35, z: 61.8, yaw: Math.PI, rigOffsetY: -0.45, floorY: -0.35, exitX: 5.5, exitZ: 57.6, exitYaw: Math.PI },
+            rates: { fun: 22, hygiene: 12 },
+            statusText: 'Splashing joyfully in the Riviera surf...',
+          },
+        ],
+      });
+
       [-28, -14, 14, 28, 72, 92, -72, -92].forEach(function (bx, bi) {
         const bSet = kit.buildBeachUmbrellaSet(['rose', 'sapphire', 'champagne'][bi % 3], null);
         bSet.position.set(bx, 0.03, 55.2);
@@ -2147,11 +2425,21 @@
     tagInteractable(banquetGroup, 'banquet_table');
     addBox(floor1Colliders, -15.8, -22.2, 2.4, 6.0);
 
+    const banquetSeats = [
+      { x: -13.75, y: 0.67, z: -20.2, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -20.2, exitYaw: Math.PI * 0.5, approachX: -12.35, approachZ: -20.2 },
+      { x: -17.85, y: 0.67, z: -20.2, yaw: Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -19.2, exitZ: -20.2, exitYaw: -Math.PI * 0.5, approachX: -19.25, approachZ: -20.2 },
+      { x: -13.75, y: 0.67, z: -22.2, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -22.2, exitYaw: Math.PI * 0.5, approachX: -12.35, approachZ: -22.2 },
+      { x: -17.85, y: 0.67, z: -22.2, yaw: Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -19.2, exitZ: -22.2, exitYaw: -Math.PI * 0.5, approachX: -19.25, approachZ: -22.2 },
+      { x: -13.75, y: 0.67, z: -24.2, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -24.2, exitYaw: Math.PI * 0.5, approachX: -12.35, approachZ: -24.2 },
+      { x: -17.85, y: 0.67, z: -24.2, yaw: Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -19.2, exitZ: -24.2, exitYaw: -Math.PI * 0.5, approachX: -19.25, approachZ: -24.2 },
+    ];
     [
-      { x: -13.7, z: -20.5, yaw: -Math.PI * 0.5, id: 'dining_e1' },
-      { x: -13.7, z: -23.9, yaw: -Math.PI * 0.5, id: 'dining_e2' },
-      { x: -17.9, z: -20.5, yaw: Math.PI * 0.5, id: 'dining_w1' },
-      { x: -17.9, z: -23.9, yaw: Math.PI * 0.5, id: 'dining_w2' },
+      { x: -13.7, z: -20.2, yaw: -Math.PI * 0.5, id: 'dining_e1' },
+      { x: -13.7, z: -22.2, yaw: -Math.PI * 0.5, id: 'dining_e2' },
+      { x: -13.7, z: -24.2, yaw: -Math.PI * 0.5, id: 'dining_e3' },
+      { x: -17.9, z: -20.2, yaw: Math.PI * 0.5, id: 'dining_w1' },
+      { x: -17.9, z: -22.2, yaw: Math.PI * 0.5, id: 'dining_w2' },
+      { x: -17.9, z: -24.2, yaw: Math.PI * 0.5, id: 'dining_w3' },
     ].forEach(function (ch) {
       const chair = kit ? kit.buildDiningChair('rose', false) : new THREE.Group();
       chair.position.set(ch.x, 0.67, ch.z);
@@ -2167,16 +2455,32 @@
       shortcut: true,
       x: -15.8, y: 0.67, z: -22.2,
       radius: 4.5,
+      seats: banquetSeats,
       actions: [
         {
           id: 'eat_macarons', label: 'Dine on Macarons & Tea', hint: '+16 Food/s & +6 Fun/s', pose: 'eat',
-          anchor: { x: -13.75, y: 0.67, z: -20.5, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -20.5, exitYaw: Math.PI * 0.5 },
+          anchor: {
+            x: -13.75, y: 0.67, z: -20.2, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -20.2, exitYaw: Math.PI * 0.5,
+            partnerAnchor: banquetSeats[1],
+            seats: banquetSeats,
+          },
           rates: { hunger: 16, fun: 6, composure: 4 }, statusText: 'Savoring rose macarons & Darjeeling tea...',
         },
         {
           id: 'eat_banquet', label: 'Enjoy Full Royal Feast', hint: '+20 Food/s & +8 Poise/s', pose: 'eat',
-          anchor: { x: -13.75, y: 0.67, z: -23.9, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -23.9, exitYaw: Math.PI * 0.5 },
+          anchor: {
+            x: -13.75, y: 0.67, z: -24.2, yaw: -Math.PI * 0.5, rigOffsetY: -0.46, floorY: 0.65, exitX: -12.3, exitZ: -24.2, exitYaw: Math.PI * 0.5,
+            partnerAnchor: banquetSeats[5],
+            seats: banquetSeats,
+          },
           rates: { hunger: 20, composure: 8, energy: 3 }, statusText: 'Feasting at the gilded banquet table...',
+        },
+        {
+          id: 'banquet_call_meal',
+          label: 'Call Family & Court to Meal',
+          hint: 'Summons up to 5 members — each takes their own separate chair!',
+          type: 'call_to_meal',
+          spotId: 'banquet_table',
         },
       ],
     });
@@ -2764,6 +3068,16 @@
           }
         }
       }
+      // Riviera Ocean Swimming Shallows (clear of Yacht Pier)
+      if (
+        pos.y < 1.2 &&
+        pos.z >= 59.4 &&
+        pos.z <= 145 &&
+        Math.abs(pos.x) <= 156 &&
+        !(Math.abs(pos.x) <= 2.75 && pos.z <= 67.2)
+      ) {
+        return true;
+      }
       return false;
     }
 
@@ -2844,6 +3158,13 @@
       if (showerSpray.visible) {
         showerSpray.rotation.y = elapsedSec * 6.0;
       }
+      const activeBoat = activeTransport && activeTransport.kind === 'boat' ? activeTransport.entity : null;
+      for (let bi = 0; bi < boatsList.length; bi++) {
+        const bt = boatsList[bi];
+        if (!bt || !bt.group || bt === activeBoat) continue;
+        bt.group.position.y = (bt.baseWaterY || -0.40) + Math.sin(elapsedSec * 1.9 + (bt.phase || 0)) * 0.045;
+        bt.group.rotation.z = Math.sin(elapsedSec * 1.3 + (bt.phase || 0)) * 0.03;
+      }
       if (townMod) {
         townMod.update(elapsedSec, activeTransport, playerPos);
       }
@@ -2908,6 +3229,9 @@
     return {
       groundHeightAt: groundHeightAt,
       resolveCollision: resolveCollision,
+      hasBlockedSegment: hasBlockedSegment,
+      isDrivableSurface: isDrivableSurface,
+      snapToDrivableSurface: snapToDrivableSurface,
       updateCutaway: updateCutaway,
       detectZone: detectZone,
       isInsidePalace: isInsidePalace,
@@ -2918,6 +3242,7 @@
       cottages: enterableCottages,
       vehicles: townMod ? townMod.vehicles : [],
       horses: townMod ? townMod.horses : [],
+      boats: boatsList,
       townDirectory: townMod ? townMod.townDirectory : [],
       townDoors: townMod ? townMod.townDoors : [],
       toggleDoor: townMod && townMod.toggleDoor,

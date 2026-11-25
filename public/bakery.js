@@ -533,6 +533,7 @@
           anchor: {
             x: bistroX - 0.68, y: 0.08, z: bistroZ, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
             floorY: 0.08, exitX: bistroX, exitZ: bistroZ + 0.9, exitYaw: Math.PI,
+            partnerAnchor: { x: bistroX + 0.68, y: 0.08, z: bistroZ, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
           },
           rates: { hunger: 16, fun: 10, composure: 4 },
           statusText: 'Enjoying café crème outside Wallflour & Maison Brioche...',
@@ -700,8 +701,9 @@
           hint: '+18 Food/s & +10 Fun/s',
           pose: 'eat',
           anchor: {
-            x: bx + 4.05, y: y1, z: bz + 1.45, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
-            floorY: y1, exitX: bx + 2.8, exitZ: bz + 1.45, exitYaw: 0,
+            x: bx - 2.28, y: y1, z: bz + 1.25, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
+            floorY: y1, exitX: bx - 1.5, exitZ: bz + 2.4, exitYaw: 0,
+            partnerAnchor: { x: bx - 0.72, y: y1, z: bz + 1.25, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
           },
           rates: { hunger: 18, fun: 10 },
           statusText: 'Sipping rose tea & eating fraisier cake at Maison Brioche...',
@@ -768,6 +770,7 @@
           anchor: {
             x: bx + 3.27, y: y1, z: bz + 1.45, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
             floorY: y1, exitX: bx + 2.1, exitZ: bz + 1.45, exitYaw: 0,
+            partnerAnchor: { x: bx + 4.83, y: y1, z: bz + 1.45, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
           },
           rates: { hunger: 18, fun: 10 },
           statusText: 'Enjoying strawberry shortcake under the lace bunting...',
@@ -790,50 +793,61 @@
       }
     });
 
-    // Partitioned 1F Bakery Washroom (South-West Corner: x [-90.4..-87.4], z [41.5..43.8])
-    addWallZ(bakeryGroup, sharedColliders, 0, 3.2, xL + 3.2, bz + 1.7, zS, bz + 2.75, 1.15, 0.18, creamBoiserieMat);
-    addWallX(bakeryGroup, sharedColliders, 0, 3.2, bz + 1.7, xL, xL + 3.2, null, 0, 0.18, creamBoiserieMat);
+    // Partitioned 1F Bakery Washroom (South-West Corner: x [-90.6..-87.95], z [42.05..44.0])
+    addWallZ(bakeryGroup, sharedColliders, 0, 3.2, xL + 2.65, bz + 2.25, zS, bz + 3.05, 1.0, 0.18, creamBoiserieMat);
+    addWallX(bakeryGroup, sharedColliders, 0, 3.2, bz + 2.25, xL, xL + 2.65, null, 0, 0.18, creamBoiserieMat);
     placeToilet(bakeryGroup, sharedColliders, {
       id: 'bakery_toilet', title: 'Bakery Washroom Toilet', floor: 0, rustic: true,
-      x: xL + 0.85, y: y1, z: zS - 0.75, yaw: Math.PI * 0.5,
+      x: xL + 0.80, y: y1, z: zS - 0.65, yaw: Math.PI * 0.5,
     });
     placeVanitySink(bakeryGroup, sharedColliders, {
       id: 'bakery_sink', title: 'Bakery Washroom Sink', floor: 0, rustic: true,
-      x: xL + 1.9, y: y1, z: bz + 2.25, yaw: 0,
+      x: xL + 1.75, y: y1, z: zS - 0.62, yaw: Math.PI,
     });
 
     // -----------------------------------------------------------
     // 3. WALKABLE INTERIOR STAIRCASE + 2F RED-BRICK PATISSERIE LOFT (Photo 1 Upper Story!)
     // -----------------------------------------------------------
-    // Staircase along West Wall rising South (z = 41.0, y = 0.12) -> North (z = 36.2, y = 3.72)
-    const stairX = xL + 1.05; // -89.55
-    const stairZ0 = 41.0;
-    const stairZ1 = 36.2;
+    // Open Staircase along West Wall rising South (z = 40.4, y = 0.12) -> North Landing (z = 37.2, y = 3.72)
+    const stairX = xL + 1.02; // -89.58
+    const stairZ0 = 40.4;
+    const stairZ1 = 37.2;
+    const stairLen = stairZ0 - stairZ1; // 3.2m clean run
     const stepCount = 12;
     for (let st = 0; st < stepCount; st++) {
       const frac = (st + 0.5) / stepCount;
       const sz = stairZ0 + (stairZ1 - stairZ0) * frac;
       const sy = y1 + (y2 - y1) * frac;
-      const stepMesh = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(1.75, 0.24, 0.44)), timberMat);
+      const stepMesh = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(1.74, 0.24, 0.34)), timberMat);
       stepMesh.position.set(stairX, sy - 0.12, sz);
       stepMesh.castShadow = true;
       stepMesh.receiveShadow = true;
       bakeryGroup.add(stepMesh);
     }
-    // Inner Stair Rail Banister
-    const railBar = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(0.08, 0.08, 4.9)), goldMat);
-    railBar.position.set(stairX + 0.92, (y1 + y2) * 0.5 + 0.75, (stairZ0 + stairZ1) * 0.5);
-    railBar.rotation.x = Math.atan2(y2 - y1, stairZ0 - stairZ1);
+    // Inner Stair Rail Banister (trimmed clear of top and bottom entries!)
+    const railSlope = Math.hypot(stairLen, y2 - y1);
+    const railBar = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(0.08, 0.08, railSlope)), goldMat);
+    railBar.position.set(stairX + 0.90, (y1 + y2) * 0.5 + 0.78, (stairZ0 + stairZ1) * 0.5);
+    railBar.rotation.x = Math.atan2(y2 - y1, stairLen);
     bakeryGroup.add(railBar);
-    addBox(sharedColliders, stairX + 0.96, (stairZ0 + stairZ1) * 0.5, 0.18, 4.9);
+    addBox(sharedColliders, stairX + 0.92, (stairZ0 + stairZ1) * 0.5, 0.16, stairLen - 0.65);
 
-    // 2F Floor Slab (split leaving open stairwell hatch at West: x [-90.4..-88.5], z [36.0..41.2]!)
+    // 2F Floor Slab (main salon + south landing + full north stair landing x [-90.6..-88.4], z [35.6..37.3])
     const mainSlab = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(bw - 2.1, 0.22, bd)), parquetMat);
     mainSlab.position.set(bx + 1.05, y2 - 0.11, bz);
     upper2FGrp.add(mainSlab);
     const stairLandingS = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(2.1, 0.22, 2.8)), parquetMat);
     stairLandingS.position.set(xL + 1.05, y2 - 0.11, zS - 1.4);
     upper2FGrp.add(stairLandingS);
+    const stairLandingN = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(2.2, 0.22, 1.75)), parquetMat);
+    stairLandingN.position.set(xL + 1.1, y2 - 0.11, zN + 0.875);
+    upper2FGrp.add(stairLandingN);
+    // 2F Stairwell safety guardrail around open hatch (east side z [37.4..41.2], south lip x [-90.6..-88.5] at z=41.2)
+    const guardE = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(0.07, 0.82, 3.8)), goldMat);
+    guardE.position.set(xL + 2.02, y2 + 0.41, 39.3);
+    const guardS = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(2.0, 0.82, 0.07)), goldMat);
+    guardS.position.set(xL + 1.02, y2 + 0.41, 41.2);
+    upper2FGrp.add(guardE, guardS);
 
     // 2F Brick Exterior Walls (Photo 1: warm red-brown brick + stone cornice pilasters)
     const wall2N = new THREE.Mesh(keepGeo(new THREE.BoxGeometry(bw, wallH2, 0.28)), brickWallMat);
@@ -933,6 +947,7 @@
           anchor: {
             x: bx + 0.85, y: y2, z: bz, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
             floorY: y2, exitX: bx + 0.1, exitZ: bz + 1.2, exitYaw: 0,
+            partnerAnchor: { x: bx + 2.75, y: y2, z: bz, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
           },
           rates: { hunger: 20, fun: 14, composure: 10 },
           statusText: 'Enjoying private upstairs patisserie tasting above Wallflour...',
@@ -953,18 +968,18 @@
       title: 'Bakery Oak Staircase to 2F Loft',
       floor: 0,
       category: 'town',
-      x: stairX + 1.2,
+      x: stairX + 1.35,
       y: y1,
-      z: stairZ0 - 0.5,
+      z: stairZ0 + 0.15,
       radius: 2.4,
       actions: [
         {
           id: 'go_bakery_2f',
           label: 'Walk Up to 2F Patisserie Tasting Loft',
-          hint: 'Enjoy floral window views & private tea lounge',
+          hint: 'Or walk straight up the oak stairs anytime!',
           instant: true,
           onInstant: function (actCtx) {
-            actCtx.playerCtrl.teleport(bx + 0.4, bz + 0.4, Math.PI * 0.5, y2);
+            actCtx.playerCtrl.teleport(xL + 2.5, zN + 1.0, Math.PI * 0.5, y2);
             actCtx.toast('Welcome upstairs to the 2F Wallflour Loft!');
           },
         },
@@ -1112,6 +1127,7 @@
           anchor: {
             x: gx + 0.25, y: y1, z: bz + 1.35, yaw: Math.PI * 0.5, rigOffsetY: -0.45,
             floorY: y1, exitX: gx - 1.1, exitZ: bz + 1.35, exitYaw: 0,
+            partnerAnchor: { x: gx + 1.75, y: y1, z: bz + 1.35, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
           },
           rates: { hunger: 18, fun: 14, composure: 8 },
           statusText: 'Enjoying bee pollen scones & lemon tarts in Bumblebee Glasshouse...',
@@ -1178,8 +1194,8 @@
 
     function groundHeightAtBakery(x, z, yNow) {
       if (x >= xL && x <= xR && z >= zN && z <= zS) {
-        // Walkable Staircase ramp on West strip
-        if (x >= xL + 0.15 && x <= xL + 1.95 && z >= stairZ1 - 0.4 && z <= stairZ0 + 0.4) {
+        // Walkable Staircase ramp on West strip (South z=40.4 -> North landing z=37.2)
+        if (x >= xL + 0.12 && x <= xL + 2.02 && z >= stairZ1 - 0.35 && z <= stairZ0 + 0.35) {
           const t = THREE.MathUtils.clamp((stairZ0 - z) / (stairZ0 - stairZ1), 0, 1);
           return y1 + t * (y2 - y1);
         }
@@ -1190,6 +1206,52 @@
 
     function isOnUpperFloor(x, z, yNow) {
       return yNow >= 2.2 && x >= xL - 1.2 && x <= xR + 1.2 && z >= zN - 1.2 && z <= zS + 1.2;
+    }
+
+    const upper2FColliders = [];
+    addBox(upper2FColliders, bx + 1.8, bz, 1.5, 1.0);
+    addBox(upper2FColliders, bx + 4.6, zN + 1.9, 1.9, 1.6);
+
+    function resolveUpperCollision(nx, nz, radius, yNow) {
+      if (!isOnUpperFloor(nx, nz, yNow)) return null;
+      let rx = THREE.MathUtils.clamp(nx, xL + 0.42, xR - 0.42);
+      let rz = THREE.MathUtils.clamp(nz, zN + 0.42, zS - 0.42);
+      // Guardrail along East & South sides of stairwell hatch (leave North landing open for smooth stairs entry)
+      if (rx < xL + 2.18 && rz > stairZ1 + 0.35 && rz < 41.35) {
+        if (rx > xL + 1.65) {
+          rx = xL + 2.18 + radius * 0.25;
+        } else if (rz > 40.75) {
+          rz = 41.35 + radius * 0.25;
+        }
+      }
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < upper2FColliders.length; i++) {
+          const c = upper2FColliders[i];
+          const cx = THREE.MathUtils.clamp(rx, c.minX, c.maxX);
+          const cz = THREE.MathUtils.clamp(rz, c.minZ, c.maxZ);
+          const dx = rx - cx;
+          const dz = rz - cz;
+          const dSq = dx * dx + dz * dz;
+          if (dSq < radius * radius) {
+            if (dSq > 0.00001) {
+              const d = Math.sqrt(dSq);
+              rx = cx + (dx / d) * radius;
+              rz = cz + (dz / d) * radius;
+            } else {
+              const penLeft = rx - c.minX;
+              const penRight = c.maxX - rx;
+              const penTop = rz - c.minZ;
+              const penBot = c.maxZ - rz;
+              const minPen = Math.min(penLeft, penRight, penTop, penBot);
+              if (minPen === penLeft) rx = c.minX - radius;
+              else if (minPen === penRight) rx = c.maxX + radius;
+              else if (minPen === penTop) rz = c.minZ - radius;
+              else rz = c.maxZ + radius;
+            }
+          }
+        }
+      }
+      return { x: rx, z: rz };
     }
 
     function detectZone(pos) {
@@ -1207,6 +1269,7 @@
     return {
       groundHeightAtBakery: groundHeightAtBakery,
       isOnUpperFloor: isOnUpperFloor,
+      resolveUpperCollision: resolveUpperCollision,
       detectZone: detectZone,
       dispose: function () {
         localMats.forEach(function (m) { m.dispose(); });

@@ -133,6 +133,7 @@
 
   function getCachedStdMat(key, params) {
     if (!_sharedMatCache[key]) {
+      const THREE = window.THREE;
       _sharedMatCache[key] = markShared(new THREE.MeshStandardMaterial(params));
     }
     return _sharedMatCache[key];
@@ -188,7 +189,7 @@
     const rx = 25 * eyeScale;
     const ry = (lookInfo.eyeShape === 'doe' ? 16.5 : lookInfo.eyeShape === 'hooded' ? 12.2 : 14.5) * eyeScale;
 
-    // Airbrushed Cheekbone Blush
+    // Airbrushed Cheekbone Blush + Sims Mobile Soft Cheek Highlight
     if (lookInfo.blushIntensity > 0.02) {
       [-1, 1].forEach(function (side) {
         const bx = cx + side * vSize * 0.14;
@@ -199,6 +200,14 @@
         ctx.fillStyle = bg;
         ctx.beginPath();
         ctx.arc(bx, by, 44, 0, Math.PI * 2);
+        ctx.fill();
+
+        const hl = ctx.createRadialGradient(bx - side * 4, by - 16, 2, bx - side * 4, by - 16, 22);
+        hl.addColorStop(0, hexToRgba(lookInfo.skinHighlightHex, 0.32));
+        hl.addColorStop(1, hexToRgba(lookInfo.skinHighlightHex, 0));
+        ctx.fillStyle = hl;
+        ctx.beginPath();
+        ctx.arc(bx - side * 4, by - 16, 22, 0, Math.PI * 2);
         ctx.fill();
       });
     }
@@ -523,6 +532,82 @@
       ctx.fillRect(0, vSize - 42, vSize, 14);
       ctx.fillStyle = trimHex;
       ctx.fillRect(0, vSize - 22, vSize, 8);
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /**
+   * Realistic Sims-style fitted swimwear over bare sculpted skin (halter bikini / one-piece or swim trunks).
+   */
+  function createSwimwearTexture(primaryHex, goldHex, skinHex, isMasculine, texSize) {
+    const THREE = window.THREE;
+    const size = texSize || 256;
+    const s = size / 512;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d');
+    if (s !== 1) ctx.scale(s, s);
+    const vSize = 512;
+
+    const baseSkin = skinHex || '#efc8af';
+    ctx.fillStyle = baseSkin;
+    ctx.fillRect(0, 0, vSize, vSize);
+
+    // Soft Sims Mobile anatomical collarbone & ribcage tone
+    const midShade = ctx.createLinearGradient(0, vSize * 0.12, 0, vSize * 0.85);
+    midShade.addColorStop(0, 'rgba(255,255,255,0.12)');
+    midShade.addColorStop(0.5, 'rgba(0,0,0,0.0)');
+    midShade.addColorStop(1, 'rgba(0,0,0,0.08)');
+    ctx.fillStyle = midShade;
+    ctx.fillRect(0, 0, vSize, vSize);
+
+    const suitColor = primaryHex && primaryHex !== '#faf7f2' && primaryHex !== '#f4f8fc' ? primaryHex : '#1b7a8c';
+    const trimColor = goldHex || '#f2d388';
+
+    if (isMasculine) {
+      // Tailored Riviera swim trunks covering lower hips & waist
+      ctx.fillStyle = suitColor;
+      ctx.fillRect(0, vSize * 0.72, vSize, vSize * 0.28);
+      ctx.fillStyle = trimColor;
+      ctx.fillRect(0, vSize * 0.72, vSize, 14);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillRect(vSize * 0.24, vSize * 0.75, 10, vSize * 0.25);
+      ctx.fillRect(vSize * 0.74, vSize * 0.75, 10, vSize * 0.25);
+    } else {
+      // Chic Riviera two-piece resort swimsuit with metallic clasp & halter straps
+      const topY0 = vSize * 0.21;
+      const topY1 = vSize * 0.40;
+      const gradTop = ctx.createLinearGradient(0, topY0, 0, topY1);
+      gradTop.addColorStop(0, suitColor);
+      gradTop.addColorStop(1, hexToRgba(suitColor, 0.92));
+      ctx.fillStyle = gradTop;
+      ctx.fillRect(0, topY0, vSize, topY1 - topY0);
+      // Halter neck straps
+      ctx.strokeStyle = suitColor;
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(vSize * 0.14, topY0);
+      ctx.lineTo(vSize * 0.18, vSize * 0.04);
+      ctx.moveTo(vSize * 0.86, topY0);
+      ctx.lineTo(vSize * 0.82, vSize * 0.04);
+      ctx.stroke();
+      // Gold trim edge
+      ctx.fillStyle = trimColor;
+      ctx.fillRect(0, topY0, vSize, 7);
+      ctx.fillRect(0, topY1 - 6, vSize, 6);
+
+      // High-waisted Riviera swim briefs
+      ctx.fillStyle = suitColor;
+      ctx.fillRect(0, vSize * 0.76, vSize, vSize * 0.24);
+      ctx.fillStyle = trimColor;
+      ctx.fillRect(0, vSize * 0.76, vSize, 10);
     }
 
     const tex = new THREE.CanvasTexture(c);
@@ -998,8 +1083,15 @@
     const acc = A ? A.clampAccessories(char.accessories || A.createDefaultAccessories()) : char.accessories || {};
     const outfitPal = resolveOutfitPalette(char.wardrobe);
 
+    const ageGroup = opts.ageGroup || 'adult';
+    const ageScale = ageGroup === 'toddler' ? 0.50 : ageGroup === 'child' ? 0.74 : 1.0;
+    const isYouth = ageGroup === 'toddler' || ageGroup === 'child';
+
     const root = new THREE.Group();
     root.name = opts.name || 'royal-character';
+    if (ageScale !== 1.0) {
+      root.scale.setScalar(ageScale);
+    }
 
     const heightScale = body.height || 1.0;
     const legScale = body.legLength || 1.0;
@@ -1025,11 +1117,13 @@
                   ? '#1e6e8c'
                   : role === 'anesthesiologist'
                     ? '#235a6e'
-                    : role === 'doctor' || role === 'er_doctor' || role === 'nurse'
-                      ? '#f4f8fc'
-                      : outfitPal.primary;
+                    : role === 'patient'
+                      ? '#cce4ee'
+                      : role === 'doctor' || role === 'er_doctor' || role === 'nurse'
+                        ? '#f4f8fc'
+                        : outfitPal.primary;
     const defaultRoleGold =
-      role === 'maid' || role === 'chef' || role === 'nurse' || role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist'
+      role === 'maid' || role === 'chef' || role === 'nurse' || role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist' || role === 'patient'
         ? '#faf6f0'
         : role === 'guard' || role === 'butler' || role === 'chauffeur'
           ? '#d9b04e'
@@ -1067,6 +1161,10 @@
       faceTex = keepTex(createRoyalFaceTexture(lookInfo, 512));
       fabricTex = keepTex(createCoutureFabricTexture(dressHex, goldHex, trimHex, outfitPal.outfitId, role, lookInfo.skinHex, 512));
     }
+    const isMasculineSwim = isTailoredCoat || opts.gender === 'male';
+    const swimColor = role === 'royal' ? (dressHex === '#ece7e1' || dressHex === '#ece8e2' ? '#2c7ea6' : dressHex) : dressHex;
+    const swimKey = 'swim|' + swimColor + '|' + goldHex + '|' + lookInfo.skinHex + '|' + (isMasculineSwim ? 'm' : 'f');
+    const swimTex = _sharedTexCache[swimKey] || (_sharedTexCache[swimKey] = markShared(createSwimwearTexture(swimColor, goldHex, lookInfo.skinHex, isMasculineSwim, 256)));
     const hairKey = 'hair|' + lookInfo.hairRootHex + '|' + lookInfo.hairTipHex + '|' + lookInfo.hairHighlightHex;
     hairTex = _sharedTexCache[hairKey] || (_sharedTexCache[hairKey] = markShared(createHairStrandTexture(lookInfo.hairRootHex, lookInfo.hairTipHex, lookInfo.hairHighlightHex)));
 
@@ -1106,6 +1204,13 @@
           sheenColor: dressGold,
           side: THREE.DoubleSide,
         });
+
+    const swimFabricMat = getCachedStdMat('swimMat|' + (swimTex.uuid || swimKey), {
+      map: swimTex,
+      roughness: 0.42,
+      metalness: 0.06,
+      side: THREE.DoubleSide,
+    });
 
     const trimMat = getCachedStdMat('trim|' + trimHex, {
       color: dressTrim,
@@ -1234,6 +1339,11 @@
       return new THREE.CylinderGeometry(0.052, 0.041, shinLen * 0.78, 12);
     }) : null;
 
+    const swimHideMeshes = [];
+    const swimLegMeshes = [];
+    const swimArmMeshes = [];
+    const swimFootMeshes = [];
+
     function makeLeg(side) {
       const hipPivot = new THREE.Group();
       hipPivot.position.set(side * 0.088 * Math.max(0.92, hipScale * 0.9), pelvisY, 0);
@@ -1253,14 +1363,17 @@
 
       const shinMesh = new THREE.Mesh(shinGeo, legMat);
       kneePivot.add(shinMesh);
+      swimLegMeshes.push({ mesh: thighMesh, origMat: legMat }, { mesh: shinMesh, origMat: legMat });
 
       const footGroup = new THREE.Group();
       const pumpMesh = new THREE.Mesh(sharedPumpGeo, shoeMat);
       footGroup.add(pumpMesh);
+      swimFootMeshes.push({ mesh: pumpMesh, origMat: shoeMat });
       if (isBoot && sharedBootCuffGeo) {
         const cuff = new THREE.Mesh(sharedBootCuffGeo, shoeMat);
         cuff.position.set(0, -shinLen * 0.56, 0.004);
         footGroup.add(cuff);
+        swimHideMeshes.push(cuff);
       }
       kneePivot.add(footGroup);
       return { hip: hipPivot, knee: kneePivot };
@@ -1333,6 +1446,7 @@
       peplum.rotation.y = Math.PI * 0.5;
       peplum.scale.set(1.04, 1, 0.94);
       bodyGroup.add(peplum);
+      swimHideMeshes.push(skirtMesh, peplum);
     } else if (isCasualSkirt || (role === 'royal' && outfitPal.outfitId === 'midnight-opera-slip')) {
       const skirtLen =
         role === 'maid' || role === 'nurse'
@@ -1348,6 +1462,7 @@
       skirtMesh = new THREE.Mesh(skirtGeo, fabricMat);
       skirtMesh.castShadow = true;
       bodyGroup.add(skirtMesh);
+      swimHideMeshes.push(skirtMesh);
 
       if (role === 'maid') {
         const apron = new THREE.Mesh(
@@ -1371,6 +1486,7 @@
         const bowBack = new THREE.Mesh(getCachedGeo('maidBow', function () { return new THREE.BoxGeometry(0.16, 0.08, 0.04); }), trimMat);
         bowBack.position.set(0, 0.19, -0.14);
         bodyGroup.add(bowBack);
+        swimHideMeshes.push(apron, bib, collarRing, bowBack);
       }
     }
 
@@ -1391,6 +1507,7 @@
       belt.scale.set(1.02, 0.78, 1);
       belt.position.set(0, 0.2, 0.004);
       bodyGroup.add(belt);
+      swimHideMeshes.push(belt);
     }
 
     if (role === 'guard') {
@@ -1401,6 +1518,7 @@
       sash.position.set(0, 0.34, 0.015);
       sash.rotation.z = 0.42;
       bodyGroup.add(sash);
+      swimHideMeshes.push(sash);
     }
 
     // Distinct 3D Role Uniform Details (Butlers, Chauffeurs, Chefs, Doctors & Nurses)
@@ -1410,6 +1528,7 @@
       const shirtBib = new THREE.Mesh(getCachedGeo('shirtBib', function () { return new THREE.BoxGeometry(0.105, 0.26, 0.04); }), trimMat);
       shirtBib.position.set(0, 0.41, 0.095);
       bodyGroup.add(shirtBib);
+      swimHideMeshes.push(shirtBib);
 
       if (role === 'butler') {
         const tieGeo = getCachedGeo('bowtie', function () { return new THREE.ConeGeometry(0.022, 0.048, 6); });
@@ -1430,10 +1549,12 @@
         tailCoatR.position.set(0.068, 0.02, -0.108);
         tailCoatR.rotation.x = 0.08;
         bodyGroup.add(tailCoatR);
+        swimHideMeshes.push(tieLeft, tieRight, tailCoatL, tailCoatR);
       } else {
         const tie = new THREE.Mesh(getCachedGeo('chTie', function () { return new THREE.BoxGeometry(0.032, 0.22, 0.02); }), ebonyMat);
         tie.position.set(0, 0.42, 0.116);
         bodyGroup.add(tie);
+        swimHideMeshes.push(tie);
       }
 
       const btnGeo = getCachedGeo('btnSphere', function () { return new THREE.SphereGeometry(0.011, 6, 5); });
@@ -1442,6 +1563,7 @@
           const btn = new THREE.Mesh(btnGeo, goldMat);
           btn.position.set(side * 0.042, 0.25 + bi * 0.075, 0.114);
           bodyGroup.add(btn);
+          swimHideMeshes.push(btn);
         }
       });
     } else if (role === 'chef') {
@@ -1449,12 +1571,14 @@
       kerchief.rotation.x = Math.PI * 0.46;
       kerchief.position.set(0, 0.555, 0.014);
       bodyGroup.add(kerchief);
+      swimHideMeshes.push(kerchief);
       const btnGeo = getCachedGeo('btnSphere', function () { return new THREE.SphereGeometry(0.011, 6, 5); });
       [-1, 1].forEach(function (side) {
         for (let bi = 0; bi < 3; bi++) {
           const btn = new THREE.Mesh(btnGeo, ebonyMat);
           btn.position.set(side * 0.048, 0.27 + bi * 0.075, 0.112);
           bodyGroup.add(btn);
+          swimHideMeshes.push(btn);
         }
       });
       const waistApron = new THREE.Mesh(
@@ -1465,6 +1589,7 @@
       );
       waistApron.position.set(0, -0.02, 0.018);
       bodyGroup.add(waistApron);
+      swimHideMeshes.push(waistApron);
     } else if (role === 'doctor' || role === 'er_doctor' || role === 'surgeon' || role === 'anesthesiologist' || role === 'nurse') {
       const crossV = new THREE.Mesh(getCachedGeo('medCV', function () { return new THREE.BoxGeometry(0.018, 0.056, 0.016); }), medicalRedMat);
       crossV.position.set(-0.078, 0.44, 0.118);
@@ -1472,6 +1597,7 @@
       const crossH = new THREE.Mesh(getCachedGeo('medCH', function () { return new THREE.BoxGeometry(0.056, 0.018, 0.016); }), medicalRedMat);
       crossH.position.set(-0.078, 0.44, 0.118);
       bodyGroup.add(crossH);
+      swimHideMeshes.push(crossV, crossH);
 
       if (role === 'surgeon' || role === 'anesthesiologist') {
         const pocketHex = role === 'surgeon' ? 0x16536a : 0x184252;
@@ -1479,6 +1605,7 @@
         const pocket = new THREE.Mesh(getCachedGeo('medPocket', function () { return new THREE.BoxGeometry(0.08, 0.085, 0.02); }), pocketMat);
         pocket.position.set(0.072, 0.42, 0.112);
         bodyGroup.add(pocket);
+        swimHideMeshes.push(pocket);
       }
 
       const stethMat = getCachedStdMat('stethMat', { color: 0x26313d, roughness: 0.35, metalness: 0.25 });
@@ -1501,6 +1628,7 @@
       stethBell.rotation.x = Math.PI * 0.5;
       stethBell.position.set(0.062, 0.375, 0.114);
       bodyGroup.add(stethBell);
+      swimHideMeshes.push(stethTube, stethBell);
     }
 
     // Slender Sculpted Neck & Collarbone Necklace
@@ -1558,6 +1686,7 @@
         armMat
       );
       armPivot.add(armMesh);
+      swimArmMeshes.push({ mesh: armMesh, origMat: armMat });
 
       if (role === 'butler' || role === 'chauffeur' || role === 'surgeon' || role === 'anesthesiologist') {
         const handGloveMat = role === 'butler'
@@ -1572,6 +1701,7 @@
         gloveHand.scale.set(0.85, 1.55, 0.65);
         gloveHand.position.set(side * 0.049, -0.545, 0.061);
         armPivot.add(gloveHand);
+        swimHideMeshes.push(gloveHand);
       } else if (role === 'maid') {
         const cuffLace = new THREE.Mesh(
           getCachedGeo('maidCuff|' + armR.toFixed(3), function () { return new THREE.TorusGeometry(armR * 0.92, 0.012, 6, 12); }),
@@ -1580,6 +1710,7 @@
         cuffLace.rotation.x = Math.PI / 2;
         cuffLace.position.set(side * 0.014, -0.045, 0);
         armPivot.add(cuffLace);
+        swimHideMeshes.push(cuffLace);
       }
 
       if (role === 'royal' && outfitPal.outfitId === 'versailles-ivory-gown') {
@@ -1590,6 +1721,7 @@
         cuff.rotation.x = Math.PI / 2;
         cuff.position.set(side * 0.015, -0.055, 0);
         armPivot.add(cuff);
+        swimHideMeshes.push(cuff);
       }
 
       if (role === 'guard' && side === 1) {
@@ -1599,6 +1731,7 @@
         const spearHead = new THREE.Mesh(getCachedGeo('guardSpear', function () { return new THREE.ConeGeometry(0.048, 0.2, 6); }), goldMat);
         spearHead.position.set(0.055, 0.9, 0.075);
         armPivot.add(spearHead);
+        swimHideMeshes.push(staff, spearHead);
       }
 
       return armPivot;
@@ -1836,6 +1969,11 @@
     // 4. Sculpted Planar-UV Royal Head + Feathered Layered Hair Cards
     const headGroup = new THREE.Group();
     headGroup.position.set(0, 0.775, 0.008);
+    if (ageGroup === 'toddler') {
+      headGroup.scale.setScalar(1.22);
+    } else if (ageGroup === 'child') {
+      headGroup.scale.setScalar(1.08);
+    }
     bodyGroup.add(headGroup);
 
     const headMesh = new THREE.Mesh(
@@ -2024,6 +2162,7 @@
       const plume = new THREE.Mesh(getCachedGeo('guardPlume', function () { return new THREE.ConeGeometry(0.03, 0.12, 6); }), goldMat);
       plume.position.set(0, 0.31, 0.025);
       headGroup.add(plume);
+      swimHideMeshes.push(shako, plume);
     } else if (role === 'maid') {
       const cap = new THREE.Mesh(getCachedGeo('maidCap', function () { return new THREE.SphereGeometry(0.104, 12, 8); }), trimMat);
       cap.scale.set(1.04, 0.44, 0.92);
@@ -2033,6 +2172,7 @@
       frill.rotation.x = Math.PI * 0.48;
       frill.position.set(0, 0.118, -0.006);
       headGroup.add(frill);
+      swimHideMeshes.push(cap, frill);
     } else if (role === 'chef') {
       const band = new THREE.Mesh(getCachedGeo('chefBand', function () { return new THREE.CylinderGeometry(0.095, 0.092, 0.085, 12); }), trimMat);
       band.position.set(0, 0.135, -0.005);
@@ -2041,6 +2181,7 @@
       puff.scale.set(1.06, 0.78, 1.06);
       puff.position.set(0, 0.215, -0.008);
       headGroup.add(puff);
+      swimHideMeshes.push(band, puff);
     } else if (role === 'chauffeur') {
       const navyCapMat = getCachedStdMat('chaufCap', { color: 0x1a2233, roughness: 0.45 });
       const capCrown = new THREE.Mesh(getCachedGeo('chCrown', function () { return new THREE.CylinderGeometry(0.106, 0.096, 0.075, 12); }), navyCapMat);
@@ -2056,6 +2197,7 @@
       visor.rotation.x = 0.28;
       visor.position.set(0, 0.088, 0.056);
       headGroup.add(visor);
+      swimHideMeshes.push(capCrown, capBand, visor);
     } else if (role === 'surgeon' || role === 'anesthesiologist') {
       const capHex = role === 'surgeon' ? 0x2682a4 : 0x2c6e82;
       const capMat = getCachedStdMat('scrubCap|' + capHex, { color: capHex, roughness: 0.62 });
@@ -2067,6 +2209,7 @@
       const mask = new THREE.Mesh(getCachedGeo('medMaskG', function () { return new THREE.BoxGeometry(0.112, 0.058, 0.036); }), maskMat);
       mask.position.set(0, -0.048, 0.095);
       headGroup.add(mask);
+      swimHideMeshes.push(scrubCap, mask);
     } else if (role === 'nurse') {
       const nurseCap = new THREE.Mesh(getCachedGeo('nurseCapG', function () { return new THREE.BoxGeometry(0.16, 0.072, 0.085); }), trimMat);
       nurseCap.position.set(0, 0.132, -0.01);
@@ -2077,7 +2220,8 @@
       const cH = new THREE.Mesh(getCachedGeo('nurseCH', function () { return new THREE.BoxGeometry(0.036, 0.012, 0.014); }), medicalRedMat);
       cH.position.set(0, 0.132, 0.034);
       headGroup.add(cH);
-    } else if (role === 'royal' && (!acc.crown || acc.crown !== 'none')) {
+      swimHideMeshes.push(nurseCap, cV, cH);
+    } else if (role === 'royal' && !isYouth && (!acc.crown || acc.crown !== 'none')) {
       const tiaraGroup = new THREE.Group();
       tiaraGroup.position.set(0, 0.116, 0.012);
       const band = new THREE.Mesh(getCachedGeo('tiaraBand', function () { return new THREE.TorusGeometry(0.078, 0.008, 6, 16); }), goldMat);
@@ -2130,6 +2274,30 @@
     swimRipple.visible = false;
     root.add(swimRipple);
 
+    let inSwimwear = false;
+    function setSwimwear(enabled) {
+      const next = Boolean(enabled);
+      if (inSwimwear === next) return;
+      inSwimwear = next;
+      for (let i = 0; i < swimHideMeshes.length; i++) {
+        if (swimHideMeshes[i]) swimHideMeshes[i].visible = !next;
+      }
+      torsoMesh.material = next ? swimFabricMat : fabricMat;
+      for (let i = 0; i < swimLegMeshes.length; i++) {
+        const lm = swimLegMeshes[i];
+        lm.mesh.material = next ? skinMat : lm.origMat;
+      }
+      for (let i = 0; i < swimArmMeshes.length; i++) {
+        const am = swimArmMeshes[i];
+        am.mesh.material = next ? skinMat : am.origMat;
+      }
+      for (let i = 0; i < swimFootMeshes.length; i++) {
+        const fm = swimFootMeshes[i];
+        fm.mesh.material = next ? skinMat : fm.origMat;
+        fm.mesh.scale.set(next ? 0.95 : 1, next ? 0.34 : 1, next ? 0.9 : 1);
+      }
+    }
+
     return {
       root: root,
       rig: rig,
@@ -2149,6 +2317,10 @@
       contactShadow: contactShadow,
       plumbob: plumbob,
       baseLeg: pelvisY,
+      ageGroup: ageGroup,
+      ageScale: ageScale,
+      setSwimwear: setSwimwear,
+      isInSwimwear: function () { return inSwimwear; },
       dispose: function () {
         textures.forEach(function (t) {
           if (t && (!t.userData || !t.userData._sharedCache)) t.dispose();
@@ -2451,9 +2623,10 @@
       return currentActivity;
     }
 
-    function enterCar(carDef) {
+    function enterCar(carDef, carOpts) {
       if (!carDef || !carDef.group) return;
       if (currentActivity) clearActivityPose(false);
+      const keepPassengers = carOpts && Array.isArray(carOpts.passengers) ? carOpts.passengers.slice() : (transport && transport.kind === 'car' && Array.isArray(transport.passengers) ? transport.passengers.slice() : []);
       if (transport) exitTransport();
       const cd = carDef.group.userData && carDef.group.userData.carDoors;
       if (cd) {
@@ -2466,9 +2639,92 @@
         speed: 0,
         steer: 0,
         wheelAngle: 0,
+        passengers: keepPassengers,
+        chauffeur: (carOpts && carOpts.chauffeur) || null,
+        chauffeurRoute: (carOpts && carOpts.chauffeurRoute) || null,
       };
       inWater = false;
       speedMag = 0;
+      notifyTransport();
+    }
+
+    function setChauffeurRide(carDef, chauffeurNpc, waypoints, destTitle, onArrive) {
+      if (!carDef || !carDef.group) return false;
+      const existingPass = transport && transport.kind === 'car' && Array.isArray(transport.passengers)
+        ? transport.passengers.filter(function (p) { return p && (!chauffeurNpc || p.id !== chauffeurNpc.id); })
+        : [];
+      if (existingPass.length > 2) existingPass.length = 2;
+      if (existingPass[0]) existingPass[0].seatKey = 'rearRight';
+      if (existingPass[1]) existingPass[1].seatKey = 'rearLeft';
+      enterCar(carDef, {
+        passengers: existingPass,
+        chauffeur: chauffeurNpc || null,
+        chauffeurRoute: {
+          active: true,
+          waypoints: Array.isArray(waypoints) ? waypoints.slice() : [],
+          idx: 0,
+          destTitle: destTitle || 'Destination',
+          onArrive: onArrive || null,
+        },
+      });
+      return true;
+    }
+
+    function addPassenger(passengerDef) {
+      if (!transport || transport.kind !== 'car' || !passengerDef) return false;
+      if (!Array.isArray(transport.passengers)) transport.passengers = [];
+      const existing = transport.passengers.find(function (p) { return p.id === passengerDef.id; });
+      if (existing) return true;
+      const usedSeats = {};
+      if (transport.chauffeur) {
+        usedSeats.driver = true;
+        usedSeats.frontPass = true;
+      } else {
+        usedSeats.driver = true;
+      }
+      for (let i = 0; i < transport.passengers.length; i++) {
+        usedSeats[transport.passengers[i].seatKey] = true;
+      }
+      const seatOrder = transport.chauffeur ? ['rearRight', 'rearLeft'] : ['frontPass', 'rearRight', 'rearLeft'];
+      let chosenSeat = null;
+      for (let i = 0; i < seatOrder.length; i++) {
+        if (!usedSeats[seatOrder[i]]) {
+          chosenSeat = seatOrder[i];
+          break;
+        }
+      }
+      if (!chosenSeat) return false;
+      transport.passengers.push({
+        id: passengerDef.id,
+        name: passengerDef.name,
+        actor: passengerDef.actor,
+        seatKey: chosenSeat,
+        npcRef: passengerDef,
+      });
+      const cd = transport.entity && transport.entity.group && transport.entity.group.userData && transport.entity.group.userData.carDoors;
+      if (cd) cd.doorBurstTimer = 1.25;
+      notifyTransport();
+      return true;
+    }
+
+    function removePassenger(id) {
+      if (!transport || transport.kind !== 'car' || !Array.isArray(transport.passengers)) return false;
+      const idx = transport.passengers.findIndex(function (p) { return p.id === id; });
+      if (idx === -1) return false;
+      transport.passengers.splice(idx, 1);
+      notifyTransport();
+      return true;
+    }
+
+    function getPassengers() {
+      return transport && transport.kind === 'car' && Array.isArray(transport.passengers)
+        ? transport.passengers
+        : [];
+    }
+
+    function clearPassengers() {
+      if (!transport || transport.kind !== 'car') return;
+      transport.passengers = [];
       notifyTransport();
     }
 
@@ -2479,6 +2735,23 @@
       cd.manualOpen = !cd.manualOpen;
       cd.doorBurstTimer = cd.manualOpen ? 0 : 0;
       return cd.manualOpen;
+    }
+
+    function enterBoat(boatDef) {
+      if (!boatDef || !boatDef.group) return;
+      if (currentActivity) clearActivityPose(false);
+      if (transport) exitTransport();
+      transport = {
+        kind: 'boat',
+        entity: boatDef,
+        speed: 0,
+        steer: 0,
+        rowPhase: 0,
+      };
+      inWater = false;
+      speedMag = 0;
+      if (typeof actor.setSwimwear === 'function') actor.setSwimwear(false);
+      notifyTransport();
     }
 
     function mountHorse(horseDef) {
@@ -2502,21 +2775,57 @@
       if (!transport) return;
       const ent = transport.entity;
       const wasKind = transport.kind;
+      const oldPassengers = Array.isArray(transport.passengers) ? transport.passengers.slice() : [];
+      const oldChauffeur = transport.chauffeur || null;
       transport = null;
       speedMag = 0;
       if (wasKind === 'car' && ent && ent.group && ent.group.userData && ent.group.userData.carDoors) {
         ent.group.userData.carDoors.manualOpen = false;
         ent.group.userData.carDoors.doorBurstTimer = 1.45;
       }
-      const sideOff = wasKind === 'car' ? -1.65 : -1.25;
       const grpPos = ent && ent.group ? ent.group.position : actor.root.position;
       const yaw = ent && ent.group ? ent.group.rotation.y : actor.root.rotation.y;
+      if (wasKind === 'boat') {
+        const dockOnPier = Math.abs(grpPos.x) < 10.5 && grpPos.z < 75;
+        const bx = dockOnPier ? 0.0 : THREE.MathUtils.clamp(grpPos.x, -152, 152);
+        const bz = dockOnPier ? 65.0 : 57.6;
+        const by = worldApi.groundHeightAt(bx, bz, 0.3);
+        actor.root.position.set(bx, by, bz);
+        actor.root.rotation.y = Math.PI;
+        if (ent && ent.group && ent.group.userData) {
+          if (ent.group.userData.oarL) ent.group.userData.oarL.rotation.set(0, 0, 0);
+          if (ent.group.userData.oarR) ent.group.userData.oarR.rotation.set(0, 0, 0);
+        }
+        if (actor.contactShadow) actor.contactShadow.visible = true;
+        notifyTransport();
+        return;
+      }
+      const sideOff = wasKind === 'car' ? (oldChauffeur ? 1.65 : -1.65) : -1.25;
       const rawX = grpPos.x + Math.cos(yaw) * sideOff;
       const rawZ = grpPos.z - Math.sin(yaw) * sideOff;
       const safe = worldApi.resolveCollision ? worldApi.resolveCollision(rawX, rawZ, 0.52, 0) : { x: rawX, z: rawZ };
       const sy = worldApi.groundHeightAt(safe.x, safe.z, 0);
       actor.root.position.set(safe.x, sy, safe.z);
       actor.root.rotation.y = yaw;
+      for (let pi = 0; pi < oldPassengers.length; pi++) {
+        const ps = oldPassengers[pi];
+        if (ps && ps.actor && ps.actor.root) {
+          const pOff = (pi % 2 === 0 ? 1.85 : -1.85);
+          const pzOff = -0.8 - pi * 0.55;
+          const prx = grpPos.x + Math.cos(yaw) * pOff + Math.sin(yaw) * pzOff;
+          const prz = grpPos.z - Math.sin(yaw) * pOff + Math.cos(yaw) * pzOff;
+          const psafe = worldApi.resolveCollision ? worldApi.resolveCollision(prx, prz, 0.45, 0) : { x: prx, z: prz };
+          ps.actor.root.position.set(psafe.x, worldApi.groundHeightAt(psafe.x, psafe.z, 0), psafe.z);
+          if (ps.actor.contactShadow) ps.actor.contactShadow.visible = true;
+        }
+      }
+      if (oldChauffeur && oldChauffeur.mesh && oldChauffeur.mesh.root) {
+        const crx = grpPos.x - Math.cos(yaw) * 1.55;
+        const crz = grpPos.z + Math.sin(yaw) * 1.55;
+        const csafe = worldApi.resolveCollision ? worldApi.resolveCollision(crx, crz, 0.45, 0) : { x: crx, z: crz };
+        oldChauffeur.mesh.root.position.set(csafe.x, worldApi.groundHeightAt(csafe.x, csafe.z, 0), csafe.z);
+        if (oldChauffeur.mesh.contactShadow) oldChauffeur.mesh.contactShadow.visible = true;
+      }
       if (ent && ent.group && ent.group.userData && ent.group.userData.rig && wasKind === 'horse') {
         const legs = ent.group.userData.rig.legs || [];
         for (let i = 0; i < legs.length; i++) legs[i].rotation.x = 0;
@@ -2533,25 +2842,30 @@
     }
 
     function exitPool() {
-      if (currentActivity && currentActivity.pose === 'swim') {
+      if (currentActivity && (currentActivity.pose === 'swim' || currentActivity.pose === 'swim_float' || currentActivity.pose === 'swim_splash')) {
         clearActivityPose(true);
+        if (typeof actor.setSwimwear === 'function') actor.setSwimwear(false);
         return true;
       }
       if (!inWater) return false;
       inWater = false;
+      if (typeof actor.setSwimwear === 'function') actor.setSwimwear(false);
       const px = actor.root.position.x;
       const pz = actor.root.position.z;
       const py = actor.root.position.y;
       let ex = px;
       let ez = pz + 4.6;
-      if (Math.abs(px - 82) < 12 && pz < 26) {
+      if (pz >= 57.5) {
+        ex = THREE.MathUtils.clamp(px, -154, 154);
+        ez = 57.4;
+      } else if (Math.abs(px - 82) < 12 && pz < 26) {
         ex = 82;
         ez = 19.2;
       } else if (py > 10) {
         ex = -21.5;
         ez = -29.2;
       }
-      const sy = worldApi.groundHeightAt(ex, ez, py);
+      const sy = worldApi.groundHeightAt(ex, ez, Math.max(0, py));
       actor.root.position.set(ex, sy, ez);
       if (actor.contactShadow) actor.contactShadow.visible = true;
       return true;
@@ -2589,8 +2903,49 @@
       if (transport && transport.kind === 'car' && transport.entity && transport.entity.group) {
         const car = transport.entity;
         const grp = car.group;
+        const route = transport.chauffeurRoute;
+        const hasAutoDrive = Boolean(route && route.active && route.waypoints && route.waypoints.length);
         const maxCarSpeed = (keys.ShiftLeft || keys.ShiftRight || len > 0.88) ? 16.0 : 12.2;
-        if (len > 0.08) {
+
+        if (len > 0.42 && hasAutoDrive) {
+          route.active = false;
+          notifyTransport();
+        }
+
+        if (hasAutoDrive && route.active) {
+          const wp = route.waypoints[route.idx];
+          if (wp) {
+            const dx = wp.x - grp.position.x;
+            const dz = wp.z - grp.position.z;
+            const distWp = Math.hypot(dx, dz);
+            const isFinal = route.idx >= route.waypoints.length - 1;
+            const reachRad = isFinal ? 2.4 : 3.4;
+            if (distWp <= reachRad) {
+              if (!isFinal) {
+                route.idx++;
+              } else {
+                route.active = false;
+                transport.speed = 0;
+                transport.steer = 0;
+                if (typeof wp.yaw === 'number') grp.rotation.y = wp.yaw;
+                const cdArr = grp.userData && grp.userData.carDoors;
+                if (cdArr) cdArr.doorBurstTimer = 1.9;
+                if (typeof route.onArrive === 'function') route.onArrive(route.destTitle);
+                notifyTransport();
+              }
+            } else {
+              const targetYaw = Math.atan2(dx, dz);
+              let angDiff = targetYaw - grp.rotation.y;
+              while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+              while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+              transport.steer += (THREE.MathUtils.clamp(angDiff, -0.7, 0.7) - transport.steer) * (1 - Math.exp(-10 * dt));
+              grp.rotation.y += angDiff * (1 - Math.exp(-5.0 * dt));
+              const cruiseSpd = isFinal && distWp < 6.5 ? Math.max(3.6, distWp * 1.45) : 13.8;
+              const targetSpd = cruiseSpd * Math.max(0.28, Math.cos(Math.min(1.25, Math.abs(angDiff))));
+              transport.speed += (targetSpd - transport.speed) * (1 - Math.exp(-5.0 * dt));
+            }
+          }
+        } else if (len > 0.08) {
           const clamped = Math.min(1, len);
           const nx = inputX / len;
           const nz = inputZ / len;
@@ -2614,12 +2969,49 @@
 
         const fwdX = Math.sin(grp.rotation.y);
         const fwdZ = Math.cos(grp.rotation.y);
-        const nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -158, 158);
-        const nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, -52.0, 50.2);
-        const resolved = worldApi.resolveCollision(nextX, nextZ, 1.35, 0, {
+        const curX = grp.position.x;
+        const curZ = grp.position.z;
+        const nextX = THREE.MathUtils.clamp(curX + fwdX * transport.speed * dt, -158, 158);
+        const nextZ = THREE.MathUtils.clamp(curZ + fwdZ * transport.speed * dt, -52.0, 50.2);
+        let resolved = worldApi.resolveCollision(nextX, nextZ, 1.35, 0, {
+          prevX: curX,
+          prevZ: curZ,
           ignoreEntityId: car.id,
           excludePools: true,
         });
+        if (typeof worldApi.isDrivableSurface === 'function') {
+          const checkRoad = function (px, pz) {
+            return worldApi.isDrivableSurface(px, pz, 0.35);
+          };
+          if (!checkRoad(resolved.x, resolved.z)) {
+            const curOnRoad = checkRoad(curX, curZ);
+            if (curOnRoad) {
+              const rxOnly = worldApi.resolveCollision(nextX, curZ, 1.35, 0, {
+                prevX: curX, prevZ: curZ, ignoreEntityId: car.id, excludePools: true,
+              });
+              const rzOnly = worldApi.resolveCollision(curX, nextZ, 1.35, 0, {
+                prevX: curX, prevZ: curZ, ignoreEntityId: car.id, excludePools: true,
+              });
+              if (checkRoad(rxOnly.x, curZ)) {
+                resolved = { x: rxOnly.x, z: curZ };
+              } else if (checkRoad(curX, rzOnly.z)) {
+                resolved = { x: curX, z: rzOnly.z };
+              } else {
+                resolved = { x: curX, z: curZ };
+                transport.speed *= 0.82;
+              }
+            } else if (typeof worldApi.snapToDrivableSurface === 'function') {
+              // If edge-starting off-road, only allow steering closer to nearest road/driveway
+              const snap = worldApi.snapToDrivableSurface(curX, curZ);
+              const dCur = Math.hypot(curX - snap.x, curZ - snap.z);
+              const dNext = Math.hypot(resolved.x - snap.x, resolved.z - snap.z);
+              if (dNext > dCur) {
+                resolved = { x: curX, z: curZ };
+                transport.speed *= 0.82;
+              }
+            }
+          }
+        }
         grp.position.x = resolved.x;
         grp.position.z = resolved.z;
         grp.position.y = 0.02;
@@ -2638,19 +3030,27 @@
 
         const cosRot = Math.cos(grp.rotation.y);
         const sinRot = Math.sin(grp.rotation.y);
-        const sx = ud.seatX || -0.35;
-        const sy = ud.seatY || 0.44;
-        const sz = ud.seatZ || -0.26;
+        const seats = ud.seats || {
+          driver: { x: ud.seatX || -0.35, y: ud.seatY || 0.44, z: ud.seatZ || -0.14 },
+          frontPass: { x: 0.35, y: ud.seatY || 0.44, z: ud.seatZ || -0.14 },
+        };
+        const playerSeat = transport.chauffeur ? seats.frontPass : seats.driver;
         actor.root.position.set(
-          grp.position.x + sx * cosRot + sz * sinRot,
-          grp.position.y + sy - 0.28,
-          grp.position.z - sx * sinRot + sz * cosRot
+          grp.position.x + playerSeat.x * cosRot + playerSeat.z * sinRot,
+          grp.position.y + playerSeat.y - 0.28,
+          grp.position.z - playerSeat.x * sinRot + playerSeat.z * cosRot
         );
         actor.root.rotation.y = grp.rotation.y;
         speedMag = transport.speed;
 
         if (window.CrownAnim) {
-          window.CrownAnim.applyPose(actor, 'drive', dt, tNow, { steer: transport.steer, rigOffsetY: -baseLeg * 0.62 });
+          window.CrownAnim.applyPose(
+            actor,
+            transport.chauffeur ? 'drive_passenger' : 'drive',
+            dt,
+            tNow,
+            { steer: transport.steer, rigOffsetY: -baseLeg * 0.62 }
+          );
         }
         updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, false, speedMag);
       } else if (transport && transport.kind === 'horse' && transport.entity && transport.entity.group) {
@@ -2684,6 +3084,8 @@
         const nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -158, 158);
         const nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, -52.0, 50.2);
         const resolved = worldApi.resolveCollision(nextX, nextZ, 0.72, 0, {
+          prevX: grp.position.x,
+          prevZ: grp.position.z,
           ignoreEntityId: hr.id,
         });
         const baseY = worldApi.groundHeightAt(resolved.x, resolved.z, 0);
@@ -2721,13 +3123,100 @@
           });
         }
         updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, false, speedMag);
+      } else if (transport && transport.kind === 'boat' && transport.entity && transport.entity.group) {
+        const bt = transport.entity;
+        const grp = bt.group;
+        const ud = grp.userData || {};
+        const isYacht = Boolean(ud.isYacht || bt.isYacht);
+        const maxBoatSpd = isYacht ? 11.5 : (keys.ShiftLeft || keys.ShiftRight || len > 0.88 ? 6.8 : 4.6);
+
+        if (len > 0.08) {
+          const clamped = Math.min(1, len);
+          const nx = inputX / len;
+          const nz = inputZ / len;
+          const sinY = Math.sin(cameraYaw);
+          const cosY = Math.cos(cameraYaw);
+          _moveDir.set(nx * cosY + nz * sinY, 0, -nx * sinY + nz * cosY).normalize();
+
+          const targetYaw = Math.atan2(_moveDir.x, _moveDir.z);
+          let angDiff = targetYaw - grp.rotation.y;
+          while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+          while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+
+          transport.steer += (THREE.MathUtils.clamp(angDiff, -0.7, 0.7) - transport.steer) * (1 - Math.exp(-8 * dt));
+          grp.rotation.y += angDiff * (1 - Math.exp((isYacht ? -2.8 : -4.6) * dt));
+          const targetSpd = maxBoatSpd * clamped * Math.max(0.25, Math.cos(Math.min(1.3, Math.abs(angDiff))));
+          transport.speed += (targetSpd - transport.speed) * (1 - Math.exp(-4.5 * dt));
+          transport.rowPhase += dt * (transport.speed * 1.15 + 1.8);
+        } else {
+          transport.steer += (0 - transport.steer) * (1 - Math.exp(-7 * dt));
+          transport.speed += (0 - transport.speed) * (1 - Math.exp(-4.2 * dt));
+        }
+
+        const fwdX = Math.sin(grp.rotation.y);
+        const fwdZ = Math.cos(grp.rotation.y);
+        const minZWater = isYacht ? 64.0 : 59.8;
+        let nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -154, 154);
+        let nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, minZWater, 156);
+        // Keep boats clear of the central Yacht Pier
+        const pierHalfW = isYacht ? 5.2 : 3.4;
+        if (Math.abs(nextX) < pierHalfW && nextZ < 68.4) {
+          if (Math.abs(grp.position.x) >= pierHalfW) {
+            nextX = grp.position.x >= 0 ? pierHalfW : -pierHalfW;
+          } else {
+            nextZ = 68.4;
+          }
+        }
+        const waveBob = Math.sin(tNow * 2.1 + (bt.phase || 0)) * 0.055;
+        grp.position.set(nextX, (bt.baseWaterY || -0.40) + waveBob, nextZ);
+        grp.rotation.z = -transport.steer * 0.09 + Math.sin(tNow * 1.5) * 0.02;
+        grp.rotation.x = -Math.min(0.08, transport.speed * 0.008);
+        bt.x = nextX;
+        bt.z = nextZ;
+        bt.yaw = grp.rotation.y;
+
+        if (!isYacht && (ud.oarL || ud.oarR)) {
+          const isRowingNow = transport.speed > 0.25 || len > 0.1;
+          const sweep = isRowingNow ? Math.sin(transport.rowPhase) * 0.42 : 0;
+          const dip = isRowingNow ? Math.cos(transport.rowPhase) * 0.22 : 0;
+          if (ud.oarL) {
+            ud.oarL.rotation.y = sweep;
+            ud.oarL.rotation.z = dip;
+          }
+          if (ud.oarR) {
+            ud.oarR.rotation.y = -sweep;
+            ud.oarR.rotation.z = -dip;
+          }
+        }
+
+        const sp = ud.seatPos || { x: 0, y: 0.44, z: -0.06 };
+        const cosRot = Math.cos(grp.rotation.y);
+        const sinRot = Math.sin(grp.rotation.y);
+        actor.root.position.set(
+          grp.position.x + sp.x * cosRot + sp.z * sinRot,
+          grp.position.y + sp.y - 0.16,
+          grp.position.z - sp.x * sinRot + sp.z * cosRot
+        );
+        actor.root.rotation.y = grp.rotation.y;
+        speedMag = transport.speed;
+
+        if (window.CrownAnim) {
+          window.CrownAnim.applyPose(actor, isYacht ? 'sit' : 'row_boat', dt, tNow, {
+            rowPhase: transport.rowPhase,
+            rowing: transport.speed > 0.25 || len > 0.1,
+            rigOffsetY: -baseLeg * 0.56,
+          });
+        }
+        updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, false, speedMag);
       } else if (currentActivity && window.CrownAnim) {
+        const isSwimAct = currentActivity.pose === 'swim' || currentActivity.pose === 'swim_float' || currentActivity.pose === 'swim_splash';
+        if (typeof actor.setSwimwear === 'function') actor.setSwimwear(isSwimAct);
         window.CrownAnim.applyPose(actor, currentActivity.pose, dt, tNow, currentActivity);
         updateLivingSkin(
           actor,
           tNow,
           window.CrownGame && window.CrownGame.needs,
-          currentActivity.pose === 'swim',
+          isSwimAct,
           0,
           currentActivity.pose === 'sleep' || currentActivity.pose === 'nap'
         );
@@ -2751,7 +3240,10 @@
 
           const nextX = actor.root.position.x + _moveDir.x * speedMag * dt;
           const nextZ = actor.root.position.z + _moveDir.z * speedMag * dt;
-          const resolved = worldApi.resolveCollision(nextX, nextZ, 0.52, actor.root.position.y);
+          const resolved = worldApi.resolveCollision(nextX, nextZ, 0.52, actor.root.position.y, {
+            prevX: actor.root.position.x,
+            prevZ: actor.root.position.z,
+          });
 
           actor.root.position.x = resolved.x;
           actor.root.position.z = resolved.z;
@@ -2775,6 +3267,7 @@
         );
 
         inWater = Boolean(worldApi.isInPool && worldApi.isInPool(actor.root.position));
+        if (typeof actor.setSwimwear === 'function') actor.setSwimwear(inWater);
         if (inWater && !wasWater && window.CrownNeeds) {
           window.CrownNeeds.applyBoost({ fun: 4, hygiene: 4 });
         }
@@ -2836,13 +3329,22 @@
       clearActivityPose: clearActivityPose,
       getActivity: getActivity,
       enterCar: enterCar,
+      setChauffeurRide: setChauffeurRide,
+      addPassenger: addPassenger,
+      removePassenger: removePassenger,
+      getPassengers: getPassengers,
+      clearPassengers: clearPassengers,
       toggleCarDoors: toggleCarDoors,
+      enterBoat: enterBoat,
       mountHorse: mountHorse,
       exitTransport: exitTransport,
       getTransport: function () { return transport; },
       setTransportListener: setTransportListener,
       setCanterBoost: setCanterBoost,
-      isSwimming: function () { return inWater || Boolean(currentActivity && currentActivity.pose === 'swim'); },
+      isSwimming: function () {
+        const p = currentActivity && currentActivity.pose;
+        return inWater || p === 'swim' || p === 'swim_float' || p === 'swim_splash';
+      },
       setMovementLocked: setMovementLocked,
       exitPool: exitPool,
       updateLivingSkin: updateLivingSkin,

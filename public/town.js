@@ -115,14 +115,14 @@
     addStreetStrip(-123.5, 18.0, 4.4, 57.0, false);
     addStreetStrip(-153.5, 4.0, 4.0, 88.0, false);
 
-    // East Campus, Hospital & Riviera Streets (connected straight across to Château East Side Lane x = +44)
-    addStreetStrip(100.0, -10.5, 112, 4.4, true);
-    addStreetStrip(100.0, 0.0, 112, 4.4, true);
-    addStreetStrip(100.0, 19.2, 112, 4.2, true);
+    // East Campus, Hospital & Riviera Streets (shifted East edge 156.5 to clear 3-Storey Montieri Hotel + Valet Lot)
+    addStreetStrip(105.0, -10.5, 122, 4.4, true);
+    addStreetStrip(105.0, 0.0, 122, 4.4, true);
+    addStreetStrip(105.0, 19.2, 122, 4.2, true);
     addStreetStrip(67.0, 2.0, 4.0, 88.0, false);
     addStreetStrip(92.5, 2.0, 4.4, 88.0, false);
     addStreetStrip(120.5, 2.0, 4.4, 88.0, false);
-    addStreetStrip(146.5, 2.0, 4.0, 88.0, false);
+    addStreetStrip(156.5, 2.0, 4.0, 88.0, false);
 
     // Zebra Crosswalks at Major Town, Hospital, Mansionette & School Crossings
     [
@@ -187,6 +187,22 @@
             vehicleId: cfg.id,
             label: 'Get In & Drive ' + cfg.title,
             hint: 'Drive across avenues, suburbs, farm, hospital & beachfront!',
+            instant: true,
+          },
+          {
+            id: cfg.id + '_chauffeur',
+            type: 'chauffeur_drive',
+            vehicleId: cfg.id,
+            label: 'Have Chauffeur Lucien Drive Me...',
+            hint: 'Ride in passenger seat while Lucien drives to any destination!',
+            instant: true,
+          },
+          {
+            id: cfg.id + '_passengers',
+            type: 'invite_car_passengers',
+            vehicleId: cfg.id,
+            label: 'Invite Companions Into Car',
+            hint: 'Board friends, courtiers or staff into passenger seats with you',
             instant: true,
           },
           {
@@ -451,7 +467,7 @@
     registerDrivableCar({
       id: 'royal_palace_car',
       title: 'Royal Pearl Convertible Roadster',
-      x: 12.2, z: 31.8, yaw: -Math.PI * 0.5,
+      x: 12.2, z: 36.2, yaw: -Math.PI * 0.5,
       paintHex: '#f6ebd8', isSuv: false, isConvertible: true, shortcut: true, inDirectory: true,
       gossipText: 'Crown Princess turns heads in her open-top Pearl Convertible Roadster!',
     });
@@ -642,6 +658,11 @@
       townGroup.add(island);
       tagInteractable(island, mh.id + '_island');
       addBox(sharedColliders, cx + 3.6, cz - 2.3, 2.5, 1.0);
+      const mhBarSeats = [
+        { x: cx + 3.1, y: y + 0.08, z: cz - 1.54, yaw: Math.PI, rigOffsetY: -0.45, floorY: y, exitX: cx + 3.1, exitZ: cz - 0.8, exitYaw: 0, approachX: cx + 3.1, approachZ: cz - 0.85 },
+        { x: cx + 3.85, y: y + 0.08, z: cz - 1.54, yaw: Math.PI, rigOffsetY: -0.45, floorY: y, exitX: cx + 3.85, exitZ: cz - 0.8, exitYaw: 0, approachX: cx + 3.85, approachZ: cz - 0.85 },
+        { x: cx + 4.5, y: y + 0.08, z: cz - 1.54, yaw: Math.PI, rigOffsetY: -0.45, floorY: y, exitX: cx + 4.5, exitZ: cz - 0.8, exitYaw: 0, approachX: cx + 4.5, approachZ: cz - 0.85 },
+      ];
       registerSpot({
         id: mh.id + '_island',
         title: mh.title + ' Breakfast Bar',
@@ -649,15 +670,27 @@
         category: 'cottages',
         x: cx + 3.6, y: y, z: cz - 2.3,
         radius: 3.0,
+        seats: mhBarSeats,
         actions: [
           {
             id: mh.id + '_eat_bar',
             label: 'Sit at Breakfast Bar & Eat',
             hint: '+18 Food/s & +6 Fun/s',
             pose: 'eat',
-            anchor: { x: cx + 3.6, y: y + 0.08, z: cz - 1.54, yaw: Math.PI, rigOffsetY: -0.45, floorY: y, exitX: cx + 3.6, exitZ: cz - 0.8, exitYaw: 0 },
+            anchor: {
+              x: cx + 3.1, y: y + 0.08, z: cz - 1.54, yaw: Math.PI, rigOffsetY: -0.45, floorY: y, exitX: cx + 3.1, exitZ: cz - 0.8, exitYaw: 0,
+              partnerAnchor: mhBarSeats[1],
+              seats: mhBarSeats,
+            },
             rates: { hunger: 18, fun: 6 },
             statusText: 'Dining at ' + mh.title + ' breakfast island...',
+          },
+          {
+            id: mh.id + '_call_meal',
+            label: 'Call Household to Breakfast',
+            hint: 'Each member sits in their own separate stool!',
+            type: 'call_to_meal',
+            spotId: mh.id + '_island',
           },
         ],
       });
@@ -1628,7 +1661,10 @@
       radius: 3.8,
       actions: [{
         id: 'sip_botanic_tea', label: 'Sip Jasmine Tea Among Orchids', hint: '+15 Poise/s & +14 Energy/s', pose: 'eat',
-        anchor: { x: botanic.cx - 1.0, y: botanic.y, z: botanic.cz - 0.5, yaw: Math.PI * 0.5, rigOffsetY: -0.45, floorY: botanic.y, exitX: botanic.cx, exitZ: botanic.cz + 1.8, exitYaw: 0 },
+        anchor: {
+          x: botanic.cx - 1.0, y: botanic.y, z: botanic.cz - 0.5, yaw: Math.PI * 0.5, rigOffsetY: -0.45, floorY: botanic.y, exitX: botanic.cx, exitZ: botanic.cz + 1.8, exitYaw: 0,
+          partnerAnchor: { x: botanic.cx + 1.0, y: botanic.y, z: botanic.cz - 0.5, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
+        },
         rates: { composure: 15, energy: 14, hunger: 6 }, statusText: 'Sipping rare jasmine tea inside Botanic Glasshouse...',
       }],
     });
@@ -1791,7 +1827,10 @@
     }
     const pizzaEatAction = {
       id: 'eat_pizza_sit', label: 'Sit in Pizzeria Booth & Eat Slice', hint: '+20 Food/s & +10 Fun/s', pose: 'eat',
-      anchor: { x: pizza.cx - 4.58, y: pizza.y, z: pizza.cz + 0.7, yaw: Math.PI * 0.5, rigOffsetY: -0.45, floorY: pizza.y, exitX: pizza.cx - 2.3, exitZ: pizza.cz + 0.7, exitYaw: 0 },
+      anchor: {
+        x: pizza.cx - 4.58, y: pizza.y, z: pizza.cz + 0.7, yaw: Math.PI * 0.5, rigOffsetY: -0.45, floorY: pizza.y, exitX: pizza.cx - 2.3, exitZ: pizza.cz + 0.7, exitYaw: 0,
+        partnerAnchor: { x: pizza.cx - 2.62, y: pizza.y, z: pizza.cz + 0.7, yaw: -Math.PI * 0.5, rigOffsetY: -0.45 },
+      },
       rates: { hunger: 20, fun: 10 }, statusText: 'Feasting on wood-fired pizza at Palazzo Napoli...',
     };
     registerSpot({
@@ -2073,14 +2112,28 @@
       x: poolX, y: 0.24, z: poolZ + 0.5,
       bounds: { minX: poolX - 5.6, maxX: poolX + 5.6, minZ: poolZ - 3.0, maxZ: poolZ + 4.0 },
       radius: 2.4,
-      actions: [{
-        id: 'swim_azure', label: 'Jump In & Swim Laps', hint: '+16 Fun/s & +12 Hygiene/s (swim freely with stick/WASD!)', instant: true,
-        onInstant: function (actCtx) {
-          actCtx.playerCtrl.teleport(poolX, poolZ + 0.5, Math.PI * 0.5, 0.14);
-          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 12, hygiene: 10 });
-          actCtx.toast('Splashed into Villa Azure Pool! Use stick/WASD to swim anywhere.');
+      actions: [
+        {
+          id: 'swim_azure', label: 'Jump In & Swim Laps', hint: '+16 Fun/s & +12 Hygiene/s (switches into swimwear!)', instant: true,
+          onInstant: function (actCtx) {
+            actCtx.playerCtrl.teleport(poolX, poolZ + 0.5, Math.PI * 0.5, 0.14);
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 12, hygiene: 10 });
+            actCtx.toast('Changed into swimwear and dove into Villa Azure Pool!');
+          },
         },
-      }],
+        {
+          id: 'float_azure', label: 'Float on Back & Relax', hint: '+12 Energy/s, +16 Fun/s & +10 Hygiene/s', pose: 'swim_float',
+          anchor: { x: poolX - 1.5, y: 0.08, z: poolZ + 0.5, yaw: 0, rigOffsetY: 0.16, floorY: 0.24, exitX: poolX, exitZ: poolZ + 4.4, exitYaw: 0 },
+          rates: { energy: 12, fun: 16, hygiene: 10, composure: 8 },
+          statusText: 'Floating weightlessly on the Villa Azure Pool...',
+        },
+        {
+          id: 'splash_azure', label: 'Splash & Play in Pool', hint: '+20 Fun/s & +12 Hygiene/s', pose: 'swim_splash',
+          anchor: { x: poolX + 1.5, y: 0.08, z: poolZ + 0.5, yaw: Math.PI, rigOffsetY: -0.40, floorY: 0.24, exitX: poolX, exitZ: poolZ + 4.4, exitYaw: 0 },
+          rates: { fun: 20, hygiene: 12 },
+          statusText: 'Splashing playfully in the turquoise Villa Azure Pool...',
+        },
+      ],
     });
     townDirectory.push(ctx.spots ? ctx.spots.azure_pool_swim : { id: 'azure_pool_swim', title: 'Villa Azure Swimming Pool', category: 'town', x: poolX, y: 0.24, z: poolZ, actions: [] });
 
@@ -2106,123 +2159,126 @@
       }],
     });
 
-    // GRAND HÔTEL IMPÉRIAL DE VERSAILLES (2-STORY, x = 133.6, z = 10.5)
-    const hotelX = 133.6;
-    const hotelZ = 10.5;
-    const hotelW = 16.0;
-    const hotelD = 12.2;
-    const hotel1Y = 0.14;
-    const hotel2Y = 4.54;
-
-    const hotel1Floor = new THREE.Mesh(new THREE.BoxGeometry(hotelW, 0.24, hotelD), marbleMat);
-    hotel1Floor.position.set(hotelX, 0.06, hotelZ);
-    hotel1Floor.receiveShadow = true;
-    townGroup.add(hotel1Floor);
-    walkableFloors.push({ minX: hotelX - hotelW * 0.5, maxX: hotelX + hotelW * 0.5, minZ: hotelZ - hotelD * 0.5, maxZ: hotelZ + hotelD * 0.5, y: hotel1Y });
-
-    addWallX(townGroup, sharedColliders, 0, 4.4, hotelZ - hotelD * 0.5, hotelX - hotelW * 0.5, hotelX + hotelW * 0.5, null, 0, 0.34, ivoryMat);
-    addWallX(townGroup, sharedColliders, 0, 4.4, hotelZ + hotelD * 0.5, hotelX - hotelW * 0.5, hotelX + hotelW * 0.5, null, 0, 0.34, ivoryMat);
-    addWallZ(townGroup, sharedColliders, 0, 4.4, hotelX + hotelW * 0.5, hotelZ - hotelD * 0.5, hotelZ + hotelD * 0.5, null, 0, 0.34, ivoryMat);
-    addWallZ(townGroup, sharedColliders, 0, 4.4, hotelX - hotelW * 0.5, hotelZ - hotelD * 0.5, hotelZ + hotelD * 0.5, hotelZ, 3.0, 0.34, ivoryMat);
-
-    const hotelSign = kit.buildPlotSign('Grand Hôtel Impérial', '#5c4119');
-    hotelSign.position.set(hotelX - hotelW * 0.5 - 1.2, 0, hotelZ - 2.6);
-    hotelSign.rotation.y = -Math.PI * 0.5;
-    townGroup.add(hotelSign);
-
-    const hDesk = kit.buildWritingDesk('hotel_concierge', 'crimson');
-    hDesk.position.set(hotelX - 1.5, hotel1Y, hotelZ - 4.0);
-    townGroup.add(hDesk);
-    tagInteractable(hDesk, 'hotel_concierge');
-    addBox(sharedColliders, hotelX - 1.5, hotelZ - 4.0, 1.6, 0.8);
-    registerSpot({
-      id: 'hotel_concierge',
-      title: 'Grand Hôtel Impérial Concierge',
-      floor: 0,
-      category: 'town',
-      shortcut: true,
-      x: hotelX - 1.5, y: hotel1Y, z: hotelZ - 4.0,
-      radius: 4.0,
-      actions: [{
-        id: 'hotel_checkin', label: 'Book VIP Imperial Penthouse Suite (₡140)', hint: 'Teleport Upstairs to Hotel Honeymoon Suite', instant: true,
-        onInstant: function (actCtx) {
-          if ((actCtx.game.money || 0) < 140) return actCtx.toast('Need ₡140 Crowns.');
-          actCtx.game.money -= 140;
-          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 25, composure: 20 });
-          recordDispatchGossip(actCtx, 'Secret rendezvous? Royal suite booked at Grand Hôtel Impérial!', 2, 4);
-          actCtx.playerCtrl.teleport(hotelX - 1.5, hotelZ + 1.5, Math.PI, hotel2Y);
-          actCtx.toast('Checked into Grand Hôtel Suite 2F! (+20 Poise, +4 Scandal)');
-        },
-      }],
-    });
-    const hRug1 = kit.buildRug(4.2, 3.0, 'crimson');
-    hRug1.position.set(hotelX + 2.2, hotel1Y, hotelZ + 1.5);
-    townGroup.add(hRug1);
-    placeSofa(townGroup, sharedColliders, {
-      id: 'hotel_lobby_sofa', title: 'Hotel Grand Lobby Velvet Sofa', floor: 0,
-      x: hotelX + 2.2, y: hotel1Y, z: hotelZ + 2.5, yaw: Math.PI, tone: 'crimson', w: 2.8,
-    });
-    placeToilet(townGroup, sharedColliders, { id: 'hotel_lobby_toilet', title: 'Grand Hôtel Lobby Washroom', floor: 0, rustic: false, x: hotelX + 6.5, y: hotel1Y, z: hotelZ - 4.4, yaw: -Math.PI * 0.5 });
-
-    const hotel2Grp = new THREE.Group();
-    const h2Slab = new THREE.Mesh(new THREE.BoxGeometry(hotelW, 0.22, hotelD), parquetMat);
-    h2Slab.position.set(hotelX, hotel2Y - 0.11, hotelZ);
-    hotel2Grp.add(h2Slab);
-    const hotelRoofGrp = new THREE.Group();
-    const hGable = kit.buildGableRoof(hotelW, hotelD, 2.5, slateRoofMat, ivoryMat, { dormer: true, chimney: true });
-    hGable.position.set(hotelX, hotel2Y + 3.7, hotelZ);
-    hotelRoofGrp.add(hGable);
-    hotel2Grp.add(hotelRoofGrp);
-    townGroup.add(hotel2Grp);
-
-    placeBed(hotel2Grp, null, {
-      id: 'bed_hotel_vip', title: 'Grand Hôtel Honeymoon Canopy Bed', floor: 0, canopy: true,
-      x: hotelX + 3.8, y: hotel2Y, z: hotelZ - 2.8, yaw: 0, tone: 'rose', w: 2.4, d: 2.9,
-    });
-    placeToilet(hotel2Grp, null, {
-      id: 'toilet_hotel', title: 'Grand Hôtel Suite Marble Toilet', floor: 0,
-      x: hotelX - 5.6, y: hotel2Y, z: hotelZ - 4.0, yaw: Math.PI * 0.5,
-    });
-    placeVanitySink(hotel2Grp, null, {
-      id: 'sink_hotel_suite', title: 'Grand Hôtel Suite Marble Vanity', floor: 0,
-      x: hotelX - 3.6, y: hotel2Y, z: hotelZ - 4.4, yaw: 0,
-    });
-    if (placeTub) {
-      placeTub(hotel2Grp, null, {
-        id: 'tub_hotel_suite', title: 'Grand Hôtel Rosewater Jacuzzi Tub', floor: 0,
-        x: hotelX - 5.2, y: hotel2Y, z: hotelZ - 1.8, yaw: Math.PI * 0.5, exitZOffset: 1.0,
+    // GRAND HÔTEL MONTIERI PARIS (3-STOREY + COURTYARD VALET PARKING, delegated to hotel.js)
+    let hotelMod = null;
+    if (window.CrownHotel && typeof window.CrownHotel.build === 'function') {
+      hotelMod = window.CrownHotel.build({
+        THREE: THREE,
+        kit: kit,
+        townGroup: townGroup,
+        sharedColliders: sharedColliders,
+        walkableFloors: walkableFloors,
+        cutaways: cutaways,
+        townZones: townZones,
+        townDirectory: townDirectory,
+        townDoors: townDoors,
+        dynamicNodes: dynamicNodes,
+        animatedFlames: animatedFlames,
+        ivoryMat: ivoryMat,
+        marbleMat: marbleMat,
+        whiteMarbleMat: whiteMarbleMat,
+        parquetMat: parquetMat,
+        goldMat: goldMat,
+        glassMat: glassMat,
+        slateRoofMat: slateRoofMat,
+        waterMat: waterMat,
+        boxwoodMat: boxwoodMat,
+        addBox: addBox,
+        addCircle: addCircle,
+        addWallX: addWallX,
+        addWallZ: addWallZ,
+        placeBed: placeBed,
+        placeToilet: placeToilet,
+        placeVanitySink: placeVanitySink,
+        placeTub: placeTub,
+        tagInteractable: tagInteractable,
+        registerSpot: registerSpot,
+        registerDrivableCar: registerDrivableCar,
+        recordDispatchGossip: recordDispatchGossip,
       });
     }
-    const liftDownHotel = kit.buildWardrobe('hotel_lift_down', false);
-    liftDownHotel.position.set(hotelX - 6.2, hotel2Y, hotelZ + 3.5);
-    hotel2Grp.add(liftDownHotel);
-    tagInteractable(liftDownHotel, 'hotel_lift_down');
-    registerSpot({
-      id: 'hotel_lift_down', title: 'Hotel 2F Elevator Down to Lobby', floor: 0, category: 'town',
-      x: hotelX - 6.2, y: hotel2Y, z: hotelZ + 3.5, radius: 3.4,
-      actions: [{
-        id: 'hotel_down', label: 'Take Hotel Lift to 1F Lobby', hint: 'Return to ground floor', instant: true,
-        onInstant: function (actCtx) { actCtx.playerCtrl.teleport(hotelX - 3.5, hotelZ, -Math.PI * 0.5, hotel1Y); },
-      }],
-    });
 
-    cutaways.push({
-      minX: hotelX - hotelW * 0.5 - 0.6, maxX: hotelX + hotelW * 0.5 + 0.6,
-      minZ: hotelZ - hotelD * 0.5 - 0.6, maxZ: hotelZ + hotelD * 0.5 + 0.6,
-      roofGrp: hotelRoofGrp,
-      upperGrp: hotel2Grp,
-    });
-    townZones.push({ minX: hotelX - hotelW * 0.5, maxX: hotelX + hotelW * 0.5, minZ: hotelZ - hotelD * 0.5, maxZ: hotelZ + hotelD * 0.5, label: 'Grand Hôtel Impérial' });
-    const hDir = {
-      id: 'hotel_dir', title: 'Grand Hôtel Impérial (Lobby & VIP Suites)', floor: 0, category: 'town',
-      x: hotelX - 3.5, y: hotel1Y, z: hotelZ, radius: 3.0, isDirectoryOnly: true,
-      actions: [{
-        id: 'go_hotel', label: 'Visit Grand Hôtel Lobby', hint: 'Check in or ride lift to Honeymoon Suite', instant: true,
-        onInstant: function (actCtx) { actCtx.playerCtrl.teleport(hotelX - 4.0, hotelZ, -Math.PI * 0.5, hotel1Y); },
-      }],
-    };
-    registerSpot(hDir);
-    townDirectory.push(hDir);
+    // AUTONOMOUS CARPOOL CRUISERS ON RIVIERA BOULEVARDS
+    const cruisers = [];
+    if (kit && typeof kit.buildParkedCar === 'function') {
+      const cruiserDefs = [
+        {
+          id: 'boulevard_cruiser_west',
+          paintHex: '#253954',
+          isConvertible: true,
+          speed: 6.4,
+          loop: [[-123.5, 0.0], [-67.0, 0.0], [-67.0, -10.5], [-123.5, -10.5]],
+          riders: [
+            { seat: 'driver', hex: '#1e2738', trim: '#d4af55', hair: 'slick-gala', male: true },
+            { seat: 'frontPass', hex: '#b85d74', trim: '#fff4e4', hair: 'royal-waves', male: false },
+            { seat: 'rearRight', hex: '#4f7a9e', trim: '#f8e6c8', hair: 'riviera-bob', male: false },
+          ],
+        },
+        {
+          id: 'boulevard_cruiser_east',
+          paintHex: '#7d2236',
+          isConvertible: false,
+          speed: 6.0,
+          loop: [[67.0, 0.0], [120.5, 0.0], [120.5, -10.5], [67.0, -10.5]],
+          riders: [
+            { seat: 'driver', hex: '#283244', trim: '#d4af55', hair: 'wavy-curtain-shag', male: true },
+            { seat: 'frontPass', hex: '#4b7a5e', trim: '#faf2e6', hair: 'romantic-bun', male: false },
+          ],
+        },
+      ];
+      cruiserDefs.forEach(function (cd) {
+        const car = kit.buildParkedCar(cd.paintHex, false, null, cd.isConvertible);
+        car.position.set(cd.loop[0][0], 0.03, cd.loop[0][1]);
+        car.userData.noMerge = true;
+        townGroup.add(car);
+        dynamicNodes.push(car);
+        if (window.CrownPlayer && typeof window.CrownPlayer.buildRoyalCharacterMesh === 'function' && car.userData.seats) {
+          cd.riders.forEach(function (rd, rIdx) {
+            const seatCoord = car.userData.seats[rd.seat];
+            if (!seatCoord) return;
+            const rMesh = window.CrownPlayer.buildRoyalCharacterMesh(
+              {
+                body: { sliders: { height: rd.male ? 1.02 : 0.96 } },
+                look: { hairStyle: rd.hair },
+                wardrobe: { outfitId: rd.male ? 'equestrian-tailored' : 'riviera-resort-midi', themeId: 'signature' },
+              },
+              { name: cd.id + '_rider_' + rIdx, role: rd.seat === 'driver' ? 'chauffeur' : 'royal', dressHex: rd.hex, trimHex: rd.trim, showPlumbob: false }
+            );
+            if (!rMesh || !rMesh.root) return;
+            rMesh.root.userData.noMerge = true;
+            if (typeof seatCoord.add === 'function') {
+              rMesh.root.position.set(0, -0.28, 0);
+              rMesh.root.rotation.set(0, 0, 0);
+              seatCoord.add(rMesh.root);
+            } else {
+              rMesh.root.position.set(seatCoord.x, (typeof seatCoord.y === 'number' ? seatCoord.y : 0.44) - 0.28, seatCoord.z);
+              rMesh.root.rotation.set(0, 0, 0);
+              car.add(rMesh.root);
+            }
+            if (window.CrownAnim && typeof window.CrownAnim.applyPose === 'function') {
+              const rBaseLeg = rMesh.baseLeg || 0.94;
+              window.CrownAnim.applyPose(rMesh, rd.seat === 'driver' ? 'drive' : 'drive_passenger', 0.016, rIdx * 0.7, {
+                steer: 0,
+                rigOffsetY: -rBaseLeg * 0.62,
+              });
+            }
+          });
+        }
+        cruisers.push({
+          id: cd.id,
+          group: car,
+          loop: cd.loop,
+          segIdx: 0,
+          x: cd.loop[0][0],
+          z: cd.loop[0][1],
+          yaw: Math.PI * 0.5,
+          maxSpeed: cd.speed,
+          curSpeed: cd.speed,
+          wheelRot: 0,
+          radius: 1.5,
+        });
+      });
+    }
 
     // -----------------------------------------------------------
     // 9. RIVIERA INSTANCED CYPRESS TREES, PASTEL BLOSSOMS & STREETLAMPS
@@ -2231,11 +2287,11 @@
     const tCol = new THREE.Color();
     const lampSpots = [
       [-67.0, -7.2], [-95.0, -7.2], [-123.5, -7.2], [-153.5, -7.2],
-      [67.0, -7.2], [92.5, -7.2], [120.5, -7.2], [146.5, -7.2],
+      [67.0, -7.2], [92.5, -7.2], [120.5, -7.2], [156.5, -7.2],
       [-67.0, -14.0], [-95.0, -14.0], [-123.5, -14.0],
       [67.0, -14.0], [92.5, -14.0], [120.5, -14.0],
       [-67.0, 34.5], [-95.0, 34.5], [-123.5, 34.5], [-153.5, 34.5],
-      [67.0, 34.5], [92.5, 34.5], [120.5, 34.5], [146.5, 34.5],
+      [67.0, 34.5], [92.5, 34.5], [120.5, 34.5], [156.5, 34.5],
       [-40, 44.8], [-20, 44.8], [20, 44.8], [40, 44.8],
       [-81, 45.2], [-111, 45.2], [-139, 45.2],
       [79.6, 45.2], [106.5, 45.2], [133.6, 45.2],
@@ -2365,6 +2421,11 @@
           kit.mergeStaticGroup(c.upperGrp, { filter: nonInteractFilter });
           c.upperGrp.userData.noMerge = true;
         }
+        if (c.floor3Grp) {
+          cutawaySet.add(c.floor3Grp);
+          kit.mergeStaticGroup(c.floor3Grp, { filter: nonInteractFilter });
+          c.floor3Grp.userData.noMerge = true;
+        }
       }
 
       function hasSpecialDescendant(node) {
@@ -2409,8 +2470,9 @@
     }
 
     function groundHeightAtTown(x, z, yNow) {
-      if (yNow >= 3.2 && x >= hotelX - hotelW * 0.5 && x <= hotelX + hotelW * 0.5 && z >= hotelZ - hotelD * 0.5 && z <= hotelZ + hotelD * 0.5) {
-        return hotel2Y;
+      if (hotelMod && typeof hotelMod.groundHeightAtHotel === 'function') {
+        const hh = hotelMod.groundHeightAtHotel(x, z, yNow);
+        if (typeof hh === 'number') return hh;
       }
       if (bakeryMod && typeof bakeryMod.groundHeightAtBakery === 'function') {
         const bh = bakeryMod.groundHeightAtBakery(x, z, yNow);
@@ -2433,7 +2495,11 @@
         const inside =
           playerPos.x >= c.minX && playerPos.x <= c.maxX &&
           playerPos.z >= c.minZ && playerPos.z <= c.maxZ;
-        if (c.upperGrp && c.roofGrp) {
+        if (c.floor3Grp) {
+          c.upperGrp.visible = !inside || playerPos.y >= 2.2;
+          c.floor3Grp.visible = !inside || playerPos.y >= 7.2;
+          c.roofGrp.visible = !inside;
+        } else if (c.upperGrp && c.roofGrp) {
           c.upperGrp.visible = !inside || playerPos.y >= 2.2;
           c.roofGrp.visible = !inside;
         } else if (c.roofGrp) {
@@ -2443,8 +2509,9 @@
     }
 
     function detectTownZone(pos) {
-      if (pos.y >= 3.2 && pos.x >= hotelX - hotelW * 0.5 && pos.x <= hotelX + hotelW * 0.5 && pos.z >= hotelZ - hotelD * 0.5 && pos.z <= hotelZ + hotelD * 0.5) {
-        return 'Grand Hôtel Impérial Honeymoon Suite (2F)';
+      if (hotelMod && typeof hotelMod.detectZone === 'function') {
+        const hz = hotelMod.detectZone(pos);
+        if (hz) return hz;
       }
       if (bakeryMod && typeof bakeryMod.detectZone === 'function') {
         const bz = bakeryMod.detectZone(pos);
@@ -2457,12 +2524,27 @@
         }
       }
       if (pos.x < -64) return 'Willow Creek Suburbs, Mansionettes & Farm';
-      if (pos.x > 64) return 'Royal Hospital, Campus, Pool & Promenade';
+      if (pos.x > 64) return 'Royal Hospital, Campus, Hotel & Promenade';
       return null;
     }
 
     function isOnUpperFloor(x, z, yNow) {
+      if (hotelMod && typeof hotelMod.isOnUpperFloor === 'function' && hotelMod.isOnUpperFloor(x, z, yNow)) {
+        return true;
+      }
       return Boolean(bakeryMod && typeof bakeryMod.isOnUpperFloor === 'function' && bakeryMod.isOnUpperFloor(x, z, yNow));
+    }
+
+    function resolveUpperCollision(nx, nz, radius, yNow) {
+      if (hotelMod && typeof hotelMod.resolveUpperCollision === 'function') {
+        const hr = hotelMod.resolveUpperCollision(nx, nz, radius, yNow);
+        if (hr) return hr;
+      }
+      if (bakeryMod && typeof bakeryMod.resolveUpperCollision === 'function') {
+        const br = bakeryMod.resolveUpperCollision(nx, nz, radius, yNow);
+        if (br) return br;
+      }
+      return null;
     }
 
     function toggleDoor(doorId) {
@@ -2491,6 +2573,53 @@
 
       const activeCar = activeTransport && activeTransport.kind === 'car' ? activeTransport.entity : null;
       const activeSpeed = activeTransport ? Math.abs(activeTransport.speed || 0) : 0;
+
+      // Autonomous Boulevard Carpool Cruisers (yield smoothly if player/car is ahead!)
+      for (let ci = 0; ci < cruisers.length; ci++) {
+        const cr = cruisers[ci];
+        const targetPt = cr.loop[(cr.segIdx + 1) % cr.loop.length];
+        const toX = targetPt[0] - cr.x;
+        const toZ = targetPt[1] - cr.z;
+        const dist = Math.hypot(toX, toZ);
+        if (dist < 0.85) {
+          cr.segIdx = (cr.segIdx + 1) % cr.loop.length;
+        }
+        const nx = dist > 0.01 ? toX / dist : 0;
+        const nz = dist > 0.01 ? toZ / dist : 1;
+        let yieldStop = false;
+        if (hasP) {
+          const pdx = px - cr.x;
+          const pdz = pz - cr.z;
+          const pDistSq = pdx * pdx + pdz * pdz;
+          if (pDistSq < 38.4 && (pdx * nx + pdz * nz) > 0.25) {
+            yieldStop = true;
+          }
+        }
+        const goalSpeed = yieldStop ? 0 : cr.maxSpeed;
+        cr.curSpeed += (goalSpeed - cr.curSpeed) * Math.min(1, dtDoor * 6.0);
+        cr.x += nx * cr.curSpeed * dtDoor;
+        cr.z += nz * cr.curSpeed * dtDoor;
+        const desiredYaw = Math.atan2(nx, nz);
+        let diffYaw = desiredYaw - cr.yaw;
+        while (diffYaw > Math.PI) diffYaw -= Math.PI * 2;
+        while (diffYaw < -Math.PI) diffYaw += Math.PI * 2;
+        cr.yaw += diffYaw * Math.min(1, dtDoor * 6.5);
+        cr.group.position.set(cr.x, 0.03, cr.z);
+        cr.group.rotation.y = cr.yaw;
+        cr.wheelRot += cr.curSpeed * dtDoor * 2.2;
+        const ud = cr.group.userData;
+        if (ud && Array.isArray(ud.wheels)) {
+          for (let wi = 0; wi < ud.wheels.length; wi++) {
+            ud.wheels[wi].rotation.x = cr.wheelRot;
+          }
+        }
+        if (ud && Array.isArray(ud.frontSteer)) {
+          const steerAng = THREE.MathUtils.clamp(diffYaw * 0.45, -0.35, 0.35);
+          for (let si = 0; si < ud.frontSteer.length; si++) {
+            ud.frontSteer[si].rotation.y = steerAng;
+          }
+        }
+      }
 
       for (let v = 0; v < vehicles.length; v++) {
         const vh = vehicles[v];
@@ -2684,10 +2813,12 @@
       updateTownCutaway: updateTownCutaway,
       detectTownZone: detectTownZone,
       isOnUpperFloor: isOnUpperFloor,
+      resolveUpperCollision: resolveUpperCollision,
       toggleDoor: toggleDoor,
       townDirectory: townDirectory,
       townDoors: townDoors,
       vehicles: vehicles,
+      cruisers: cruisers,
       horses: horsesList,
       poolZones: poolZones,
       dynamicNodes: dynamicNodes,
@@ -2695,6 +2826,7 @@
       dispose: function () {
         if (hospitalMod && typeof hospitalMod.dispose === 'function') hospitalMod.dispose();
         if (bakeryMod && typeof bakeryMod.dispose === 'function') bakeryMod.dispose();
+        if (hotelMod && typeof hotelMod.dispose === 'function') hotelMod.dispose();
       },
     };
   }

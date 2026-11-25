@@ -1704,9 +1704,9 @@
       }));
       const tailRed = getBasicMat(0xee3344);
       const headMat = getBasicMat(0xfff5d4);
-      const carLen = isConvertible ? 4.0 : isSuv ? 4.05 : 3.85;
-      const cabLen = isSuv ? 2.25 : 1.85;
-      // Tall realistic greenhouse roof top (1.76m sedan, 1.88m SUV/Ambulance) so seated driver head & crown stay cleanly INSIDE!
+      const carLen = isConvertible ? 4.0 : isSuv ? 4.18 : 4.0;
+      const cabLen = isSuv ? 2.38 : 2.12;
+      // Tall realistic greenhouse roof top (1.70m sedan, 1.82m SUV/Ambulance) so seated occupants stay cleanly INSIDE
       const roofPanelY = isSuv ? 1.82 : 1.70;
       const beltY = 0.78;
       const pillarH = roofPanelY - beltY;
@@ -1716,25 +1716,28 @@
       const lowerBody = addMesh(grp, g.cushion, bodyMat, 1.78, 0.44, carLen, 0, 0.52, 0);
       lowerBody.castShadow = true;
       // Hood & Trunk (kept forward/aft of central cockpit opening)
-      addMesh(grp, g.cushion, bodyMat, 1.68, 0.18, 1.15, 0, 0.76, carLen * 0.34);
-      addMesh(grp, g.cushion, bodyMat, 1.68, 0.18, 0.78, 0, 0.76, -carLen * 0.38);
+      addMesh(grp, g.cushion, bodyMat, 1.68, 0.18, 1.12, 0, 0.76, carLen * 0.35);
+      addMesh(grp, g.cushion, bodyMat, 1.68, 0.18, 0.72, 0, 0.76, -carLen * 0.40);
 
-      // Interior Floor, Twin Front Bucket Seats, Rear Bench, Dashboard & Steering Wheel
-      addMesh(grp, g.box1, palette.iron, 1.48, 0.08, 1.75, 0, 0.31, -0.15);
+      // Interior Floor, Twin Front Bucket Seats, 2-Person Rear Bench, Dashboard & Steering Wheel
+      addMesh(grp, g.box1, palette.iron, 1.48, 0.08, 1.92, 0, 0.31, -0.26);
       [-0.36, 0.36].forEach(function (sx) {
-        addMesh(grp, g.cushion, seatMat, 0.48, 0.14, 0.48, sx, 0.42, -0.32);
-        addMesh(grp, g.cushion, seatMat, 0.46, 0.56, 0.13, sx, 0.70, -0.55, -0.16, 0, 0);
+        addMesh(grp, g.cushion, seatMat, 0.46, 0.14, 0.44, sx, 0.42, -0.14);
+        addMesh(grp, g.cushion, seatMat, 0.44, 0.54, 0.12, sx, 0.70, -0.35, -0.16, 0, 0);
       });
-      addMesh(grp, g.cushion, palette.mahogany, 1.44, 0.22, 0.34, 0, 0.78, 0.42);
-      addMesh(grp, g.torus1, palette.gold, 0.3, 0.3, 0.16, -0.36, 0.90, 0.22, -0.45, 0, 0);
+      // Rear 2-seat quilted passenger bench
+      addMesh(grp, g.cushion, seatMat, 1.32, 0.15, 0.46, 0, 0.41, -0.82);
+      addMesh(grp, g.cushion, seatMat, 1.30, 0.52, 0.13, 0, 0.69, -1.04, -0.14, 0, 0);
+      addMesh(grp, g.cushion, palette.mahogany, 1.44, 0.22, 0.32, 0, 0.78, 0.48);
+      addMesh(grp, g.torus1, palette.gold, 0.3, 0.3, 0.16, -0.36, 0.90, 0.28, -0.45, 0, 0);
 
       if (isConvertible) {
         // Open-Top Luxury Roadster Raked Windshield Clearing Driver Crown
-        addMesh(grp, g.box1, glassClear, 1.48, 0.66, 0.05, 0, 1.14, 0.64, -0.42, 0, 0);
-        addMesh(grp, g.box1, palette.silver, 1.54, 0.06, 0.08, 0, 1.42, 0.48, -0.42, 0, 0);
+        addMesh(grp, g.box1, glassClear, 1.48, 0.66, 0.05, 0, 1.14, 0.66, -0.42, 0, 0);
+        addMesh(grp, g.box1, palette.silver, 1.54, 0.06, 0.08, 0, 1.42, 0.50, -0.42, 0, 0);
       } else {
         // 4 Slim Pillars + Raised Solid Roof Panel + Translucent Front/Side/Rear Glass Wrap (hollow cabin interior!)
-        const cabZ = -0.14;
+        const cabZ = -0.26;
         [
           [-0.72, cabZ + cabLen * 0.44, 0.24],
           [0.72, cabZ + cabLen * 0.44, 0.24],
@@ -1744,13 +1747,13 @@
           addMesh(grp, g.box1, bodyMat, 0.09, pillarH, 0.12, pl[0], beltY + pillarH * 0.5, pl[1], pl[2], 0, 0);
         });
         // Solid Painted Car Roof Cap (bottom at roofPanelY - 0.05, top at roofPanelY + 0.05 -> 1.75..1.87m!)
-        const roofCap = addMesh(grp, g.cushion, bodyMat, 1.54, 0.11, cabLen - 0.16, 0, roofPanelY, cabZ);
+        const roofCap = addMesh(grp, g.cushion, bodyMat, 1.54, 0.11, cabLen - 0.12, 0, roofPanelY, cabZ);
         roofCap.castShadow = true;
         // Translucent Front Windshield, Rear Glass, & Rear Quarter Windows (front door bays open cleanly!)
         const wf = addMesh(grp, g.box1, glassClear, 1.42, pillarH * 0.88, 0.04, 0, beltY + pillarH * 0.46, cabZ + cabLen * 0.42, -0.24, 0, 0);
         const wb = addMesh(grp, g.box1, glassClear, 1.42, pillarH * 0.84, 0.04, 0, beltY + pillarH * 0.46, cabZ - cabLen * 0.44, 0.18, 0, 0);
-        const qLen = Math.max(0.32, cabLen * 0.40);
-        const qZ = cabZ - cabLen * 0.24;
+        const qLen = Math.max(0.38, cabLen * 0.44);
+        const qZ = cabZ - cabLen * 0.22;
         const wL = addMesh(grp, g.box1, glassClear, 0.04, pillarH * 0.78, qLen, -0.74, beltY + pillarH * 0.46, qZ);
         const wR = addMesh(grp, g.box1, glassClear, 0.04, pillarH * 0.78, qLen, 0.74, beltY + pillarH * 0.46, qZ);
         wf.castShadow = false;
@@ -1842,7 +1845,13 @@
       };
       grp.userData.seatY = 0.44;
       grp.userData.seatX = -0.35;
-      grp.userData.seatZ = -0.26;
+      grp.userData.seatZ = -0.14;
+      grp.userData.seats = {
+        driver: { x: -0.35, y: 0.44, z: -0.14 },
+        frontPass: { x: 0.35, y: 0.44, z: -0.14 },
+        rearLeft: { x: -0.35, y: 0.42, z: -0.78 },
+        rearRight: { x: 0.35, y: 0.42, z: -0.78 },
+      };
       grp.userData.roofTopY = isConvertible ? 1.44 : roofPanelY + 0.05;
 
       mergeStaticGroup(grp);
@@ -2394,6 +2403,59 @@
       addMesh(grp, g.cushion, palette.gold, 2.6, 0.08, 5.3, 0, 2.54, 0.6);
       addMesh(grp, g.cyl1, palette.gold, 0.1, 2.8, 0.1, 0, 3.85, 1.1);
       mergeStaticGroup(grp);
+      grp.userData.isYacht = true;
+      grp.userData.noMerge = true;
+      grp.userData.seatPos = { x: 0, y: 1.56, z: 1.25 };
+      if (interactId) tag(grp, interactId);
+      return grp;
+    }
+
+    /**
+     * Classic Painted Riviera Cedar Rowboat with Twin Articulated Oars & Brass Oarlocks.
+     */
+    function buildRowboat(hullHex, interactId) {
+      const grp = new THREE.Group();
+      const paintMat = getStdMat(hullHex || '#f6f0e4', 0.44, 0.08);
+      const oakMat = getStdMat(0x8e5d34, 0.62);
+      const trimMat = palette.royalNavy || getStdMat(0x1f3654, 0.42, 0.12);
+
+      // Slatted Floor & Curved Hull
+      addMesh(grp, g.cushion, oakMat, 1.18, 0.14, 3.0, 0, 0.16, 0);
+      addMesh(grp, g.cone1, paintMat, 1.15, 1.1, 0.72, 0, 0.28, 1.78, Math.PI * 0.5, 0, 0);
+      addMesh(grp, g.cone1, paintMat, 1.05, 0.85, 0.68, 0, 0.28, -1.7, -Math.PI * 0.5, 0, 0);
+      [-0.56, 0.56].forEach(function (sx) {
+        addMesh(grp, g.cushion, paintMat, 0.14, 0.44, 3.05, sx, 0.34, 0);
+        addMesh(grp, g.box1, trimMat, 0.16, 0.07, 3.08, sx, 0.56, 0);
+      });
+      // Bow / Mid / Stern Rowing Benches
+      [0.82, -0.06, -0.92].forEach(function (bz) {
+        addMesh(grp, g.box1, oakMat, 1.02, 0.06, 0.34, 0, 0.40, bz);
+      });
+      mergeStaticGroup(grp);
+
+      // Twin Pivotable Oars in Brass Oarlocks
+      function makeOar(side) {
+        const oarPivot = new THREE.Group();
+        oarPivot.position.set(side * 0.60, 0.58, 0.12);
+        const lock = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.09, 6), palette.gold);
+        lock.position.y = -0.02;
+        oarPivot.add(lock);
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 1.85, 8), oakMat);
+        shaft.rotation.z = side * Math.PI * 0.41;
+        shaft.position.set(side * 0.56, -0.14, 0);
+        oarPivot.add(shaft);
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.022, 0.14), trimMat);
+        blade.rotation.z = side * Math.PI * 0.41;
+        blade.position.set(side * 1.38, -0.36, 0);
+        oarPivot.add(blade);
+        grp.add(oarPivot);
+        return oarPivot;
+      }
+      grp.userData.oarL = makeOar(-1);
+      grp.userData.oarR = makeOar(1);
+      grp.userData.isRowboat = true;
+      grp.userData.noMerge = true;
+      grp.userData.seatPos = { x: 0, y: 0.44, z: -0.06 };
       if (interactId) tag(grp, interactId);
       return grp;
     }
@@ -3117,6 +3179,7 @@
       buildGazebo: buildGazebo,
       buildBeachUmbrellaSet: buildBeachUmbrellaSet,
       buildRoyalYacht: buildRoyalYacht,
+      buildRowboat: buildRowboat,
       buildMedicalCurtain: buildMedicalCurtain,
       buildCashierCounter: buildCashierCounter,
       buildPizzaDisplayCase: buildPizzaDisplayCase,

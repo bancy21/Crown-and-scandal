@@ -459,12 +459,49 @@
       .world-converse-bubble {
         padding: 10px 12px;
         border-radius: 12px;
-        background: #ffffff;
-        border: 1px solid rgba(184, 137, 56, 0.25);
+        background: #faf7f0;
+        border: 1px solid rgba(184, 137, 56, 0.28);
         font-family: var(--font-sans);
         font-size: 13px;
-        line-height: 1.45;
+        line-height: 1.42;
         color: var(--ink-primary);
+        max-height: 195px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .world-converse-turn {
+        padding: 7px 10px;
+        border-radius: 10px;
+        font-size: 12.5px;
+        line-height: 1.4;
+        max-width: 92%;
+      }
+
+      .world-converse-turn.you {
+        align-self: flex-end;
+        background: #fff3da;
+        border: 1px solid rgba(184, 137, 56, 0.35);
+        color: #5b3b09;
+        font-weight: 600;
+      }
+
+      .world-converse-turn.npc {
+        align-self: flex-start;
+        background: #ffffff;
+        border: 1px solid rgba(184, 137, 56, 0.22);
+        color: var(--ink-primary);
+      }
+
+      .world-converse-turn strong {
+        display: block;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #8c621b;
+        margin-bottom: 2px;
       }
 
       .world-converse-choices {
@@ -497,6 +534,92 @@
         border-color: #7a1c31;
         color: #fffdf9;
       }
+
+      .s4-plumbob {
+        display: inline-block;
+        width: 11px;
+        height: 15px;
+        margin-right: 7px;
+        vertical-align: -1px;
+        background: linear-gradient(145deg, #6bf092, #1ea34c 60%, #0d6d2f);
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        flex-shrink: 0;
+      }
+
+      .s4-cat-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 2px 0 4px;
+      }
+
+      .s4-cat-chip {
+        padding: 4px 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(184, 137, 56, 0.34);
+        background: #ffffff;
+        color: var(--ink-primary);
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .s4-cat-chip.active {
+        background: linear-gradient(135deg, #27b364, #148342);
+        border-color: #116f38;
+        color: #ffffff;
+      }
+
+      .s4-action-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+        gap: 7px;
+      }
+
+      .world-action-item.s4-card {
+        border-left-width: 4px;
+        position: relative;
+        transition: transform 0.1s ease, background 0.12s ease;
+      }
+
+      .s4-cat-friendly { border-left-color: #24a45d !important; }
+      .s4-cat-romance { border-left-color: #d64178 !important; }
+      .s4-cat-funny { border-left-color: #e08d18 !important; }
+      .s4-cat-meal { border-left-color: #b88938 !important; }
+      .s4-cat-swim { border-left-color: #1587b8 !important; }
+      .s4-cat-activity { border-left-color: #6b4cb8 !important; }
+
+      .s4-tag-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        margin-top: 2px;
+      }
+
+      .s4-cat-pill {
+        font-size: 9.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: rgba(36, 164, 93, 0.12);
+        color: #176c3c;
+      }
+
+      .s4-cat-romance .s4-cat-pill { background: rgba(214, 65, 120, 0.12); color: #9c204f; }
+      .s4-cat-funny .s4-cat-pill { background: rgba(224, 141, 24, 0.14); color: #945507; }
+      .s4-cat-meal .s4-cat-pill { background: rgba(184, 137, 56, 0.15); color: #7a5414; }
+      .s4-cat-swim .s4-cat-pill { background: rgba(21, 135, 184, 0.13); color: #0e5f85; }
+      .s4-cat-activity .s4-cat-pill { background: rgba(107, 76, 184, 0.12); color: #4c3191; }
+
+      .world-converse-btn.s4-cat-friendly { border-left: 4px solid #24a45d; }
+      .world-converse-btn.s4-cat-romance { border-left: 4px solid #d64178; }
+      .world-converse-btn.s4-cat-funny { border-left: 4px solid #e08d18; }
+      .world-converse-btn.s4-cat-activity { border-left: 4px solid #6b4cb8; }
+      .world-converse-btn.s4-cat-meal { border-left: 4px solid #b88938; }
     `;
     document.head.appendChild(style);
   }
@@ -794,6 +917,10 @@
               hint: 'Blood pressure, heartbeat & wellness chart · +35 Energy, +25 Bath, +15 Poise',
               instant: true,
               onInstant: function (actCtx) {
+                if (window.CrownHospitalCheckup && typeof window.CrownHospitalCheckup.startCheckup === 'function') {
+                  window.CrownHospitalCheckup.startCheckup('desk', actCtx);
+                  return;
+                }
                 if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 35, hygiene: 25, composure: 15, hunger: 10 });
                 recordCitizenCheckup((g.princess && g.princess.firstName) || 'Crown Heiress', 'BP 112/72 · Pulse 68 bpm · Full Clearance');
                 if (g.reputation) g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + 3);
@@ -854,10 +981,14 @@
             {
               id: 'citizen_vaccine_shot',
               label: 'Royal Immunity Booster & Screening (₡15)',
-              hint: '+60 Energy, +40 Hygiene & full Citizen Immunity Clearance',
+              hint: '+60 Energy, +40 Hygiene & Nurse-assisted screening',
               instant: true,
               onInstant: function (actCtx) {
                 if ((actCtx.game.money || 0) < 15) return actCtx.toast('Need ₡15 Crowns.');
+                if (window.CrownHospitalCheckup && typeof window.CrownHospitalCheckup.startCheckup === 'function') {
+                  window.CrownHospitalCheckup.startCheckup('vaccine', actCtx);
+                  return;
+                }
                 actCtx.game.money -= 15;
                 if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 60, hygiene: 40, composure: 12 });
                 recordCitizenCheckup((g.princess && g.princess.firstName) || 'Crown Heiress', 'Annual Immunity Booster · Cleared');
@@ -915,7 +1046,7 @@
           { id: 'club', name: 'Nightclub', title: 'Club Couronne Privé', spotId: 'club_dj', x: 133.6, y: 0, z: 34.5, yaw: Math.PI },
           { id: 'stables', name: 'Horse Stables', title: 'Royal Equestrian Stables', spotId: 'horse_1', x: -131.0, y: 0, z: 9.5, yaw: -Math.PI * 0.5 },
           { id: 'pool', name: 'Swimming Pool', title: 'Villa Azure Resort Pool', spotId: 'azure_pool_swim', x: 79.6, y: 0.24, z: 22.0, yaw: Math.PI },
-          { id: 'hotel', name: 'Hotel', title: 'Grand Hôtel Impérial', spotId: 'hotel_concierge', x: 133.6, y: 0, z: 10.5, yaw: Math.PI },
+          { id: 'hotel', name: 'Hotel', title: 'Grand Hôtel Montieri Paris', spotId: 'hotel_concierge', x: 136.4, y: 0.14, z: 7.4, yaw: 0 },
         ];
 
         return {
@@ -1051,8 +1182,8 @@
           waypoints: [
             { x: -11.4, z: -22.5, pause: 3.0 },
             { x: -11.4, z: -27.2, pause: 2.6 },
-            { x: -15.4, z: -27.2, pause: 2.4 },
-            { x: -15.4, z: -22.5, pause: 2.8 },
+            { x: -13.8, z: -27.2, pause: 2.4 },
+            { x: -13.8, z: -22.5, pause: 2.8 },
           ],
           prompt: 'Speak to Banquet Butler Sébastien',
           msg: 'White gloves spotless and silverware aligned, Your Highness — shall I serve vintage champagne or rose macarons?',
@@ -1062,29 +1193,32 @@
           clout: 2, male: true,
         },
         {
-          id: 'butler-laurent', role: 'butler', name: 'Concierge Butler Laurent', roleLabel: 'Grand Hôtel Head Butler',
-          x: 131.5, z: 7.4, y: 0.14, patrolR: 0.9, dressHex: '#1f1d29', trimHex: '#d9b04e', hairStyle: 'slick-gala',
+          id: 'butler-laurent', role: 'butler', name: 'Concierge Butler Laurent', roleLabel: 'Grand Hôtel Montieri Head Butler',
+          x: 139.2, z: 7.7, y: 0.14, patrolR: 0.9, dressHex: '#1f1d29', trimHex: '#d9b04e', hairStyle: 'slick-gala',
           waypoints: [
-            { x: 131.5, z: 7.4, pause: 3.2 },
-            { x: 135.8, z: 7.4, pause: 2.6 },
-            { x: 135.8, z: 11.4, pause: 2.5 },
-            { x: 131.5, z: 11.4, pause: 2.8 },
+            { x: 139.2, z: 7.7, pause: 3.0 },
+            { x: 139.2, z: 11.3, pause: 2.6 },
+            { x: 140.5, z: 11.3, pause: 2.8 },
+            { x: 140.5, z: 7.7, pause: 2.5 },
           ],
-          prompt: 'Speak to Concierge Butler Laurent (Hotel)',
-          msg: 'Welcome to Grand Hôtel Impérial! Allow me to hold the velvet elevator doors or carry your shopping bags upstairs.',
-          duty: 'I direct hotel bell service, champagne turn-down service in the 2F Suite, and VIP arrivals.',
-          gossip: 'Your limousine parked out front had photographers lining both sides of Riviera Boulevard!',
-          flirt: 'My tailcoat pockets always carry an extra chocolate truffle just for you, Your Highness.',
+          prompt: 'Speak to Concierge Butler Laurent (Hôtel Montieri)',
+          msg: 'Good afternoon! Welcome to Grand Hôtel Montieri Paris — shall I call the glass lift or book you a table at Le Montieri?',
+          duty: 'Coordinating bell service, airport transfers, Le Montieri dinner reservations, and 3F Penthouse arrivals.',
+          gossip: 'A Paris travel writer stayed in Imperial Suite 201 last night and raved about the rosewater jacuzzi!',
+          flirt: 'You always bring extra sparkle to our marble atrium whenever you stop by.',
           clout: 2, male: true,
         },
         {
           id: 'maid-colette', role: 'maid', name: 'Head Maid Colette', roleLabel: 'Head Palace Maid (1F)',
-          x: -12.8, z: -21.2, y: 0.65, patrolR: 1.0, dressHex: '#242129', trimHex: '#faf6f0', hairStyle: 'regency-bun',
+          x: -12.6, z: -24.0, y: 0.65, patrolR: 1.0, dressHex: '#242129', trimHex: '#faf6f0', hairStyle: 'regency-bun',
           waypoints: [
-            { x: -12.8, z: -21.2, pause: 2.6 },
-            { x: -8.6, z: -21.2, pause: 2.4 },
-            { x: -8.6, z: -25.4, pause: 3.0 },
-            { x: -12.8, z: -25.4, pause: 2.4 },
+            { x: -12.6, z: -24.0, pause: 2.6 },
+            { x: -7.8, z: -24.0, pause: 2.2 },
+            { x: -7.8, z: -20.8, pause: 2.6 },
+            { x: -7.8, z: -24.0, pause: 0.6 },
+            { x: -12.6, z: -24.0, pause: 0.6 },
+            { x: -12.6, z: -27.2, pause: 2.8 },
+            { x: -12.6, z: -24.0, pause: 0.6 },
           ],
           prompt: 'Talk to Head Maid Colette',
           msg: 'Curtsies warmly! Every Château bed has fresh hollow goose-down blankets tucked neatly and the rose baths are drawn.',
@@ -1095,12 +1229,12 @@
         },
         {
           id: 'maid-sophie', role: 'maid', name: 'Scullery Maid Sophie', roleLabel: '1F Kitchen & Parlor Maid',
-          x: -14.2, z: -31.8, y: 0.65, patrolR: 0.9, dressHex: '#2b2833', trimHex: '#faf6f0', hairStyle: 'romantic-bun',
+          x: -13.8, z: -31.0, y: 0.65, patrolR: 0.9, dressHex: '#2b2833', trimHex: '#faf6f0', hairStyle: 'romantic-bun',
           waypoints: [
-            { x: -14.2, z: -31.8, pause: 2.8 },
-            { x: -17.0, z: -31.8, pause: 2.5 },
-            { x: -17.0, z: -29.2, pause: 2.4 },
-            { x: -14.2, z: -29.2, pause: 2.8 },
+            { x: -13.8, z: -31.0, pause: 2.8 },
+            { x: -16.8, z: -30.5, pause: 2.5 },
+            { x: -16.8, z: -29.2, pause: 2.4 },
+            { x: -13.8, z: -29.2, pause: 2.8 },
           ],
           prompt: 'Talk to Maid Sophie (1F)',
           msg: 'Just dusted the kitchen cabinets and checkered tiles with Chef Auguste! Would you like warm brioche?',
@@ -1127,10 +1261,10 @@
         },
         {
           id: 'maid-camille', role: 'maid', name: 'Treasury Maid Camille', roleLabel: '4F Vault & Gala Maid',
-          x: -11.5, z: -25.8, y: 15.65, patrolR: 0.9, dressHex: '#252630', trimHex: '#faf6f0', hairStyle: 'regency-bun',
+          x: -11.5, z: -23.8, y: 15.65, patrolR: 0.9, dressHex: '#252630', trimHex: '#faf6f0', hairStyle: 'regency-bun',
           waypoints: [
-            { x: -11.5, z: -25.8, pause: 2.8 },
-            { x: -7.5, z: -25.8, pause: 2.5 },
+            { x: -11.5, z: -23.8, pause: 2.8 },
+            { x: -7.5, z: -23.8, pause: 2.5 },
             { x: -7.5, z: -21.8, pause: 2.6 },
             { x: -11.5, z: -21.8, pause: 2.8 },
           ],
@@ -1143,12 +1277,12 @@
         },
         {
           id: 'maid-claudette', role: 'maid', name: 'Penthouse Maid Claudette', roleLabel: '7F Penthouse Maid',
-          x: -10.5, z: -26.0, y: 30.65, patrolR: 0.9, dressHex: '#262430', trimHex: '#f4d5e0', hairStyle: 'marie-updo',
+          x: -9.2, z: -26.0, y: 30.65, patrolR: 0.9, dressHex: '#262430', trimHex: '#f4d5e0', hairStyle: 'marie-updo',
           waypoints: [
-            { x: -10.5, z: -26.0, pause: 2.8 },
+            { x: -9.2, z: -26.0, pause: 2.8 },
             { x: -5.8, z: -26.0, pause: 2.5 },
             { x: -5.8, z: -22.4, pause: 2.5 },
-            { x: -10.5, z: -22.4, pause: 2.8 },
+            { x: -9.2, z: -22.4, pause: 2.8 },
           ],
           prompt: 'Talk to Maid Claudette (7F Penthouse)',
           msg: 'Welcome up to the 7F Imperial Penthouse! The hot springs terrace and starlight bath are ready for you.',
@@ -1158,60 +1292,176 @@
           clout: 2,
         },
         {
-          id: 'maid-juliette', role: 'maid', name: 'Hotel Maid Juliette', roleLabel: 'Grand Hôtel Housekeeping',
-          x: 136.0, z: 12.6, y: 0.14, patrolR: 0.85, dressHex: '#242129', trimHex: '#faf6f0', hairStyle: 'romantic-bun',
+          id: 'maid-juliette', role: 'maid', name: 'Housekeeper Juliette', roleLabel: 'Hôtel Montieri Housekeeping',
+          x: 141.6, z: 12.2, y: 0.14, patrolR: 0.85, dressHex: '#242129', trimHex: '#faf6f0', hairStyle: 'romantic-bun',
           waypoints: [
-            { x: 136.0, z: 12.6, pause: 2.8 },
-            { x: 131.4, z: 12.6, pause: 2.5 },
-            { x: 131.4, z: 8.6, pause: 2.4 },
-            { x: 136.0, z: 8.6, pause: 2.6 },
+            { x: 141.6, z: 12.2, pause: 2.8 },
+            { x: 145.4, z: 12.2, pause: 2.6 },
+            { x: 145.4, z: 10.2, pause: 2.4 },
+            { x: 139.2, z: 10.2, pause: 2.4 },
+            { x: 139.2, z: 11.4, pause: 2.6 },
+            { x: 139.2, z: 10.2, pause: 1.0 },
+            { x: 145.4, z: 10.2, pause: 1.0 },
           ],
-          prompt: 'Talk to Hotel Maid Juliette',
-          msg: 'Clean rose petals and crisp linens ready up in the Grand Hôtel 2F Honeymoon Suite!',
-          duty: 'I keep the Hotel lobby chandelier glowing and prepare VIP rosewater jacuzzi suites upstairs.',
-          gossip: 'Three noble couples already asked to reserve the Honeymoon Canopy Bed next weekend!',
-          flirt: 'Your Highness brings magic to every suite you step inside!',
+          prompt: 'Talk to Housekeeper Juliette (Hotel)',
+          msg: 'Hey there! Fresh monogrammed towels are folded upstairs in Suite 201 and the thermal spa smells like roses.',
+          duty: 'Keeping the Montieri suites, fresh floral vases, and 2F spa linens spotless for every guest.',
+          gossip: 'Three couples booked our Thermal Rosewater Spa back-to-back for this weekend!',
+          flirt: 'Always lovely bumping into you in the atrium — let me know if you need extra pillows upstairs!',
           clout: 1,
         },
         {
-          id: 'chef-auguste', role: 'chef', name: 'Royal Chef Auguste', roleLabel: 'Palace Master Chef',
-          x: -16.5, z: -34.2, y: 0.65, patrolR: 0.7, dressHex: '#faf7f2', trimHex: '#d4af55', hairStyle: 'slick-gala',
+          id: 'hotel-reception-camille', role: 'staff', name: 'Receptionist Camille', roleLabel: 'Montieri Front Desk Concierge',
+          x: 140.4, z: 4.35, y: 0.14, patrolR: 0.7, dressHex: '#1f1c24', trimHex: '#d4af55', hairStyle: 'regency-bun',
           waypoints: [
-            { x: -16.5, z: -34.2, pause: 3.2 },
-            { x: -13.4, z: -34.2, pause: 2.5 },
-            { x: -13.4, z: -31.8, pause: 2.6 },
-            { x: -16.5, z: -31.8, pause: 3.0 },
+            { x: 139.5, z: 4.35, pause: 4.0, workPose: 'work_station', faceYaw: 0 },
+            { x: 141.3, z: 4.35, pause: 4.2, workPose: 'work_station', faceYaw: 0 },
           ],
-          prompt: 'Speak to Chef Auguste (1F Kitchen)',
-          msg: 'Bonjour, Princess! The upper cabinets are stocked with truffles, lobsters, and pistachio macarons!',
-          duty: 'I prepare six-course royal banquets on the 1F checkered kitchen floor and supply pastry deliveries across town.',
-          gossip: 'Even the Hospital physicians sneak over for my warm brioche tarts during shift change!',
-          flirt: 'Mon dieu! Your Highness prefers my cooking — or perhaps my tall white chef toque?',
+          prompt: 'Check In with Receptionist Camille',
+          msg: 'Welcome to Hôtel Montieri! Would you like keycards for Crimson Suite 201, Ivory Suite 202, or our 3F Royal Penthouse?',
+          duty: 'Managing hotel check-ins, restaurant bookings at Le Montieri, and concierge requests behind the crimson marble desk.',
+          gossip: 'Everyone is talking about the Sunset Sky Bar up on the third floor tonight — the view over Riviera Boulevard is unreal.',
+          flirt: 'We always keep our quietest penthouse key set aside just in case you feel like a spontaneous staycation.',
+          clout: 2,
+        },
+        {
+          id: 'hotel-chef-henri', role: 'chef', name: 'Hotel Chef Henri', roleLabel: 'Le Montieri Executive Chef',
+          x: 149.2, z: 5.5, y: 0.14, patrolR: 0.75, dressHex: '#faf7f2', trimHex: '#912232', hairStyle: 'slick-gala',
+          waypoints: [
+            { x: 149.2, z: 5.5, pause: 4.4, workPose: 'cook', faceYaw: Math.PI },
+            { x: 150.5, z: 5.5, pause: 3.8, workPose: 'cook', faceYaw: Math.PI },
+            { x: 147.8, z: 5.5, pause: 2.8, workPose: 'serve', faceYaw: 0 },
+            { x: 147.8, z: 7.6, pause: 3.0, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+            { x: 147.8, z: 5.5, pause: 1.0 },
+          ],
+          prompt: 'Chat with Hotel Chef Henri (Kitchen)',
+          msg: 'Step right past the copper pans! I am searing herb-butter scallops and simmering lobster bisque for Le Montieri dinner service.',
+          duty: 'Running the Montieri hotel kitchen brigade, prepping room service trays, and plating Le Montieri tasting menus.',
+          gossip: 'Valet Damien keeps sneaking warm brioche rolls from the pass whenever a VIP sedan pulls onto the red carpet.',
+          flirt: 'Pull up a stool by the kitchen pass anytime — I will plate a private tasting course with extra truffle just for you.',
+          clout: 2, male: true,
+        },
+        {
+          id: 'hotel-valet-damien', role: 'staff', name: 'Valet Damien', roleLabel: 'Montieri Forecourt Valet',
+          x: 126.2, z: 10.7, y: 0.06, patrolR: 0.9, dressHex: '#1b202e', trimHex: '#d9b04e', hairStyle: 'wavy-curtain-shag',
+          waypoints: [
+            { x: 126.2, z: 10.7, pause: 3.8, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+            { x: 129.6, z: 10.7, pause: 2.8, workPose: 'converse', faceYaw: 0 },
+            { x: 129.6, z: 8.6, pause: 2.8, workPose: 'converse', faceYaw: Math.PI },
+            { x: 126.2, z: 8.6, pause: 3.4, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+          ],
+          prompt: 'Talk to Valet Damien (Courtyard)',
+          msg: 'Morning! We have our Midnight Executive Sedan and Champagne Convertible parked right here in the cobblestone courtyard if you fancy a drive!',
+          duty: 'Greeting cars at the Montieri archway gate, handing out valet tickets, and lugging trunks up to 2F & 3F.',
+          gossip: 'Your chauffeur Lucien and I swap coffee outside before the morning rush — nicest driver on the whole boulevard!',
+          flirt: 'Keys to the champagne convertible are right in my pocket whenever you feel like taking the top down.',
           clout: 1, male: true,
         },
         {
-          id: 'chauffeur-lucien', role: 'chauffeur', name: 'Royal Chauffeur Lucien', roleLabel: 'Motorcade Chauffeur',
+          id: 'hotel-spa-ines', role: 'staff', hotelFloor: 2, name: 'Spa Therapist Inès', roleLabel: '2F Montieri Thermal Spa',
+          x: 148.1, z: 10.7, y: 4.54, patrolR: 0.7, dressHex: '#f5efe6', trimHex: '#b8844c', hairStyle: 'romantic-bun',
+          waypoints: [
+            { x: 148.1, z: 10.7, pause: 3.4, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 148.1, z: 12.4, pause: 4.2, workPose: 'serve', faceYaw: Math.PI * 0.5 },
+            { x: 148.1, z: 14.4, pause: 3.2, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+          ],
+          prompt: 'Speak with Spa Therapist Inès (2F Spa)',
+          msg: 'Welcome up to the Thermal Rosewater Spa! The whirlpool jets are warm, candles are lit, and fresh plush robes are ready.',
+          duty: 'Preparing essential oils, refilling candlelit rose baths, and pampering guests in the 2F spa lounge.',
+          gossip: 'Half of the hospital nurses come straight here after long ER shifts for an hour in the jacuzzi.',
+          flirt: 'Stay as long as you like — nobody rushes wellness on the second floor.',
+          clout: 2,
+        },
+        {
+          id: 'hotel-guest-julien', role: 'citizen', hotelFloor: 2, name: 'Guest Julien (Suite 201)', roleLabel: 'Hôtel Montieri Weekend Guest',
+          x: 138.6, z: 13.0, y: 4.54, patrolR: 0.8, dressHex: '#4f3a42', trimHex: '#e6c373', hairStyle: 'slick-gala',
+          waypoints: [
+            { x: 138.6, z: 13.0, pause: 3.6, workPose: 'converse', faceYaw: 0 },
+            { x: 141.0, z: 13.0, pause: 3.8, workPose: 'read', faceYaw: Math.PI },
+            { x: 141.0, z: 14.0, pause: 3.0, workPose: 'converse', faceYaw: -Math.PI * 0.5 },
+            { x: 138.6, z: 13.6, pause: 2.8 },
+          ],
+          prompt: 'Chat with Guest Julien (Suite 201)',
+          msg: 'Hi! Checking in for a long weekend — honestly the tufted crimson bed and marble espresso station in Suite 201 beat my own apartment.',
+          duty: 'In town visiting friends on Willow Creek Lane and taking meetings down at Le Montieri.',
+          gossip: 'Heard the bakery across town added an upstairs piano salon — I am grabbing pistachio croissants there tomorrow!',
+          flirt: 'Funny running into someone so stylish in the Suite 201 corridor — heading up to the Sky Bar later?',
+          clout: 1, male: true, isCitizen: true,
+        },
+        {
+          id: 'hotel-barman-hugo', role: 'staff', hotelFloor: 3, name: 'Sky Barman Hugo', roleLabel: '3F Montieri Rooftop Mixologist',
+          x: 147.8, z: 11.4, y: 8.94, patrolR: 0.75, dressHex: '#1b1d24', trimHex: '#e6c373', hairStyle: 'wavy-curtain-shag',
+          waypoints: [
+            { x: 147.8, z: 11.4, pause: 4.2, workPose: 'serve', faceYaw: Math.PI * 0.5 },
+            { x: 147.8, z: 13.0, pause: 3.4, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 147.2, z: 14.0, pause: 3.2, workPose: 'serve', faceYaw: 0 },
+            { x: 147.8, z: 12.2, pause: 3.0 },
+          ],
+          prompt: 'Order at the 3F Sky Bar with Hugo',
+          msg: 'Welcome up to the 3F Sky Terrace! Can I pour you chilled peach bellinis, espresso martinis, or sparkling rose lemonade?',
+          duty: 'Mixing rooftop cocktails, chilling vintage champagne, and keeping the terrace lights glowing at sunset.',
+          gossip: 'From up here on the third floor, you can watch cars cruising both avenues all the way to the park!',
+          flirt: 'You have an open tab at my bar anytime — name the drink and watch the sunset.',
+          clout: 2, male: true,
+        },
+        {
+          id: 'hotel-vip-claire', role: 'friend', hotelFloor: 3, name: 'VIP Guest Claire (Penthouse)', roleLabel: '3F Penthouse Socialite Friend',
+          x: 138.4, z: 10.6, y: 8.94, patrolR: 0.85, dressHex: '#7d2638', trimHex: '#f5dfb2', hairStyle: 'royal-waves',
+          waypoints: [
+            { x: 138.4, z: 10.6, pause: 3.8, workPose: 'converse', faceYaw: -Math.PI * 0.5 },
+            { x: 138.4, z: 8.6, pause: 3.6, workPose: 'read', faceYaw: Math.PI },
+            { x: 136.4, z: 12.4, pause: 3.4, workPose: 'converse', faceYaw: 0 },
+          ],
+          prompt: 'Hang Out with VIP Guest Claire (3F Penthouse)',
+          msg: 'OMG look at the fresco dome ceiling up here in Penthouse 301! Grab a drink with me on the Sky Bar terrace in a minute!',
+          duty: 'Throwing small rooftop soirées, browsing Galerie Royale couture, and carpooling down the boulevard.',
+          gossip: 'Everyone at the hotel lobby was whispering about that custom champagne tourer parked in the valet courtyard!',
+          flirt: 'You look straight out of a Paris editorial tonight — come sit by the terrace with me!',
+          clout: 2,
+        },
+        {
+          id: 'chef-auguste', role: 'chef', name: 'Royal Chef Auguste', roleLabel: 'Palace Master Chef',
+          x: -16.2, z: -35.8, y: 0.65, patrolR: 0.7, dressHex: '#faf7f2', trimHex: '#d4af55', hairStyle: 'slick-gala',
+          waypoints: [
+            { x: -16.2, z: -35.8, pause: 4.2, workPose: 'cook', faceYaw: Math.PI },
+            { x: -13.6, z: -35.6, pause: 2.8, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: -13.6, z: -31.2, pause: 2.6, workPose: 'serve', faceYaw: 0 },
+            { x: -16.5, z: -30.6, pause: 3.0, workPose: 'cook', faceYaw: Math.PI },
+            { x: -13.6, z: -31.2, pause: 1.0 },
+            { x: -13.6, z: -35.6, pause: 1.0 },
+          ],
+          prompt: 'Speak to Chef Auguste (1F Kitchen)',
+          msg: 'Bonjour, Princess! I am whisking truffle velouté right on the stove — tell me anytime if you want a hot meal or breakfast in bed!',
+          duty: 'Preparing six-course dinners in the kitchen, tasting sauces, and trading recipes with Chef Henri over at Hôtel Montieri.',
+          gossip: 'The hospital nurses always sneak over for warm brioche tarts during shift change!',
+          flirt: 'Hard to focus on my soufflé when you walk into the kitchen smiling like that!',
+          clout: 1, male: true,
+        },
+        {
+          id: 'chauffeur-lucien', role: 'chauffeur', name: 'Chauffeur Lucien', roleLabel: 'Personal Chauffeur & Friend',
           x: -34.2, z: -21.0, y: 0.0, patrolR: 0.9, dressHex: '#1e2738', trimHex: '#d4af55', hairStyle: 'slick-gala',
           waypoints: [
-            { x: -34.2, z: -21.0, pause: 3.0 },
-            { x: -29.2, z: -21.0, pause: 2.6 },
-            { x: -29.2, z: -14.2, pause: 2.4 },
-            { x: -34.2, z: -14.2, pause: 3.2 },
+            { x: -34.2, z: -21.0, pause: 3.4, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: -34.2, z: -16.2, pause: 2.6 },
+            { x: -36.8, z: -16.2, pause: 2.4 },
+            { x: -36.8, z: -18.8, pause: 3.2, workPose: 'work_station', faceYaw: 0 },
+            { x: -36.8, z: -16.2, pause: 0.5 },
+            { x: -34.2, z: -16.2, pause: 0.5 },
           ],
-          prompt: 'Talk to Chauffeur Lucien (Cars)',
-          msg: 'Your Highness! Inside both Auto Pavilions sit your Limousine, Sport Coupe, Touring Sedan, and State SUV — climb right inside and drive!',
-          duty: 'I polish every chrome bumper, tune the convertible engines, and keep the Roadster parked out front.',
-          gossip: 'Now that every avenue runs smooth right up to the Château gates, cruising across town is pure silk!',
-          flirt: 'Say the word and I will chauffeur you down Riviera Boulevard past sunset — just us two.',
+          prompt: 'Chat with Chauffeur Lucien (Cars)',
+          msg: 'Hey! Good to see you — coffee is hot, the engine is purring, and I am always ready whenever you want a lift or a carpool!',
+          duty: 'Driving you anywhere in town, picking up your friends to carpool in back, and keeping every car spotless.',
+          gossip: 'Two neighborhood cruisers have been rolling up and down the avenues all afternoon — traffic is lively today!',
+          flirt: 'No rushing today — tell me where you want to go, put on your favorite song, and let me take the wheel.',
           clout: 2, male: true,
         },
         {
           id: 'gardener-bastien', role: 'staff', name: 'Gardener Bastien', roleLabel: 'Parterre Master Gardener',
           x: -24.0, z: 22.0, y: 0.0, patrolR: 1.5, dressHex: '#46613e', trimHex: '#d8c5a0', hairStyle: 'wavy-curtain-shag',
           waypoints: [
-            { x: -24.0, z: 22.0, pause: 2.8 },
-            { x: -16.5, z: 22.0, pause: 2.6 },
-            { x: -16.5, z: 12.0, pause: 2.4 },
+            { x: -24.0, z: 22.0, pause: 3.5, workPose: 'toddler_watch', faceYaw: -Math.PI * 0.5 },
+            { x: -16.5, z: 22.0, pause: 3.0, workPose: 'work_station', faceYaw: 0 },
+            { x: -16.5, z: 12.0, pause: 3.0, workPose: 'toddler_watch', faceYaw: Math.PI * 0.5 },
             { x: -24.0, z: 12.0, pause: 3.0 },
           ],
           prompt: 'Talk to Gardener Bastien',
@@ -1223,29 +1473,30 @@
         },
         {
           id: 'stablehand-olivier', role: 'staff', name: 'Stablehand Olivier', roleLabel: 'Royal Equestrian Groom',
-          x: -129.0, z: 12.0, y: 0.0, patrolR: 1.2, dressHex: '#63432c', trimHex: '#e6c373', hairStyle: 'wavy-curtain-shag',
+          x: -127.8, z: 12.0, y: 0.0, patrolR: 1.2, dressHex: '#63432c', trimHex: '#e6c373', hairStyle: 'wavy-curtain-shag',
           waypoints: [
-            { x: -129.0, z: 12.0, pause: 2.8 },
-            { x: -124.0, z: 12.0, pause: 2.5 },
-            { x: -124.0, z: 6.5, pause: 2.6 },
-            { x: -129.0, z: 6.5, pause: 3.0 },
+            { x: -127.8, z: 12.0, pause: 3.6, workPose: 'pet_horse', faceYaw: -Math.PI * 0.5 },
+            { x: -124.0, z: 12.0, pause: 2.8, workPose: 'work_station', faceYaw: 0 },
+            { x: -124.0, z: 6.5, pause: 3.2, workPose: 'pet_horse', faceYaw: Math.PI * 0.5 },
+            { x: -127.8, z: 6.5, pause: 3.0 },
           ],
           prompt: 'Talk to Stablehand Olivier (Horses)',
           msg: 'Look how lively Vesper, Celeste, Onyx, and Aurelia are trotting around the paddock today! Mount any horse anytime!',
-          duty: 'I exercise the four purebred horses every morning, saddle them for you, and haul fresh oats from Greenfields Farm.',
+          duty: 'I groom the four purebred horses every morning, saddle them for you, and haul fresh oats from Greenfields Farm.',
           gossip: 'Your chestnut stallion kicked up dust racing Neighbor Claire’s sedan down the avenue yesterday!',
           flirt: 'You look breathtaking in equestrian boots, Your Highness — want to gallop out toward the hills?',
           clout: 2, male: true,
         },
         {
           id: 'doctor-moreau', role: 'doctor', name: 'Chief Physician Dr. Moreau', roleLabel: 'Hôpital Royal Chief Doctor',
-          x: 80.8, z: -25.0, y: 0.12, patrolR: 1.0, dressHex: '#f4f8fc', trimHex: '#a62639', hairStyle: 'slick-gala',
+          x: 80.6, z: -25.0, y: 0.12, patrolR: 1.0, dressHex: '#f4f8fc', trimHex: '#a62639', hairStyle: 'slick-gala',
           outfitId: 'equestrian-tailored', walkSpeed: 1.38,
           waypoints: [
-            { x: 80.8, z: -25.0, pause: 4.2, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
-            { x: 80.8, z: -21.8, pause: 3.6, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
-            { x: 75.5, z: -21.2, pause: 3.8, workPose: 'work_examine', faceYaw: Math.PI },
-            { x: 79.4, z: -27.0, pause: 2.8, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+            { x: 80.6, z: -25.0, pause: 4.2, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 80.6, z: -21.3, pause: 3.6, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 75.5, z: -21.3, pause: 3.8, workPose: 'work_examine', faceYaw: Math.PI },
+            { x: 79.6, z: -21.3, pause: 0.6 },
+            { x: 79.6, z: -27.0, pause: 2.8, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
           ],
           prompt: 'Consult Dr. Moreau (Hospital)',
           msg: 'Welcome to Hôpital Royal de Versailles! Tour our separated Operating Room (OR), separated ER Wing, Recovery Ward 01-03, VIP Suites 06-07 & Healing Garden!',
@@ -1273,13 +1524,15 @@
         },
         {
           id: 'surgeon-valmont', role: 'surgeon', name: 'Chief Surgeon Dr. Valmont', roleLabel: 'Operating Theater Chief Surgeon',
-          x: 72.85, z: -27.1, y: 0.12, patrolR: 0.9, dressHex: '#1e6e8c', trimHex: '#a9dfed', hairStyle: 'slick-gala',
+          x: 72.8, z: -27.1, y: 0.12, patrolR: 0.9, dressHex: '#1e6e8c', trimHex: '#a9dfed', hairStyle: 'slick-gala',
           outfitId: 'equestrian-tailored', walkSpeed: 1.32,
           waypoints: [
-            { x: 72.85, z: -27.1, pause: 8.5, workPose: 'work_operate', faceYaw: Math.PI * 0.5 },
-            { x: 72.85, z: -25.8, pause: 3.2, workPose: 'work_examine', faceYaw: -Math.PI * 0.75 },
-            { x: 72.85, z: -27.2, pause: 7.5, workPose: 'work_operate', faceYaw: Math.PI * 0.5 },
+            { x: 72.8, z: -27.1, pause: 8.5, workPose: 'work_operate', faceYaw: Math.PI * 0.5 },
+            { x: 72.8, z: -25.6, pause: 3.2, workPose: 'work_examine', faceYaw: -Math.PI * 0.75 },
+            { x: 75.8, z: -25.6, pause: 0.6 },
             { x: 76.2, z: -26.8, pause: 2.6, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+            { x: 75.8, z: -25.6, pause: 0.6 },
+            { x: 72.8, z: -25.6, pause: 0.6 },
           ],
           prompt: 'Speak to Chief Surgeon Dr. Valmont',
           msg: 'Scrubbed in and actively operating inside our separated Skytron Operating Room! Every monitor is steady at 62 BPM and 99% oxygen.',
@@ -1290,15 +1543,16 @@
         },
         {
           id: 'surgeon-celeste', role: 'surgeon', name: 'VIP Surgeon Dr. Celeste', roleLabel: 'Cardiothoracic & VIP Wing Surgeon',
-          x: 84.8, z: -18.6, y: 0.12, patrolR: 1.0, dressHex: '#1e6e8c', trimHex: '#d4af55', hairStyle: 'regency-bun',
+          x: 84.5, z: -18.5, y: 0.12, patrolR: 1.0, dressHex: '#1e6e8c', trimHex: '#d4af55', hairStyle: 'regency-bun',
           outfitId: 'equestrian-tailored', walkSpeed: 1.36,
           waypoints: [
-            { x: 84.8, z: -18.6, pause: 5.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
-            { x: 83.0, z: -18.5, pause: 1.0 },
-            { x: 80.8, z: -21.2, pause: 3.4, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
-            { x: 83.0, z: -23.0, pause: 1.0 },
-            { x: 84.8, z: -23.1, pause: 4.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
-            { x: 83.0, z: -23.0, pause: 1.0 },
+            { x: 84.5, z: -18.5, pause: 5.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
+            { x: 80.2, z: -18.5, pause: 0.6 },
+            { x: 80.2, z: -21.2, pause: 3.4, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 80.2, z: -23.35, pause: 0.6 },
+            { x: 84.5, z: -23.35, pause: 4.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
+            { x: 80.2, z: -23.35, pause: 0.6 },
+            { x: 80.2, z: -18.5, pause: 0.6 },
           ],
           prompt: 'Consult VIP Surgeon Dr. Celeste',
           msg: 'Checking vitals on our recovering patient in Walnut VIP Suite 07 — both luxury suites have twin ICU towers!',
@@ -1325,15 +1579,19 @@
         },
         {
           id: 'er-doctor-vance', role: 'er_doctor', name: 'ER Doctor Vance', roleLabel: 'ER Attending Physician',
-          x: 75.4, z: -17.5, y: 0.12, patrolR: 1.0, dressHex: '#f4f8fc', trimHex: '#b8283c', hairStyle: 'slick-gala',
+          x: 75.4, z: -17.3, y: 0.12, patrolR: 1.0, dressHex: '#f4f8fc', trimHex: '#b8283c', hairStyle: 'slick-gala',
           outfitId: 'equestrian-tailored', walkSpeed: 1.44,
           waypoints: [
-            { x: 75.4, z: -17.5, pause: 5.5, workPose: 'work_examine', faceYaw: -Math.PI * 0.75 },
-            { x: 76.5, z: -18.9, pause: 4.5, workPose: 'work_station', faceYaw: Math.PI },
-            { x: 72.9, z: -17.3, pause: 3.5, workPose: 'work_examine', faceYaw: -Math.PI * 0.75 },
-            { x: 78.6, z: -18.5, pause: 1.0 },
+            { x: 75.4, z: -17.3, pause: 5.5, workPose: 'work_examine', faceYaw: -Math.PI * 0.75 },
+            { x: 75.8, z: -18.9, pause: 4.5, workPose: 'work_station', faceYaw: Math.PI },
+            { x: 75.8, z: -17.25, pause: 0.6 },
+            { x: 72.9, z: -17.25, pause: 3.5, workPose: 'work_examine', faceYaw: -Math.PI * 0.75 },
+            { x: 75.8, z: -17.25, pause: 0.6 },
+            { x: 75.8, z: -18.5, pause: 0.6 },
+            { x: 79.5, z: -18.5, pause: 0.6 },
             { x: 79.5, z: -17.2, pause: 2.2, workPose: 'work_station', faceYaw: 0 },
-            { x: 78.6, z: -18.5, pause: 1.0 },
+            { x: 79.5, z: -18.5, pause: 0.6 },
+            { x: 75.8, z: -18.5, pause: 0.6 },
           ],
           prompt: 'Speak to ER Attending Dr. Vance',
           msg: 'Separated Emergency Room wing active! I am examining our patient in ER Bay 02 and keeping ER Bay 01 ready for emergencies.',
@@ -1344,15 +1602,18 @@
         },
         {
           id: 'er-doctor-marchetti', role: 'er_doctor', name: 'ER Physician Dr. Marchetti', roleLabel: 'ER Trauma & Triage Doctor',
-          x: 76.0, z: -17.3, y: 0.12, patrolR: 1.0, dressHex: '#f4f8fc', trimHex: '#b8283c', hairStyle: 'royal-waves',
+          x: 75.8, z: -17.3, y: 0.12, patrolR: 1.0, dressHex: '#f4f8fc', trimHex: '#b8283c', hairStyle: 'royal-waves',
           outfitId: 'equestrian-tailored', walkSpeed: 1.42,
           waypoints: [
-            { x: 76.0, z: -17.3, pause: 4.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
-            { x: 76.1, z: -18.9, pause: 4.0, workPose: 'work_station', faceYaw: Math.PI },
-            { x: 75.3, z: -17.6, pause: 4.2, workPose: 'work_examine', faceYaw: Math.PI },
-            { x: 78.6, z: -18.5, pause: 1.0 },
+            { x: 75.8, z: -17.3, pause: 4.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
+            { x: 75.9, z: -18.9, pause: 4.0, workPose: 'work_station', faceYaw: Math.PI },
+            { x: 75.8, z: -18.5, pause: 0.6 },
+            { x: 79.5, z: -18.5, pause: 0.6 },
+            { x: 79.5, z: -21.3, pause: 0.6 },
             { x: 76.7, z: -21.3, pause: 3.4, workPose: 'work_examine', faceYaw: Math.PI },
-            { x: 78.6, z: -18.5, pause: 1.0 },
+            { x: 79.5, z: -21.3, pause: 0.6 },
+            { x: 79.5, z: -18.5, pause: 0.6 },
+            { x: 75.8, z: -18.5, pause: 0.6 },
           ],
           prompt: 'Consult ER Physician Dr. Marchetti',
           msg: 'Checking in our ER waiting bench patients and charting trauma bays — our separated Emergency Room keeps acute care moving fast!',
@@ -1396,16 +1657,16 @@
         },
         {
           id: 'nurse-nadia', role: 'nurse', name: 'VIP Wing Nurse Nadia', roleLabel: 'VIP Recovery Suites Nurse',
-          x: 80.8, z: -22.2, y: 0.12, patrolR: 0.9, dressHex: '#dfeef7', trimHex: '#2f7a58', hairStyle: 'marie-updo',
+          x: 80.2, z: -22.2, y: 0.12, patrolR: 0.9, dressHex: '#dfeef7', trimHex: '#2f7a58', hairStyle: 'marie-updo',
           outfitId: 'equestrian-tailored', walkSpeed: 1.32,
           waypoints: [
-            { x: 80.8, z: -22.2, pause: 4.5, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
-            { x: 83.0, z: -18.5, pause: 1.0 },
-            { x: 84.8, z: -18.8, pause: 4.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
-            { x: 83.0, z: -18.5, pause: 1.0 },
-            { x: 83.0, z: -23.0, pause: 1.0 },
-            { x: 84.8, z: -23.1, pause: 3.8, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
-            { x: 83.0, z: -23.0, pause: 1.0 },
+            { x: 80.2, z: -22.2, pause: 4.5, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 80.2, z: -18.5, pause: 0.6 },
+            { x: 84.5, z: -18.5, pause: 4.5, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
+            { x: 80.2, z: -18.5, pause: 0.6 },
+            { x: 80.2, z: -23.35, pause: 0.6 },
+            { x: 84.5, z: -23.35, pause: 3.8, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
+            { x: 80.2, z: -23.35, pause: 0.6 },
           ],
           prompt: 'Talk to VIP Wing Nurse Nadia',
           msg: 'Step inside Private Suites VIP 06 or VIP 07! VIP 07 currently has a royal patient recovering, while Suite 06 is ready for Your Highness.',
@@ -1416,14 +1677,17 @@
         },
         {
           id: 'nurse-sophie', role: 'nurse', name: 'Scrub Nurse Sophie', roleLabel: 'Surgical Operating Room Nurse',
-          x: 75.85, z: -26.6, y: 0.12, patrolR: 0.9, dressHex: '#c8e4ef', trimHex: '#1e6e8c', hairStyle: 'romantic-bun',
+          x: 75.8, z: -26.6, y: 0.12, patrolR: 0.9, dressHex: '#c8e4ef', trimHex: '#1e6e8c', hairStyle: 'romantic-bun',
           outfitId: 'equestrian-tailored', walkSpeed: 1.34,
           waypoints: [
-            { x: 75.85, z: -26.6, pause: 6.5, workPose: 'work_operate', faceYaw: -Math.PI * 0.5 },
-            { x: 72.75, z: -26.1, pause: 3.0, workPose: 'work_examine', faceYaw: Math.PI * 0.75 },
-            { x: 78.8, z: -27.0, pause: 1.0 },
+            { x: 75.8, z: -26.6, pause: 6.5, workPose: 'work_operate', faceYaw: -Math.PI * 0.5 },
+            { x: 75.8, z: -25.6, pause: 0.6 },
+            { x: 72.75, z: -25.6, pause: 3.0, workPose: 'work_examine', faceYaw: Math.PI * 0.75 },
+            { x: 75.8, z: -25.6, pause: 0.6 },
+            { x: 76.2, z: -27.0, pause: 0.6 },
+            { x: 78.8, z: -27.0, pause: 0.6 },
             { x: 81.5, z: -27.8, pause: 3.0, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
-            { x: 78.8, z: -27.0, pause: 1.0 },
+            { x: 78.8, z: -27.0, pause: 0.6 },
           ],
           prompt: 'Talk to Scrub Nurse Sophie (OR)',
           msg: 'Passing sterile instruments to Dr. Valmont inside our separated Operating Room and restocking surgical trays from the Pharmacy!',
@@ -1440,7 +1704,11 @@
             { x: 79.6, z: -29.8, pause: 2.2 },
             { x: 79.6, z: -33.6, pause: 3.4, workPose: 'work_station', faceYaw: 0 },
             { x: 77.8, z: -35.8, pause: 3.2, workPose: 'work_examine', faceYaw: Math.PI * 0.5 },
+            { x: 79.6, z: -33.6, pause: 0.6 },
+            { x: 79.6, z: -29.8, pause: 0.6 },
+            { x: 79.6, z: -21.3, pause: 0.6 },
             { x: 77.2, z: -21.3, pause: 3.0, workPose: 'work_examine', faceYaw: Math.PI },
+            { x: 79.6, z: -21.3, pause: 0.6 },
           ],
           prompt: 'Talk to Rehab Nurse Élodie',
           msg: 'Patients stroll straight out the North corridor into Dr. Bellamy’s Green Healing Garden for sunshine and lavender tea!',
@@ -1455,6 +1723,7 @@
           x: 74.3, z: -26.18, y: 1.02, patrolR: 0, dressHex: '#6ea8c9', trimHex: '#ffffff', hairStyle: 'slick-gala',
           outfitId: 'silk-robe-pajamas',
           stationaryPose: 'sleep', stationaryYaw: 0, rigOffsetY: 0.09, occupiesSpotId: 'hospital_exam',
+          vacatePos: { x: 71.8, y: 0.12, z: -25.8, yaw: 0 },
           prompt: 'Check Patient Henri (OR Table)',
           msg: 'Zzz... resting peacefully under anesthesia while Chief Surgeon Valmont and Dr. Laurent operate.',
           duty: 'Undergoing a smooth cardiac valve procedure under the Skytron boom lights.',
@@ -1503,7 +1772,7 @@
         },
         {
           id: 'patient-er-wait', role: 'patient', name: 'Citizen Claire (ER Waiting)', roleLabel: 'ER Triage Bench Patient',
-          x: 76.95, z: -17.72, y: 0.62, patrolR: 0, dressHex: '#b27c88', trimHex: '#faf2e6', hairStyle: 'riviera-bob',
+          x: 76.95, z: -17.72, y: 0.20, patrolR: 0, dressHex: '#b27c88', trimHex: '#faf2e6', hairStyle: 'riviera-bob',
           outfitId: 'riviera-resort-midi',
           stationaryPose: 'sit', stationaryYaw: -Math.PI * 0.5, rigOffsetY: -0.45,
           prompt: 'Chat with Citizen Claire (ER Waiting)',
@@ -1548,48 +1817,134 @@
           clout: 1, isCitizen: true,
         },
         {
-          id: 'farmer-gerard', role: 'staff', name: 'Master Farmer Gérard', roleLabel: 'Greenfields Royal Farm',
+          id: 'patient-coming-henri', role: 'citizen', name: 'Citizen Olivier (Coming & Going)', roleLabel: 'Hospital Outpatient & Resident',
+          x: -18.0, z: -13.5, y: 0.0, patrolR: 1.5, dressHex: '#4f6d82', trimHex: '#f1d08a', hairStyle: 'slick-gala',
+          walkSpeed: 1.38,
+          waypoints: [
+            { x: -18.0, z: -13.5, pause: 1.4 },
+            { x: 35.0, z: -13.5, pause: 0.6 },
+            { x: 79.6, z: -15.0, pause: 0.6 },
+            { x: 80.5, z: -24.6, pause: 3.6, workPose: 'converse', faceYaw: Math.PI * 0.5 },
+            { x: 79.6, z: -21.3, pause: 0.4 },
+            { x: 76.65, z: -21.3, pause: 0.4 },
+            { x: 76.65, z: -22.22, pause: 6.5, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: 0, lockSpotId: 'hospital_bed_3' },
+            { x: 76.65, z: -21.3, pause: 0.4 },
+            { x: 79.6, z: -21.3, pause: 0.4 },
+            { x: 79.6, z: -15.2, pause: 1.2 },
+            { x: 32.0, z: -13.5, pause: 1.2 },
+            { x: -18.0, z: -13.5, pause: 3.5 },
+          ],
+          prompt: 'Talk to Citizen Olivier (Outpatient)',
+          msg: 'I walked down Riviera Way to Hôpital Royal for my check-up and bed rest in Bay 03 — now heading home feeling brand new!',
+          duty: 'Coming and going between the suburban blocks and Hôpital Royal Check-Up Desk.',
+          gossip: 'Emergency responders at the separated ER Wing stabilized three neighborhood residents this morning!',
+          flirt: 'Walking down the boulevard feels twice as bright when the Princess waves!',
+          clout: 1, male: true, isCitizen: true,
+        },
+        {
+          id: 'patient-coming-noemie', role: 'citizen', name: 'Resident Noémie (Outpatient)', roleLabel: 'Riviera Outpatient Visitor',
+          x: 56.0, z: 2.0, y: 0.0, patrolR: 1.5, dressHex: '#8d5b76', trimHex: '#faf2e6', hairStyle: 'royal-waves',
+          walkSpeed: 1.34,
+          waypoints: [
+            { x: 56.0, z: 2.0, pause: 1.6 },
+            { x: 79.6, z: -13.5, pause: 0.6 },
+            { x: 79.6, z: -18.5, pause: 0.6 },
+            { x: 76.0, z: -18.5, pause: 0.4 },
+            { x: 76.95, z: -16.88, pause: 4.5, workPose: 'sit', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: -Math.PI * 0.5 },
+            { x: 76.0, z: -18.5, pause: 0.4 },
+            { x: 79.6, z: -18.5, pause: 0.4 },
+            { x: 79.6, z: -29.8, pause: 0.6 },
+            { x: 79.6, z: -34.2, pause: 4.2, workPose: 'converse', faceYaw: 0 },
+            { x: 79.6, z: -15.2, pause: 0.6 },
+            { x: 56.0, z: 2.0, pause: 3.2 },
+          ],
+          prompt: 'Talk to Resident Noémie (Hospital Visitor)',
+          msg: 'I stroll up from East Avenue into Hôpital Royal whenever I need Dr. Marchetti’s triage desk and fresh garden air!',
+          duty: 'Visiting ER triage, relaxing in the Green Healing Courtyard, then walking back into town.',
+          gossip: 'Everyone in town can watch patients walking in, resting in the wards, and getting discharged!',
+          flirt: 'It is comforting knowing the Crown Heiress keeps the hospital doors open to all residents!',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'patient-emergency', role: 'patient', name: 'Emergency Resident Mateo', roleLabel: 'ER Ambulance Arrival Patient',
+          x: 68.5, z: -13.5, y: 0.0, patrolR: 1.2, dressHex: '#c84b59', trimHex: '#ffffff', hairStyle: 'wavy-curtain-shag',
+          walkSpeed: 1.32,
+          waypoints: [
+            { x: 68.5, z: -13.5, pause: 3.5 },
+            { x: 79.6, z: -15.5, pause: 1.2 },
+            { x: 79.6, z: -18.5, pause: 0.5 },
+            { x: 75.8, z: -18.5, pause: 0.5 },
+            { x: 75.8, z: -17.25, pause: 0.4 },
+            { x: 72.0, z: -17.25, pause: 0.4 },
+            { x: 72.0, z: -18.12, pause: 8.0, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: 0, lockSpotId: 'hospital_bed_4' },
+            { x: 72.0, z: -17.25, pause: 0.4 },
+            { x: 75.8, z: -17.25, pause: 0.4 },
+            { x: 75.8, z: -18.5, pause: 0.6 },
+            { x: 79.6, z: -18.5, pause: 0.6 },
+            { x: 79.6, z: -15.0, pause: 1.2 },
+            { x: 68.5, z: -13.5, pause: 4.0 },
+          ],
+          prompt: 'Check on ER Resident Mateo',
+          msg: 'The separated ER doctors and nurses stabilized my vitals fast — thank goodness Hôpital Royal is right down the avenue!',
+          duty: 'Arriving for urgent ER Bay 01 care during ambulance calls and discharging once cleared.',
+          gossip: 'Watch Dr. Vance and Nurse Clara rush right to Bay 01 whenever an emergency is called!',
+          flirt: 'Seeing the Princess visit the ER wing gave me an instant recovery boost!',
+          clout: 2, male: true, isCitizen: true,
+        },
+        {
+          id: 'farmer-gerard', role: 'staff', name: 'Farmer Gérard', roleLabel: 'Greenfields Farm Owner',
           x: -120.5, z: -31.5, y: 0.0, patrolR: 1.4, dressHex: '#5e733b', trimHex: '#d9a441', hairStyle: 'slick-gala',
           waypoints: [
-            { x: -120.5, z: -31.5, pause: 3.0 },
-            { x: -126.0, z: -31.5, pause: 2.8 },
-            { x: -126.0, z: -24.5, pause: 2.8 },
-            { x: -120.5, z: -24.5, pause: 3.0 },
+            { x: -120.5, z: -31.5, pause: 3.6, workPose: 'cook', faceYaw: Math.PI },
+            { x: -126.0, z: -31.5, pause: 3.2, workPose: 'toddler_watch', faceYaw: -Math.PI * 0.5 },
+            { x: -126.0, z: -28.0, pause: 3.0, workPose: 'work_station', faceYaw: 0 },
+            { x: -141.5, z: -28.0, pause: 0.5 },
+            { x: -141.5, z: -36.5, pause: 0.5 },
+            { x: -145.1, z: -37.8, pause: 5.8, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: Math.PI * 0.5, lockSpotId: 'farm_bed' },
+            { x: -141.5, z: -36.5, pause: 0.5 },
+            { x: -141.5, z: -28.0, pause: 0.5 },
+            { x: -126.0, z: -28.0, pause: 0.5 },
           ],
           prompt: 'Talk to Farmer Gérard (Farm)',
-          msg: 'Welcome to Greenfields Royal Farm! The windmill is turning, strawberries are ripe, and the cows & sheep are grazing in pasture!',
-          duty: 'I run the farmhouse, barn, grain silo, tractor deliveries, and supply organic milk and berries to the Palace Kitchen.',
-          gossip: 'People in the 2-Bedroom Stone Mansionettes swear they hear our rooster crowing over their morning espresso!',
-          flirt: 'Country air suits royalty even better than silk salons, Your Highness!',
+          msg: 'Hey there! Just finished checking the strawberry rows — the cows are grazing and I catch a quick afternoon nap inside the farmhouse when work slows down.',
+          duty: 'Harvesting organic berries, looking after the barn animals, and delivering fresh crates to the bakery and hotel kitchen.',
+          gossip: 'Neighbors in the Stone Mansionettes swear my rooster is a better alarm clock than their phones!',
+          flirt: 'Fresh country air looks great on you — grab a basket of ripe strawberries before you head back!',
           clout: 2, male: true,
         },
         {
           id: 'mansionette-sophia', role: 'citizen', name: 'Lady Sophia (Mansionettes)', roleLabel: 'Stone Mansionette Resident',
-          x: -95.5, z: -14.8, y: 0.0, patrolR: 1.3, dressHex: '#5c4b75', trimHex: '#f1d08a', hairStyle: 'royal-waves',
+          x: -95.5, z: -14.5, y: 0.0, patrolR: 1.3, dressHex: '#5c4b75', trimHex: '#f1d08a', hairStyle: 'royal-waves',
           waypoints: [
-            { x: -95.5, z: -14.8, pause: 2.8 },
-            { x: -86.5, z: -14.8, pause: 3.0 },
-            { x: -86.5, z: -11.5, pause: 2.6 },
-            { x: -95.5, z: -11.5, pause: 2.8 },
+            { x: -95.5, z: -14.5, pause: 2.8 },
+            { x: -95.5, z: -18.5, pause: 0.5 },
+            { x: -95.4, z: -23.9, pause: 4.0, workPose: 'cook', faceYaw: Math.PI },
+            { x: -95.4, z: -21.2, pause: 0.5 },
+            { x: -91.5, z: -21.2, pause: 0.5 },
+            { x: -90.68, z: -19.4, pause: 4.2, workPose: 'sofa', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: -Math.PI * 0.5, lockSpotId: 'mansionette_2_sofa' },
+            { x: -91.6, z: -17.6, pause: 0.5 },
+            { x: -95.5, z: -17.6, pause: 0.5 },
+            { x: -95.5, z: -14.5, pause: 0.5 },
+            { x: -86.5, z: -14.5, pause: 3.0 },
           ],
           prompt: 'Chat with Lady Sophia (Mansionettes)',
           msg: 'Come tour our four 2-Bedroom Stone Mansionettes! Each has two real bedrooms, an enclosed full bath, kitchen, and lounge!',
-          duty: 'We mansionette neighbors trade recipes, stroll to Greenfields Farm, and host sunset courtyard teas.',
+          duty: 'I cook dinner on the stone kitchen range, curl up on the parlor sofa, and stroll the mansionette gardens.',
           gossip: 'Half of Willow Creek is buzzing about your Royal Motorcade driving down Riviera Boulevard!',
           flirt: 'Don’t stand out in the lane too long looking so glamorous — come inside Ashford or Bellevue Mansionette!',
           clout: 2,
         },
         {
           id: 'lady-camille', role: 'friend', name: 'Lady Camille (Best Friend)', roleLabel: 'Inner-Circle Bestie',
-          x: -64.5, z: 14.0, y: 0, patrolR: 1.4, dressHex: '#b85d74', trimHex: '#e6c373', hairStyle: 'royal-waves',
+          x: -64.5, z: 14.5, y: 0, patrolR: 1.4, dressHex: '#b85d74', trimHex: '#e6c373', hairStyle: 'royal-waves',
           waypoints: [
-            { x: -64.5, z: 14.0, pause: 2.8 },
+            { x: -64.5, z: 14.5, pause: 2.8 },
             { x: -64.5, z: 24.0, pause: 3.0 },
-            { x: -72.0, z: 24.0, pause: 2.8 },
-            { x: -72.0, z: 14.0, pause: 2.6 },
+            { x: -69.5, z: 24.0, pause: 2.8 },
+            { x: -69.5, z: 14.5, pause: 2.6 },
           ],
           prompt: 'Chat & Gossip with Best Friend Camille',
-          msg: 'Bestie!! Did you see the Green Hospital Garden, the Pizza booths, and the new Palais fashions? Come grab truffle pizza with me!',
+          msg: 'Bestie!! Did you see the Green Hospital Garden, the Pizza booths, and the Bakeries? Invite me into your car or dine together!',
           duty: 'Your ride-or-die court confidante — I know every secret before Crown Dispatch prints a single headline.',
           gossip: 'Spotted at midnight: Chloe saved us the red VIP booth inside Palazzo Napoli Pizzeria!',
           flirt: 'Oh stop grinning like that — you know I always hype you up before any royal scandal!',
@@ -1605,7 +1960,7 @@
             { x: -135.2, z: 31.2, pause: 2.8 },
           ],
           prompt: 'Hang Out with Bestie Chloe (Pizza & Park)',
-          msg: 'Heyyy girl! Grab a hot pepperoni slice with me at Palazzo Napoli — the booths and drinks cooler are stocked!',
+          msg: 'Heyyy girl! Grab a hot pepperoni slice with me at Palazzo Napoli — or hop in a car and ride through town together!',
           duty: 'Always down for wood-fired pizza runs, shopping bags at Galerie Royale, and midnight swims at Villa Azure!',
           gossip: 'Marquis Julian keeps wandering past the Parterre Gardens hoping to run into you!',
           flirt: 'Seriously, your outfit today deserves its own double-page spread — let’s hit Shopping Place next!',
@@ -1629,47 +1984,47 @@
         },
         {
           id: 'friend-julian', role: 'friend', name: 'Marquis Julian (Friend)', roleLabel: 'Close Court Friend',
-          x: 14.5, z: 14.0, y: 0.0, patrolR: 1.3, dressHex: '#2f3d58', trimHex: '#d4af55', hairStyle: 'wavy-curtain-shag',
+          x: 19.8, z: 5.0, y: 0.0, patrolR: 1.3, dressHex: '#2f3d58', trimHex: '#d4af55', hairStyle: 'wavy-curtain-shag',
           waypoints: [
-            { x: 14.5, z: 14.0, pause: 2.8 },
-            { x: 14.5, z: 24.5, pause: 3.0 },
-            { x: 6.5, z: 24.5, pause: 2.8 },
-            { x: 6.5, z: 14.0, pause: 2.6 },
+            { x: 19.8, z: 5.0, pause: 2.8 },
+            { x: 19.8, z: 20.0, pause: 3.0 },
+            { x: 5.2, z: 20.0, pause: 2.8 },
+            { x: 5.2, z: 5.0, pause: 2.6 },
           ],
           prompt: 'Walk & Chat with Marquis Julian',
-          msg: 'Your Highness! I was hoping we might bump into each other among the Versailles roses before tonight’s Gala.',
-          duty: 'Escort for garden walks, equestrian trails on Aurelia & Vesper, and fierce chess partner.',
+          msg: 'Your Highness! I was hoping we might share afternoon tea at the Patisserie or take a spin down Riviera Boulevard!',
+          duty: 'Escort for garden walks, shared meals, car rides, and fierce chess matches.',
           gossip: 'Head Butler Henri told me the whole court bets on which sports car you will drive next!',
           flirt: 'Tell me straight — would you escape this courtyard with me to Palazzo Napoli or Club Couronne tonight?',
           clout: 2, male: true,
         },
         {
           id: 'baker-luc', role: 'chef', name: 'Master Baker Luc', roleLabel: 'Wallflour & Maison Brioche Patissier',
-          x: -83.4, z: 37.8, y: 0.12, patrolR: 0.8, dressHex: '#faf7f2', trimHex: '#91424c', hairStyle: 'slick-gala',
+          x: -84.0, z: 38.5, y: 0.12, patrolR: 0.8, dressHex: '#faf7f2', trimHex: '#91424c', hairStyle: 'slick-gala',
           waypoints: [
-            { x: -83.4, z: 37.8, pause: 3.0 },
-            { x: -80.4, z: 37.8, pause: 2.6 },
-            { x: -80.4, z: 39.2, pause: 2.4 },
-            { x: -83.4, z: 39.2, pause: 2.8 },
+            { x: -84.0, z: 38.5, pause: 4.5, workPose: 'cook', faceYaw: Math.PI },
+            { x: -79.2, z: 38.5, pause: 3.4, workPose: 'serve', faceYaw: 0 },
+            { x: -79.2, z: 39.4, pause: 2.6, workPose: 'work_station', faceYaw: 0 },
+            { x: -84.0, z: 39.4, pause: 3.0, workPose: 'cook', faceYaw: Math.PI },
           ],
           prompt: 'Chat with Master Baker Luc (Patisserie)',
-          msg: 'Warm croissants, fresh baguettes, and Louis XVI macaron boxes are ready in our Wallflour Patisserie vitrine, Your Highness!',
-          duty: 'I bake artisan sourdough, croissants, and ribboned rose macarons across both floors of Wallflour & Maison Brioche.',
+          msg: 'Warm croissants, fresh baguettes, and Louis XVI macaron boxes are freshly baked in our Wallflour vitrine, Your Highness!',
+          duty: 'I bake artisan sourdough, croissants, and ribboned rose macarons inside Wallflour & Maison Brioche.',
           gossip: 'Honors students from University North Hall always sprint here between debates!',
           flirt: 'Sweet as powdered rosewater, Princess — may I box a special treat just for you?',
           clout: 1, male: true,
         },
         {
           id: 'baker-maya', role: 'chef', name: 'Conservatory Baker Maya', roleLabel: 'Bumblebee Glasshouse Baker',
-          x: -74.2, z: 38.6, y: 0.12, patrolR: 0.75, dressHex: '#f4ebdc', trimHex: '#d99a2b', hairStyle: 'romantic-bun',
+          x: -75.2, z: 38.8, y: 0.12, patrolR: 0.75, dressHex: '#f4ebdc', trimHex: '#d99a2b', hairStyle: 'romantic-bun',
           waypoints: [
-            { x: -74.2, z: 38.6, pause: 3.0 },
-            { x: -72.2, z: 38.6, pause: 2.6 },
-            { x: -72.2, z: 40.8, pause: 2.6 },
-            { x: -74.2, z: 40.8, pause: 2.8 },
+            { x: -75.2, z: 38.8, pause: 4.2, workPose: 'cook', faceYaw: Math.PI },
+            { x: -71.5, z: 38.8, pause: 3.2, workPose: 'serve', faceYaw: 0 },
+            { x: -71.5, z: 42.5, pause: 3.0, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+            { x: -75.2, z: 42.5, pause: 2.8 },
           ],
           prompt: 'Talk to Baker Maya (Bumblebee Glasshouse)',
-          msg: 'Step inside our sunny Bumblebee Conservatory! Wildflower Honey Cake, lemon cupcakes, and bee pollen scones just came out warm!',
+          msg: 'Step inside our sunny Bumblebee Conservatory! Wildflower Honey Cake, lemon cupcakes, and bee pollen scones are glazing right now!',
           duty: 'I frost layered wildflower honey cakes, bake lemon curd cupcakes, and tend the climbing conservatory ivy.',
           gossip: 'Even the Palace Maids order our wildflower honey jars for the Princess’s Breakfast in Bed!',
           flirt: 'Golden honey sunlight suits you wonderfully, Your Highness!',
@@ -1677,28 +2032,85 @@
         },
         {
           id: 'waitress-gabrielle', role: 'staff', name: 'Tea Hostess Gabrielle', roleLabel: 'Gingham Salon & 2F Loft Server',
-          x: -80.2, z: 41.4, y: 0.12, patrolR: 0.9, dressHex: '#92b6da', trimHex: '#fffaf5', hairStyle: 'riviera-bob',
+          x: -82.6, z: 39.2, y: 0.12, patrolR: 0.9, dressHex: '#92b6da', trimHex: '#fffaf5', hairStyle: 'riviera-bob',
           waypoints: [
-            { x: -80.2, z: 41.4, pause: 2.8 },
-            { x: -85.4, z: 41.6, pause: 2.6 },
-            { x: -83.4, z: 42.4, pause: 2.6 },
-            { x: -80.2, z: 39.6, pause: 2.5 },
+            { x: -82.6, z: 39.2, pause: 2.6, workPose: 'work_station', faceYaw: Math.PI },
+            { x: -82.6, z: 42.6, pause: 3.2, workPose: 'serve', faceYaw: -Math.PI * 0.5 },
+            { x: -84.0, z: 42.6, pause: 0.5 },
+            { x: -84.0, z: 45.6, pause: 3.4, workPose: 'serve', faceYaw: Math.PI },
+            { x: -82.4, z: 45.6, pause: 2.4, workPose: 'serve', faceYaw: Math.PI },
+            { x: -84.0, z: 45.6, pause: 0.5 },
+            { x: -84.0, z: 42.6, pause: 0.5 },
+            { x: -82.6, z: 42.6, pause: 0.5 },
           ],
           prompt: 'Order Tea with Hostess Gabrielle (Bakery)',
-          msg: 'Take a seat at our powder-blue gingham tables, outside at the sidewalk rose bistro, or climb up to our 2F Piano Tasting Loft!',
-          duty: 'I serve pot-steeped Earl Grey tea, raspberry mille-feuille, and sidewalk café crèmes to court guests.',
+          msg: 'Take a seat at our powder-blue gingham tables, outside at the sidewalk rose bistro, or dine with a friend upstairs!',
+          duty: 'I carry silver tea trays between the gingham tables and the sidewalk rose bistro.',
           gossip: 'Duchess Vivienne and Lady Camille booked the upstairs piano tasting table for this evening!',
           flirt: 'A quiet gingham table by the arched windows is always saved for you, Princess.',
           clout: 1,
         },
         {
-          id: 'stylist-celine', role: 'staff', name: 'Couturier Céline', roleLabel: 'Maison de Couture Director',
-          x: 79.6, z: 41.0, y: 0.12, patrolR: 0.9, dressHex: '#5e2b45', trimHex: '#f1d08a', hairStyle: 'marie-updo',
+          id: 'pizza-chef-marco', role: 'chef', name: 'Pizzaiolo Chef Marco', roleLabel: 'Palazzo Napoli Wood-Fired Chef',
+          x: -140.8, z: 36.5, y: 0.12, patrolR: 0.9, dressHex: '#faf7f2', trimHex: '#a6262e', hairStyle: 'slick-gala',
           waypoints: [
-            { x: 79.6, z: 41.0, pause: 3.0 },
-            { x: 82.6, z: 41.0, pause: 2.6 },
-            { x: 82.6, z: 38.4, pause: 2.4 },
-            { x: 79.6, z: 38.4, pause: 2.8 },
+            { x: -140.8, z: 36.5, pause: 5.0, workPose: 'cook', faceYaw: Math.PI },
+            { x: -136.2, z: 36.5, pause: 3.2, workPose: 'serve', faceYaw: 0 },
+            { x: -136.2, z: 39.2, pause: 0.5 },
+            { x: -141.6, z: 39.2, pause: 3.4, workPose: 'serve', faceYaw: -Math.PI * 0.5 },
+            { x: -136.2, z: 39.2, pause: 0.5 },
+            { x: -136.2, z: 36.5, pause: 0.5 },
+          ],
+          prompt: 'Order Pizza from Chef Marco',
+          msg: 'Wood-fired truffle margherita and pepperoni slices hot out of our brick oven! Grab a booth or invite friends along!',
+          duty: 'I toss fresh Neapolitan dough by the stone pizza oven and serve hot slices at the red booths.',
+          gossip: 'Besties Chloe and Camille always split a spicy truffle pie here every Friday!',
+          flirt: 'First slice off the stone hearth is always complimentary for royalty!',
+          clout: 1, male: true,
+        },
+        {
+          id: 'market-clerk-jules', role: 'staff', name: 'Grocer Clerk Jules', roleLabel: 'Royale Fresh Market Cashier',
+          x: -115.4, z: 40.2, y: 0.12, patrolR: 0.9, dressHex: '#3f6c45', trimHex: '#f4e6d2', hairStyle: 'wavy-curtain-shag',
+          waypoints: [
+            { x: -115.4, z: 40.2, pause: 4.5, workPose: 'work_station', faceYaw: 0 },
+            { x: -109.2, z: 40.2, pause: 3.2, workPose: 'cook', faceYaw: -Math.PI * 0.5 },
+            { x: -109.2, z: 42.6, pause: 3.2, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: -112.4, z: 42.6, pause: 2.2 },
+            { x: -112.4, z: 40.2, pause: 0.6 },
+          ],
+          prompt: 'Shop with Grocer Jules (Market)',
+          msg: 'Fresh peaches, truffles, and iced sodas stocked neatly in Royale Fresh Market — step right up to the register!',
+          duty: 'I ring up Royal Fresh Market baskets, restock orchard berries, and pack picnic hampers.',
+          gossip: 'Baker Maya gets her early-morning wildflower honey crates delivered right through my shop!',
+          flirt: 'Picking the ripest Riviera strawberries just for Your Highness!',
+          clout: 1, male: true,
+        },
+        {
+          id: 'boutique-stylist-rose', role: 'staff', name: 'Boutique Director Rose', roleLabel: 'Galerie Royale Luxury Advisor',
+          x: 106.5, z: 42.3, y: 0.12, patrolR: 0.9, dressHex: '#2f2136', trimHex: '#e6c373', hairStyle: 'marie-updo',
+          waypoints: [
+            { x: 106.5, z: 42.3, pause: 4.4, workPose: 'work_station', faceYaw: 0 },
+            { x: 108.6, z: 42.3, pause: 3.0, workPose: 'serve', faceYaw: -Math.PI * 0.5 },
+            { x: 108.6, z: 39.1, pause: 3.4, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 104.4, z: 39.1, pause: 3.0, workPose: 'serve', faceYaw: Math.PI },
+            { x: 108.6, z: 39.1, pause: 0.5 },
+            { x: 108.6, z: 42.3, pause: 0.5 },
+          ],
+          prompt: 'Browse with Director Rose (Boutique)',
+          msg: 'Silk ribbon handbags, Riviera resort dresses, and velvet evening jewelry await in Galerie Royale!',
+          duty: 'I style boutique displays, ring up couture purchases, and advise court guests on gala looks.',
+          gossip: 'The velvet tiara clutch in Display Case #2 sold out within twenty minutes of Crown Dispatch!',
+          flirt: 'You make every silk dress on the rack look effortless, Your Highness!',
+          clout: 2,
+        },
+        {
+          id: 'stylist-celine', role: 'staff', name: 'Couturier Céline', roleLabel: 'Maison de Couture Director',
+          x: 79.6, z: 41.2, y: 0.12, patrolR: 0.9, dressHex: '#5e2b45', trimHex: '#f1d08a', hairStyle: 'marie-updo',
+          waypoints: [
+            { x: 79.6, z: 41.2, pause: 4.2, workPose: 'work_station', faceYaw: Math.PI },
+            { x: 81.4, z: 41.2, pause: 3.2, workPose: 'serve', faceYaw: Math.PI * 0.5 },
+            { x: 81.4, z: 38.6, pause: 3.0, workPose: 'work_station', faceYaw: 0 },
+            { x: 79.6, z: 38.6, pause: 2.8 },
           ],
           prompt: 'Consult Couturier Céline (Seamstress)',
           msg: 'Step up to the atelier mirror anytime for custom silk embroidery or open the Atelier Wardrobe!',
@@ -1709,12 +2121,12 @@
         },
         {
           id: 'lifeguard-gabriel', role: 'staff', name: 'Lido Host Gabriel', roleLabel: 'Villa Azure Poolside Host',
-          x: 86.2, z: 27.6, y: 0.24, patrolR: 1.1, dressHex: '#2f6f8e', trimHex: '#fff4dc', hairStyle: 'wavy-curtain-shag',
+          x: 86.6, z: 30.8, y: 0.24, patrolR: 1.1, dressHex: '#2f6f8e', trimHex: '#fff4dc', hairStyle: 'wavy-curtain-shag',
           waypoints: [
-            { x: 86.2, z: 27.6, pause: 3.0 },
-            { x: 86.2, z: 18.2, pause: 2.8 },
-            { x: 83.2, z: 18.2, pause: 2.4 },
-            { x: 83.2, z: 27.6, pause: 2.8 },
+            { x: 86.6, z: 30.8, pause: 3.8, workPose: 'stargaze', faceYaw: -Math.PI * 0.5 },
+            { x: 86.6, z: 21.9, pause: 3.4, workPose: 'work_station', faceYaw: -Math.PI * 0.5 },
+            { x: 76.0, z: 21.9, pause: 3.0, workPose: 'serve', faceYaw: 0 },
+            { x: 86.6, z: 21.9, pause: 0.5 },
           ],
           prompt: 'Greet Lido Host Gabriel (Pool)',
           msg: 'The turquoise water is crystal warm today — dive right in or recline on our resort loungers!',
@@ -1727,29 +2139,29 @@
           id: 'dj-vivienne', role: 'staff', name: 'DJ Vivienne (Nightclub)', roleLabel: 'Club Couronne Resident DJ',
           x: 132.2, z: 37.8, y: 0.12, patrolR: 0.5, dressHex: '#281533', trimHex: '#ff7bd5', hairStyle: 'riviera-bob',
           waypoints: [
-            { x: 132.2, z: 37.8, pause: 3.6 },
-            { x: 134.8, z: 37.8, pause: 3.2 },
-            { x: 134.8, z: 39.8, pause: 2.8 },
-            { x: 132.2, z: 39.8, pause: 3.4 },
+            { x: 132.2, z: 37.8, pause: 5.5, workPose: 'club_dance', faceYaw: 0 },
+            { x: 134.8, z: 37.8, pause: 4.5, workPose: 'club_dance', faceYaw: 0 },
+            { x: 134.8, z: 39.8, pause: 3.2, workPose: 'serve', faceYaw: 0 },
+            { x: 132.2, z: 39.8, pause: 4.0, workPose: 'club_dance', faceYaw: 0 },
           ],
           prompt: 'Talk to DJ Vivienne (Club Privé)',
           msg: 'Hit the neon dancefloor or order bottle service, Princess — the VIP booth is always yours!',
-          duty: 'I spin midnight synth-baroque sets while the VIP lounge and washrooms stay immaculate.',
+          duty: 'I spin midnight synth-baroque sets live at the neon booth while keeping the dancefloor electric.',
           gossip: 'Crown Dispatch offered my bartender ₡500 for photos of whoever sneaks into the VIP booth tonight!',
           flirt: 'Careful — one slow dance under these magenta spotlights and the whole court will talk!',
           clout: 3,
         },
         {
           id: 'neighbor-claire', role: 'citizen', name: 'Elmwood St. Neighbor Claire', roleLabel: '3-Bedroom House Neighbor',
-          x: -70.5, z: 28.5, y: 0.0, patrolR: 1.4, dressHex: '#6c8b78', trimHex: '#f4e6d2', hairStyle: 'romantic-bun',
+          x: -69.5, z: 28.5, y: 0.0, patrolR: 1.4, dressHex: '#6c8b78', trimHex: '#f4e6d2', hairStyle: 'romantic-bun',
           waypoints: [
-            { x: -70.5, z: 28.5, pause: 2.8 },
-            { x: -82.0, z: 28.5, pause: 3.0 },
-            { x: -82.0, z: 24.5, pause: 2.6 },
-            { x: -70.5, z: 24.5, pause: 2.8 },
+            { x: -69.5, z: 28.5, pause: 2.8 },
+            { x: -65.5, z: 28.5, pause: 3.0 },
+            { x: -65.5, z: 21.5, pause: 2.6 },
+            { x: -69.5, z: 21.5, pause: 2.8 },
           ],
           prompt: 'Chat with Neighbor Claire',
-          msg: 'Come inside our 3-Bedroom Middle-Class Houses! All four have 3 full bedrooms, 2 bathrooms, a kitchen island, and cars outside!',
+          msg: 'Come inside our 3-Bedroom Middle-Class Houses! Kids are playing on the lawns while families cook and watch the toddlers indoors!',
           duty: 'I organize Willow Creek block parties and wave to everyone driving down Cypress Street.',
           gossip: 'Everyone noticed the new 2-Bedroom Stone Mansionettes up the block — real estate is booming!',
           flirt: 'Always lovely seeing royalty drop by our cozy suburban picket-fence block!',
@@ -1759,10 +2171,10 @@
           id: 'headmistress-laurent', role: 'staff', name: 'Headmistress Laurent', roleLabel: 'High School Principal',
           x: 79.6, z: 17.0, y: 0.04, patrolR: 0.9, dressHex: '#23324b', trimHex: '#e6c373', hairStyle: 'regency-bun',
           waypoints: [
-            { x: 79.6, z: 17.0, pause: 3.0 },
-            { x: 79.6, z: 12.0, pause: 2.6 },
-            { x: 75.8, z: 12.0, pause: 2.6 },
-            { x: 75.8, z: 17.0, pause: 2.8 },
+            { x: 79.6, z: 17.0, pause: 3.4, workPose: 'work_station', faceYaw: 0 },
+            { x: 79.6, z: 12.6, pause: 3.4, workPose: 'read', faceYaw: 0 },
+            { x: 75.8, z: 12.6, pause: 3.0, workPose: 'work_station', faceYaw: Math.PI * 0.5 },
+            { x: 79.6, z: 12.6, pause: 0.6 },
           ],
           prompt: 'Speak to Headmistress Laurent (High School)',
           msg: 'Step inside Académie Couronne High School for honors quizzes, art lab, lockers & washrooms!',
@@ -1773,12 +2185,12 @@
         },
         {
           id: 'classmate-celeste', role: 'friend', name: 'Honors Rival Celeste', roleLabel: 'High School Senior Friend',
-          x: 76.2, z: 12.2, y: 0.12, patrolR: 0.8, dressHex: '#a43753', trimHex: '#f8e6c8', hairStyle: 'riviera-bob',
+          x: 76.2, z: 12.6, y: 0.12, patrolR: 0.8, dressHex: '#a43753', trimHex: '#f8e6c8', hairStyle: 'riviera-bob',
           waypoints: [
-            { x: 76.2, z: 12.2, pause: 2.8 },
-            { x: 82.8, z: 12.2, pause: 2.6 },
-            { x: 82.8, z: 15.8, pause: 2.4 },
-            { x: 76.2, z: 15.8, pause: 2.8 },
+            { x: 76.2, z: 12.6, pause: 3.2, workPose: 'read', faceYaw: Math.PI },
+            { x: 83.0, z: 12.6, pause: 2.8, workPose: 'converse', faceYaw: -Math.PI * 0.5 },
+            { x: 83.0, z: 13.8, pause: 2.6 },
+            { x: 76.2, z: 13.8, pause: 2.8 },
           ],
           prompt: 'Swap Gossip with Celeste (High School)',
           msg: 'Bet you cannot beat my quiz score — or uncover who stashed that secret note in Locker #7!',
@@ -1791,10 +2203,10 @@
           id: 'prof-beaumont', role: 'staff', name: 'Professor Beaumont', roleLabel: 'Crown University Dean',
           x: 106.5, z: 16.5, y: 0.04, patrolR: 0.9, dressHex: '#4b2839', trimHex: '#d4af55', hairStyle: 'slick-gala',
           waypoints: [
-            { x: 106.5, z: 16.5, pause: 3.0 },
-            { x: 112.0, z: 16.5, pause: 2.8 },
-            { x: 112.0, z: 10.5, pause: 2.6 },
-            { x: 106.5, z: 10.5, pause: 3.0 },
+            { x: 106.5, z: 16.5, pause: 3.6, workPose: 'read', faceYaw: Math.PI },
+            { x: 106.5, z: 11.4, pause: 3.4, workPose: 'work_station', faceYaw: 0 },
+            { x: 111.5, z: 11.4, pause: 3.2, workPose: 'read', faceYaw: -Math.PI * 0.5 },
+            { x: 106.5, z: 11.4, pause: 0.6 },
           ],
           prompt: 'Consult Professor Beaumont (University)',
           msg: 'Welcome to Crown University! Visit our Debate Hall, Concert Piano, North Dorms Clock Tower & Botanic Glasshouse!',
@@ -1803,15 +2215,261 @@
           flirt: 'True brilliance and elegance rarely meet in one person — you honour our university halls.',
           clout: 2, male: true,
         },
+        // LIVELY HOUSEHOLD FAMILIES, FAMILY MEALS, SLEEPING, KIDS PLAYING & TODDLERS BEING WATCHED
+        {
+          id: 'hh1-dad-arthur', role: 'citizen', name: 'Arthur (Elmwood Villa)', roleLabel: '3-Bed Villa Father',
+          x: -79.4, z: 6.1, y: 0.12, patrolR: 1.1, dressHex: '#455b70', trimHex: '#efe2cb', hairStyle: 'slick-gala',
+          walkSpeed: 1.18,
+          waypoints: [
+            { x: -79.4, z: 6.1, pause: 4.2, workPose: 'cook', faceYaw: Math.PI },
+            { x: -79.4, z: 8.26, pause: 4.8, workPose: 'eat', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_1_island' },
+            { x: -81.15, z: 8.26, pause: 0.4 },
+            { x: -81.15, z: 12.0, pause: 5.0, workPose: 'toddler_watch', faceYaw: Math.PI * 0.5 },
+            { x: -81.15, z: 13.38, pause: 0.4 },
+            { x: -79.2, z: 13.38, pause: 0.4 },
+            { x: -79.2, z: 14.28, pause: 4.0, workPose: 'sofa', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_1_sofa' },
+            { x: -79.2, z: 13.38, pause: 0.4 },
+            { x: -81.15, z: 13.38, pause: 0.4 },
+            { x: -81.15, z: 9.8, pause: 0.5 },
+            { x: -85.0, z: 9.8, pause: 0.5 },
+            { x: -88.4, z: 9.8, pause: 6.0, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: Math.PI * 0.5, lockSpotId: 'mid_house_1_bed_2' },
+            { x: -85.0, z: 9.8, pause: 0.5 },
+            { x: -81.15, z: 9.8, pause: 0.5 },
+            { x: -81.15, z: 6.1, pause: 0.4 },
+          ],
+          prompt: 'Visit Arthur at Elmwood Villa',
+          msg: 'Come on inside! I just flipped pancakes at the stove, we are sitting down to eat at the breakfast bar while little Lily plays on the rug.',
+          duty: 'Cooking family breakfast, eating together at the island, watching toddler Lily, and catching a nap.',
+          gossip: 'Leo keeps trying to beat everyone down Cypress Street on his bike!',
+          flirt: 'Pull up a stool at our breakfast bar whenever you want real homemade coffee!',
+          clout: 1, male: true, isCitizen: true,
+        },
+        {
+          id: 'hh1-kid-leo', role: 'citizen', ageGroup: 'child', name: 'Leo (Elmwood Kid)', roleLabel: 'Willow Creek Kid',
+          x: -72.8, z: 8.6, y: 0.0, patrolR: 1.2, dressHex: '#3f76a8', trimHex: '#f8e6c8', hairStyle: 'wavy-curtain-shag',
+          walkSpeed: 1.52,
+          waypoints: [
+            { x: -72.8, z: 8.6, pause: 4.0, workPose: 'play_kid', faceYaw: 0 },
+            { x: -75.2, z: 9.8, pause: 0.5 },
+            { x: -77.4, z: 9.8, pause: 0.5 },
+            { x: -77.4, z: 8.26, pause: 0.4 },
+            { x: -78.58, z: 8.26, pause: 4.4, workPose: 'eat', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_1_island' },
+            { x: -80.8, z: 8.26, pause: 0.4 },
+            { x: -80.6, z: 13.4, pause: 3.8, workPose: 'play_kid', faceYaw: Math.PI },
+            { x: -80.8, z: 9.8, pause: 0.5 },
+            { x: -75.2, z: 9.8, pause: 0.5 },
+            { x: -72.8, z: 11.2, pause: 2.2, workPose: 'play_kid', faceYaw: 0 },
+          ],
+          prompt: 'Wave at Kid Leo (Elmwood)',
+          msg: 'Hi!! Watch how high I can hop on the lawn — right after Dad calls me inside for pancakes at the breakfast island!',
+          duty: 'Playing on the Elmwood yard, eating family breakfast with Dad, and playing with baby Lily.',
+          gossip: 'I saw two bright shiny cars cruising right down the boulevard earlier!',
+          flirt: 'Bet you can’t beat me in a race to the corner sidewalk!',
+          clout: 1, male: true, isCitizen: true,
+        },
+        {
+          id: 'hh1-toddler-lily', role: 'citizen', ageGroup: 'toddler', name: 'Baby Lily (Elmwood Toddler)', roleLabel: 'Willow Creek Toddler',
+          x: -80.6, z: 12.1, y: 0.12, patrolR: 0.5, dressHex: '#e69db2', trimHex: '#fffaf5', hairStyle: 'riviera-bob',
+          walkSpeed: 0.72,
+          waypoints: [
+            { x: -80.6, z: 12.1, pause: 4.8, workPose: 'toddler_play', faceYaw: Math.PI },
+            { x: -80.6, z: 13.3, pause: 4.0, workPose: 'toddler_play', faceYaw: Math.PI * 0.5 },
+            { x: -79.8, z: 13.5, pause: 4.4, workPose: 'toddler_play', faceYaw: -Math.PI * 0.5 },
+            { x: -80.6, z: 13.3, pause: 0.6 },
+          ],
+          prompt: 'Play with Toddler Lily (Elmwood)',
+          msg: 'Giggles and claps happily on the soft pastel parlor rug while Dad watches closely!',
+          duty: 'Bouncing, clapping hands, and toddling safely on the living room rug inside Elmwood Villa.',
+          gossip: 'Arthur keeps plush cushions all around so Lily never bumps into the coffee table!',
+          flirt: 'Yay! Yay! Peek-a-boo!',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'hh2-mom-eleonore', role: 'citizen', name: 'Éléonore (Lavender Gables)', roleLabel: '3-Bed Home Mother',
+          x: -81.15, z: 30.7, y: 0.12, patrolR: 1.0, dressHex: '#b87088', trimHex: '#fff8ef', hairStyle: 'romantic-bun',
+          walkSpeed: 1.20,
+          waypoints: [
+            { x: -81.15, z: 30.7, pause: 5.0, workPose: 'toddler_watch', faceYaw: Math.PI * 0.5 },
+            { x: -81.15, z: 24.8, pause: 0.4 },
+            { x: -79.4, z: 24.8, pause: 4.2, workPose: 'cook', faceYaw: Math.PI },
+            { x: -79.4, z: 26.96, pause: 4.8, workPose: 'eat', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_2_island' },
+            { x: -81.15, z: 26.96, pause: 0.4 },
+            { x: -81.15, z: 32.08, pause: 0.4 },
+            { x: -79.2, z: 32.08, pause: 0.4 },
+            { x: -79.2, z: 32.98, pause: 3.8, workPose: 'sofa', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_2_sofa' },
+            { x: -79.2, z: 32.08, pause: 0.4 },
+            { x: -81.15, z: 32.08, pause: 0.4 },
+            { x: -81.15, z: 28.5, pause: 0.5 },
+            { x: -85.0, z: 28.5, pause: 0.5 },
+            { x: -88.4, z: 28.5, pause: 5.8, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: Math.PI * 0.5, lockSpotId: 'mid_house_2_bed_2' },
+            { x: -85.0, z: 28.5, pause: 0.5 },
+            { x: -81.15, z: 28.5, pause: 0.5 },
+          ],
+          prompt: 'Chat with Éléonore (Lavender Gables)',
+          msg: 'Come in! Chloé-Marie and I are having honey scones at the breakfast island while little Hugo toddles right beside us.',
+          duty: 'Watching toddler Hugo, cooking family meals, eating together at the island, and napping upstairs.',
+          gossip: 'We walk right up the street to Wallflour Bakery for warm croissants almost every morning!',
+          flirt: 'You always brighten our block — come join us for tea anytime!',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'hh2-toddler-hugo', role: 'citizen', ageGroup: 'toddler', name: 'Baby Hugo (Lavender Gables)', roleLabel: '3-Bed Home Toddler',
+          x: -80.6, z: 30.8, y: 0.12, patrolR: 0.45, dressHex: '#7da8c9', trimHex: '#fff8ef', hairStyle: 'wavy-curtain-shag',
+          walkSpeed: 0.70,
+          waypoints: [
+            { x: -80.6, z: 30.8, pause: 4.5, workPose: 'toddler_play', faceYaw: Math.PI },
+            { x: -80.6, z: 32.0, pause: 4.2, workPose: 'toddler_play', faceYaw: -Math.PI * 0.5 },
+            { x: -79.8, z: 32.2, pause: 4.0, workPose: 'toddler_play', faceYaw: Math.PI * 0.5 },
+            { x: -80.6, z: 32.0, pause: 0.6 },
+          ],
+          prompt: 'Wave to Baby Hugo (Lavender Gables)',
+          msg: 'Claps both little hands excitedly as Mom smiles and cheers him on!',
+          duty: 'Toddling around the Lavender Gables rug under his mother’s watchful eyes.',
+          gossip: 'Hugo took his very first steady steps right beside the rose coffee table!',
+          flirt: 'Wheee! Happy baby bounces!',
+          clout: 1, male: true, isCitizen: true,
+        },
+        {
+          id: 'hh2-kid-chloemarie', role: 'citizen', ageGroup: 'child', name: 'Chloé-Marie (Lavender Kid)', roleLabel: 'Willow Creek Kid',
+          x: -72.8, z: 27.2, y: 0.0, patrolR: 1.2, dressHex: '#9c6ba8', trimHex: '#fff4e4', hairStyle: 'royal-waves',
+          walkSpeed: 1.48,
+          waypoints: [
+            { x: -72.8, z: 27.2, pause: 4.0, workPose: 'play_kid', faceYaw: 0 },
+            { x: -75.2, z: 28.5, pause: 0.5 },
+            { x: -77.4, z: 28.5, pause: 0.5 },
+            { x: -77.4, z: 26.96, pause: 0.4 },
+            { x: -78.58, z: 26.96, pause: 4.5, workPose: 'eat', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_2_island' },
+            { x: -80.8, z: 26.96, pause: 0.4 },
+            { x: -80.6, z: 32.0, pause: 3.4, workPose: 'play_kid', faceYaw: Math.PI },
+            { x: -80.8, z: 28.5, pause: 0.5 },
+            { x: -75.2, z: 28.5, pause: 0.5 },
+            { x: -72.8, z: 29.8, pause: 2.2, workPose: 'play_kid', faceYaw: 0 },
+          ],
+          prompt: 'Talk to Kid Chloé-Marie',
+          msg: 'I love running outside to play, then sitting with Mom at the breakfast bar for warm cocoa and scones!',
+          duty: 'Playing on the front yard, eating family supper at the island, and making baby Hugo giggle.',
+          gossip: 'Wallflour Bakery just upstairs has raspberry tarts in the window right now!',
+          flirt: 'Your hair looks so pretty today! Are you going out to eat with friends?',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'hh3-mom-nadine', role: 'citizen', name: 'Nadine (Oakridge House)', roleLabel: '3-Bed Oakridge Mother',
+          x: -107.4, z: 6.1, y: 0.12, patrolR: 1.0, dressHex: '#3f7662', trimHex: '#f4e6d2', hairStyle: 'regency-bun',
+          walkSpeed: 1.18,
+          waypoints: [
+            { x: -107.4, z: 6.1, pause: 4.2, workPose: 'cook', faceYaw: Math.PI },
+            { x: -107.4, z: 8.26, pause: 4.8, workPose: 'eat', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_3_island' },
+            { x: -109.15, z: 8.26, pause: 0.4 },
+            { x: -109.15, z: 13.38, pause: 3.4, workPose: 'read', faceYaw: Math.PI * 0.5 },
+            { x: -107.2, z: 13.38, pause: 0.4 },
+            { x: -107.2, z: 14.28, pause: 4.4, workPose: 'sofa', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_3_sofa' },
+            { x: -107.2, z: 13.38, pause: 0.4 },
+            { x: -109.15, z: 13.38, pause: 0.4 },
+            { x: -109.15, z: 9.8, pause: 0.5 },
+            { x: -113.0, z: 9.8, pause: 0.5 },
+            { x: -116.4, z: 9.8, pause: 5.8, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: Math.PI * 0.5, lockSpotId: 'mid_house_3_bed_2' },
+            { x: -113.0, z: 9.8, pause: 0.5 },
+            { x: -109.15, z: 9.8, pause: 0.5 },
+            { x: -109.15, z: 6.1, pause: 0.4 },
+          ],
+          prompt: 'Visit Nadine (Oakridge House)',
+          msg: 'Stop in anytime! I have soup simmering, Lucas Jr. and I share lunch at the breakfast bar, and I catch quiet reading time on the sofa.',
+          duty: 'Cooking, sharing family meals at the island, reading novels, and sleeping in the bedroom.',
+          gossip: 'Everyone down the street is trying the new rooftop sky bar over at Hôtel Montieri this week!',
+          flirt: 'Our kitchen door is always open if you want a quiet homemade meal away from the crowds.',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'hh3-kid-lucasjr', role: 'citizen', ageGroup: 'child', name: 'Lucas Jr. (Oakridge Kid)', roleLabel: 'Oakridge House Kid',
+          x: -100.8, z: 8.6, y: 0.0, patrolR: 1.2, dressHex: '#4f7a58', trimHex: '#fff4e4', hairStyle: 'wavy-curtain-shag',
+          walkSpeed: 1.50,
+          waypoints: [
+            { x: -100.8, z: 8.6, pause: 4.2, workPose: 'play_kid', faceYaw: 0 },
+            { x: -103.2, z: 9.8, pause: 0.5 },
+            { x: -105.4, z: 9.8, pause: 0.5 },
+            { x: -105.4, z: 8.26, pause: 0.4 },
+            { x: -106.58, z: 8.26, pause: 4.4, workPose: 'eat', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: Math.PI, lockSpotId: 'mid_house_3_island' },
+            { x: -108.8, z: 8.26, pause: 0.4 },
+            { x: -108.6, z: 13.4, pause: 3.6, workPose: 'play_kid', faceYaw: Math.PI },
+            { x: -108.8, z: 9.8, pause: 0.5 },
+            { x: -103.2, z: 9.8, pause: 0.5 },
+            { x: -100.8, z: 11.0, pause: 2.2, workPose: 'play_kid', faceYaw: 0 },
+          ],
+          prompt: 'Say Hi to Kid Lucas Jr.',
+          msg: 'Zoom zoom! I play outside on the yard, rush inside when Mom makes sandwiches, and wave at the horses across the street!',
+          duty: 'Playing hopscotch on the Oakridge yard, eating lunch with Mom, and waving at the stable horses.',
+          gossip: 'Stablehand Olivier let me feed Aurelia a carrot this morning!',
+          flirt: 'Want to race my bike against your sports car someday?!',
+          clout: 1, male: true, isCitizen: true,
+        },
+        {
+          id: 'hhm-mom-margaux', role: 'citizen', name: 'Margaux (Mansionette #1)', roleLabel: 'Stone Mansionette Parent',
+          x: -76.1, z: -17.6, y: 0.12, patrolR: 1.0, dressHex: '#8d5368', trimHex: '#f1d08a', hairStyle: 'marie-updo',
+          walkSpeed: 1.18,
+          waypoints: [
+            { x: -76.1, z: -17.6, pause: 5.2, workPose: 'toddler_watch', faceYaw: Math.PI },
+            { x: -79.4, z: -17.6, pause: 0.4 },
+            { x: -79.4, z: -23.9, pause: 4.2, workPose: 'cook', faceYaw: Math.PI },
+            { x: -79.4, z: -23.3, pause: 0.4 },
+            { x: -83.6, z: -23.4, pause: 5.8, workPose: 'sleep', yOverride: 0.70, rigOffsetY: 0.09, faceYaw: Math.PI * 0.5, lockSpotId: 'mansionette_1_bed_1' },
+            { x: -79.4, z: -23.3, pause: 0.4 },
+            { x: -79.4, z: -17.6, pause: 0.4 },
+            { x: -74.7, z: -17.6, pause: 0.4 },
+            { x: -74.68, z: -19.4, pause: 4.0, workPose: 'sofa', yOverride: 0.20, rigOffsetY: -0.45, faceYaw: -Math.PI * 0.5, lockSpotId: 'mansionette_1_sofa' },
+            { x: -74.7, z: -17.6, pause: 0.4 },
+          ],
+          prompt: 'Visit Margaux (Mansionette #1)',
+          msg: 'Come right in! I am keeping an eye on baby Juliette while supper simmers, then grabbing a quiet nap in the back bedroom.',
+          duty: 'Watching toddler Juliette, cooking supper, lounging on the sofa, and resting in Bedroom #1.',
+          gossip: 'Our front yard looks right out toward Greenfields Farm windmills!',
+          flirt: 'Always lovely having good company over — stay and rest your feet for a minute!',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'hhm-toddler-juliette', role: 'citizen', ageGroup: 'toddler', name: 'Baby Juliette (Mansionette)', roleLabel: 'Stone Mansionette Toddler',
+          x: -76.6, z: -17.6, y: 0.12, patrolR: 0.45, dressHex: '#e3b282', trimHex: '#fffaf5', hairStyle: 'riviera-bob',
+          walkSpeed: 0.70,
+          waypoints: [
+            { x: -76.6, z: -17.6, pause: 4.6, workPose: 'toddler_play', faceYaw: -Math.PI * 0.5 },
+            { x: -75.6, z: -17.6, pause: 4.0, workPose: 'toddler_play', faceYaw: Math.PI },
+            { x: -76.1, z: -18.0, pause: 4.2, workPose: 'toddler_play', faceYaw: 0 },
+          ],
+          prompt: 'Greet Baby Juliette (Mansionette #1)',
+          msg: 'Bouncing gleefully on the wool parlor rug while Mom watches proudly!',
+          duty: 'Clapping and playing in the Mansionette living room while Margaux watches.',
+          gossip: 'Margaux knitted that tiny cream cardigan herself!',
+          flirt: 'Peek-a-boo! Happy claps!',
+          clout: 1, isCitizen: true,
+        },
+        {
+          id: 'hhf-kid-tom', role: 'citizen', ageGroup: 'child', name: 'Farm Kid Tom (Greenfields)', roleLabel: 'Greenfields Farm Kid',
+          x: -139.8, z: -34.2, y: 0.12, patrolR: 1.2, dressHex: '#6c8544', trimHex: '#f4e6d2', hairStyle: 'wavy-curtain-shag',
+          walkSpeed: 1.50,
+          waypoints: [
+            { x: -139.8, z: -34.2, pause: 3.8, workPose: 'play_kid', faceYaw: -Math.PI * 0.5 },
+            { x: -141.5, z: -34.2, pause: 0.4 },
+            { x: -141.5, z: -28.0, pause: 0.6 },
+            { x: -134.5, z: -28.0, pause: 4.2, workPose: 'play_kid', faceYaw: Math.PI * 0.5 },
+            { x: -141.5, z: -28.0, pause: 0.6 },
+            { x: -141.5, z: -34.2, pause: 0.4 },
+          ],
+          prompt: 'Chat with Farm Kid Tom (Greenfields)',
+          msg: 'Hey Your Highness!! Look at me playing beside the farmhouse and cheering on the grazing cows!',
+          duty: 'Helping Farmer Gérard watch the pasture and playing outside Greenfields Farmhouse.',
+          gossip: 'Chef Auguste said our farm strawberries made yesterday’s royal macarons extra sweet!',
+          flirt: 'You are the coolest Princess in the whole kingdom!',
+          clout: 1, male: true, isCitizen: true,
+        },
       ].forEach(function (npc, idx) {
         const isMaleNpc = Boolean(npc.male);
+        const ageGrp = npc.ageGroup || 'adult';
         const mesh = P.buildRoyalCharacterMesh(
           {
             body: { sliders: { height: isMaleNpc ? 1.03 : 0.98 } },
             look: { hairStyle: npc.hairStyle },
             wardrobe: { outfitId: npc.outfitId || (isMaleNpc ? 'equestrian-tailored' : 'ballgown-silk'), themeId: 'signature' },
           },
-          { name: npc.id, role: npc.role || 'staff', dressHex: npc.dressHex, trimHex: npc.trimHex, showPlumbob: false }
+          { name: npc.id, role: npc.role || 'staff', ageGroup: ageGrp, dressHex: npc.dressHex, trimHex: npc.trimHex, showPlumbob: false }
         );
         mesh.root.position.set(npc.x, npc.y, npc.z);
         if (typeof npc.stationaryYaw === 'number') {
@@ -1835,11 +2493,13 @@
         actors.push({
           id: npc.id,
           role: npc.role || 'staff',
+          ageGroup: ageGrp,
           actorCategory: actCat,
           name: npc.name,
           roleLabel: npc.roleLabel || 'Riviera Resident',
           homeX: npc.x,
           homeY: npc.y,
+          origHomeY: npc.y,
           homeZ: npc.z,
           patrolR: npc.patrolR,
           walkSpeed: npc.walkSpeed || 1.28,
@@ -1861,6 +2521,7 @@
           gossipLine: npc.gossip,
           flirtLine: npc.flirt,
           clout: npc.clout || 1,
+          hotelFloor: typeof npc.hotelFloor === 'number' ? npc.hotelFloor : null,
           isMedicalStaff: isMed,
           isCitizen: isCit,
           isTalking: false,
@@ -2122,11 +2783,14 @@
       convRole.style.color = '#7c5111';
       const convBubble = document.createElement('div');
       convBubble.className = 'world-converse-bubble';
+      const convCatTabs = document.createElement('div');
+      convCatTabs.className = 's4-cat-tabs';
       const convChoices = document.createElement('div');
       convChoices.className = 'world-converse-choices';
       convCard.appendChild(convHead);
       convCard.appendChild(convRole);
       convCard.appendChild(convBubble);
+      convCard.appendChild(convCatTabs);
       convCard.appendChild(convChoices);
       convOverlay.appendChild(convCard);
       shell.appendChild(convOverlay);
@@ -2161,6 +2825,419 @@
         syncHud(playerCtrl.actor.root.position);
       }
 
+      function appendConversationTurn(who, speaker, text) {
+        if (!activeConversation) return;
+        activeConversation.history.push({ who: who, speaker: speaker, text: text });
+        if (activeConversation.history.length > 24) {
+          activeConversation.history.shift();
+        }
+        convBubble.innerHTML = '';
+        for (let i = 0; i < activeConversation.history.length; i++) {
+          const item = activeConversation.history[i];
+          const row = document.createElement('div');
+          row.className = 'world-converse-turn ' + (item.who === 'you' ? 'you' : 'npc');
+          const lbl = document.createElement('strong');
+          lbl.textContent = item.speaker;
+          const body = document.createElement('span');
+          body.textContent = item.text;
+          row.appendChild(lbl);
+          row.appendChild(body);
+          convBubble.appendChild(row);
+        }
+        convBubble.scrollTop = convBubble.scrollHeight;
+      }
+
+      function getEverydayTopicBank(act) {
+        if (act.ageGroup === 'toddler') {
+          return [
+            {
+              label: 'Play Peek-a-Boo',
+              you: 'Peek-a-boo! Look how big you are getting today!',
+              reply: '*giggles loudly and claps both tiny hands together!* "Boo!! Up, up!"',
+              rel: 7,
+              fun: 14,
+            },
+            {
+              label: 'Ask About Favorite Toy',
+              you: 'What is your favorite toy on the rug right now?',
+              reply: '*points excitedly at a fluffy plush bear* "Bear! Soft! Mama gave bear!"',
+              rel: 6,
+              fun: 12,
+            },
+            {
+              label: 'Offer Strawberry Snack',
+              you: 'Want a sweet little strawberry bite?',
+              reply: '*grins ear to ear and bounces on both knees* "Mmm! Berries! Yummy!"',
+              rel: 8,
+              fun: 12,
+            },
+          ];
+        }
+        if (act.ageGroup === 'child') {
+          return [
+            {
+              label: 'Ask About School & Games',
+              you: 'What games are you playing with your friends today?',
+              reply: 'We had a relay race around the picket fence, then Mom called us inside for warm buttered toast! Wanna race next?',
+              rel: 6,
+              fun: 12,
+            },
+            {
+              label: 'Talk About Favorite Snacks',
+              you: 'If you could pick any treat from Wallflour Bakery, what would you get?',
+              reply: 'Definitely the strawberry glazed tart — or two chocolate brioche buns if nobody is looking! What about you?',
+              rel: 6,
+              fun: 12,
+            },
+            {
+              label: 'Tell a Funny Story',
+              you: 'Wait until I tell you what happened down by the stables earlier!',
+              reply: '*laughs out loud* No way! The horses always try to steal carrots straight out of people’s bags!',
+              rel: 8,
+              fun: 15,
+            },
+          ];
+        }
+        if (act.role === 'chauffeur') {
+          return [
+            {
+              label: 'Catch Up On Town Drive',
+              you: 'How has traffic been along Riviera Boulevard today, Lucien?',
+              reply: 'Smooth sailing! A couple of neighbors were out carpooling past the bakery, and the new cobblestone turn-in at Hôtel Montieri drives like butter.',
+              rel: 6,
+              fun: 10,
+            },
+            {
+              label: 'Ask About His Favorite Route',
+              you: 'Which drive is your favorite when the sun starts setting?',
+              reply: 'Definitely the coastal curve past Villa Azure up to the Montieri archway — when the golden lamps kick on, nothing beats that view. Want a ride?',
+              rel: 7,
+              fun: 12,
+            },
+            {
+              label: 'Talk Music & Road Trips',
+              you: 'What do you listen to while waiting between pickups?',
+              reply: 'Smooth jazz and a little acoustic French pop — keeps things relaxed! Hop in anytime and pick your own playlist.',
+              rel: 6,
+              fun: 12,
+            },
+          ];
+        }
+        if (act.isMedicalStaff) {
+          return [
+            {
+              label: 'Ask How Their Shift Is Going',
+              you: 'Busy shift in the wing today? Have you had time for a coffee break?',
+              reply: 'Steady morning! A few neighborhood check-ups, an ambulance drill in ER Bay 01, and now I am finally grabbing tea. How are you feeling today?',
+              rel: 6,
+              fun: 10,
+            },
+            {
+              label: 'Swap Wellness Tips',
+              you: 'Any easy tips for keeping energy up during a packed week?',
+              reply: 'Fresh air in the Healing Garden, real sit-down meals instead of rushing, and plenty of water — honestly a soak at the Montieri Spa helps too!',
+              rel: 6,
+              composure: 10,
+            },
+            {
+              label: 'Talk Weekend Plans',
+              you: 'Doing anything relaxing once your shift wraps up?',
+              reply: 'A quiet dinner at Le Montieri or grabbing wood-fired pizza with friends — nothing beats clocking out with good company.',
+              rel: 7,
+              fun: 12,
+            },
+          ];
+        }
+        if (act.role === 'chef') {
+          return [
+            {
+              label: 'Ask What Is Cooking Now',
+              you: 'Smells incredible over here — what are you working on today?',
+              reply: 'Brown-butter croissants and slow-simmered herb sauce! I always save a warm plate on the warmer for friends dropping by.',
+              rel: 6,
+              fun: 12,
+            },
+            {
+              label: 'Share Recipe Ideas',
+              you: 'Have you tried pairing wildflower honey with warm fig tart?',
+              reply: '*eyes light up* Now THAT is a great idea — I am testing a batch with Farm strawberries right after lunch!',
+              rel: 7,
+              fun: 12,
+            },
+            {
+              label: 'Ask About Evening Rush',
+              you: 'Does the dinner rush get chaotic later tonight?',
+              reply: 'Wait until 7 PM when everyone walks in starving! Having good music on in the kitchen makes all the difference.',
+              rel: 5,
+              fun: 10,
+            },
+          ];
+        }
+        if (act.isCitizen) {
+          return [
+            {
+              label: 'Chat About Family & Home',
+              you: 'How is everybody at home today? Keeping busy around the neighborhood?',
+              reply: 'Honestly it is nonstop — cooking meals, checking on the kids, catching a quick nap when things settle down! How has your day been?',
+              rel: 6,
+              fun: 10,
+            },
+            {
+              label: 'Talk About Town Spots',
+              you: 'Have you checked out the new 3-storey Hôtel Montieri or the Bakery loft lately?',
+              reply: 'Yes!! The conservatory pastries and the Montieri lobby fountain are gorgeous — we are planning a neighborhood dinner night soon!',
+              rel: 6,
+              fun: 12,
+            },
+            {
+              label: 'Invite For Dinner / Coffee',
+              you: 'We should definitely grab lunch at the breakfast bar or go for a carpool ride sometime!',
+              reply: 'Count me in! Just say when — I am always up for good food and a ride down the boulevard.',
+              rel: 8,
+              fun: 14,
+            },
+          ];
+        }
+        return [
+          {
+            label: 'Catch Up On Daily Life',
+            you: 'How has your day been treating you so far?',
+            reply: 'Pretty good actually! Been chatting with guests, grabbing espresso between tasks, and watching the boulevard buzz outside. How about you?',
+            rel: 6,
+            fun: 10,
+          },
+          {
+            label: 'Ask What Is Trending Today',
+            you: 'Heard anything fun happening around town tonight?',
+            reply: 'People are heading up to the Montieri 3F Sky Bar for sunset drinks, then swinging by Club Couronne or Palazzo Napoli later!',
+            rel: 6,
+            fun: 12,
+          },
+          {
+            label: 'Ask About Favorite Hobbies',
+            you: 'When you finally get a free evening off, what do you like doing most?',
+            reply: 'Honestly? Long evening drives with the windows down, browsing Galerie Royale, or unwinding with friends over dinner.',
+            rel: 7,
+            fun: 12,
+          },
+        ];
+      }
+
+      function renderConversationChoices() {
+        if (!activeConversation) return;
+        const act = activeConversation.actor;
+        const turn = activeConversation.turn || 0;
+        const topics = getEverydayTopicBank(act);
+        const curTopic = topics[turn % topics.length];
+        const nextTopic = topics[(turn + 1) % topics.length];
+        const curFilter = activeConversation.catFilter || 'all';
+        convCatTabs.innerHTML = '';
+        convChoices.innerHTML = '';
+
+        const catDefs = [
+          { id: 'all', label: 'All' },
+          { id: 'friendly', label: 'Friendly' },
+          { id: 'funny', label: 'Funny' },
+        ];
+        if (act.ageGroup !== 'child' && act.ageGroup !== 'toddler') {
+          catDefs.push({ id: 'romance', label: 'Romance' });
+        }
+        catDefs.push({ id: 'activity', label: 'Activities & Service' });
+        catDefs.forEach(function (cd) {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 's4-cat-chip' + (curFilter === cd.id ? ' active' : '');
+          chip.textContent = cd.label;
+          chip.addEventListener('click', function () {
+            activeConversation.catFilter = cd.id;
+            renderConversationChoices();
+          });
+          convCatTabs.appendChild(chip);
+        });
+
+        function makeBtn(label, cat, onClick, isBye) {
+          if (curFilter !== 'all' && !isBye && cat !== curFilter) return;
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'world-converse-btn' + (isBye ? ' bye' : (cat ? ' s4-cat-' + cat : ''));
+          b.textContent = label;
+          b.addEventListener('click', function () {
+            if (window.CrownAudio) window.CrownAudio.playSelect();
+            onClick();
+          });
+          convChoices.appendChild(b);
+        }
+
+        // Sims 4 Friendly category choices (continuous topic loop)
+        makeBtn(curTopic.label, 'friendly', function () {
+          if (window.CrownNeeds) {
+            window.CrownNeeds.applyBoost({ fun: curTopic.fun || 10, composure: curTopic.composure || 6 });
+          }
+          addRelScore(act, curTopic.rel || 6);
+          activeConversation.turn += 1;
+          appendConversationTurn('you', 'You', curTopic.you);
+          appendConversationTurn('npc', act.name || 'Friend', curTopic.reply);
+          renderConversationChoices();
+        });
+
+        makeBtn(nextTopic.label, 'friendly', function () {
+          if (window.CrownNeeds) {
+            window.CrownNeeds.applyBoost({ fun: nextTopic.fun || 10, composure: nextTopic.composure || 6 });
+          }
+          addRelScore(act, nextTopic.rel || 6);
+          activeConversation.turn += 1;
+          appendConversationTurn('you', 'You', nextTopic.you);
+          appendConversationTurn('npc', act.name || 'Friend', nextTopic.reply);
+          renderConversationChoices();
+        });
+
+        makeBtn(turn % 2 === 0 ? 'Deepen Friendship · Ask Routine' : 'Share Town Gossip', 'friendly', function () {
+          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 12, composure: 6 });
+          addRelScore(act, 5);
+          const askDuty = turn % 2 === 0;
+          activeConversation.turn += 1;
+          appendConversationTurn(
+            'you',
+            'You',
+            askDuty ? 'What keeps you busiest during the day?' : 'Heard any interesting stories around town lately?'
+          );
+          appendConversationTurn(
+            'npc',
+            act.name || 'Friend',
+            askDuty
+              ? (act.dutyLine || 'Keeping everything organized and taking care of everyone who stops by!')
+              : (act.gossipLine || 'Things have been lively from Willow Creek all the way to Hôtel Montieri!')
+          );
+          renderConversationChoices();
+        });
+
+        // Sims 4 Funny interaction
+        makeBtn('Tell Joke / Playful Tease', 'funny', function () {
+          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 18, composure: 4 });
+          addRelScore(act, 7);
+          activeConversation.turn += 1;
+          const jokes = [
+            'Wait — did you see someone try to parallel park a gilded carriage near the fountain earlier?',
+            'I tried baking macaron shells at 2 AM and invented pastry frisbees instead!',
+            'If our mayor adds one more golden swan statue, the ducks are going to start charging rent!',
+          ];
+          const replies = [
+            '*laughs out loud* Stop it, I nearly spilled my espresso just picturing that!',
+            'Hahaha okay that actually made my entire afternoon — you are hilarious!',
+            '*giggles uncontrollably* Honestly we needed a good laugh today!',
+          ];
+          appendConversationTurn('you', 'You', jokes[turn % jokes.length]);
+          appendConversationTurn('npc', act.name || 'Friend', replies[turn % replies.length]);
+          renderConversationChoices();
+        });
+
+        // Sims 4 Romance (adults only — skip for kids/toddlers!)
+        if (act.ageGroup !== 'child' && act.ageGroup !== 'toddler') {
+          makeBtn('Flirt & Give Romantic Compliment', 'romance', function () {
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 16, composure: 6 });
+            if (g.reputation) g.reputation.scandal = Math.min(100, (g.reputation.scandal || 0) + 1);
+            addRelScore(act, 8);
+            activeConversation.turn += 1;
+            const flirts = [
+              'You always know how to make my whole day — seriously, how do you look this good effortlessly?',
+              'Should we sneak off for a coffee or sunset boat ride when you get a break?',
+              'I always look forward to running into you more than anyone else in town.',
+            ];
+            appendConversationTurn('you', 'You', flirts[turn % flirts.length]);
+            appendConversationTurn(
+              'npc',
+              act.name || 'Friend',
+              act.flirtLine || '*smiles warmly* Wait until you hear how often I look for you around town too.'
+            );
+            renderConversationChoices();
+          });
+        }
+
+        if (act.isMedicalStaff) {
+          makeBtn('Run Medical Check-Up (Free)', 'activity', function () {
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 65, hygiene: 50, composure: 18 });
+            addRelScore(act, 10);
+            if (townServices && typeof townServices.recordCitizenCheckup === 'function') {
+              townServices.recordCitizenCheckup((g.princess && g.princess.firstName) || 'Crown Heiress', 'Cleared by ' + act.name);
+            }
+            activeConversation.turn += 1;
+            appendConversationTurn('you', 'You', 'Could you give me a quick check-up while I am here?');
+            appendConversationTurn('npc', act.name, 'Of course! Your pulse and vitals are strong and healthy (+65 Energy, +50 Hygiene).');
+            renderConversationChoices();
+          });
+        } else if (act.isCitizen && act.ageGroup !== 'toddler') {
+          makeBtn('Sponsor Check-Up (+₡25)', 'activity', function () {
+            g.money = (g.money || 0) + 25;
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 12, fun: 8 });
+            addRelScore(act, 10);
+            if (townServices && typeof townServices.recordCitizenCheckup === 'function') {
+              townServices.recordCitizenCheckup(act.name, 'Hospital Check-Up Logged · Healthy');
+            }
+            convRole.textContent = (act.roleLabel || 'Riviera Resident') + ' · Check-Up: Cleared';
+            activeConversation.turn += 1;
+            appendConversationTurn('you', 'You', 'Feel free to put your annual Hôpital Royal check-up on my tab today!');
+            appendConversationTurn('npc', act.name, 'Thank you so much! That really helps our household out (+₡25 Grant, +10 Affinity).');
+            renderConversationChoices();
+          });
+        }
+
+        if (act.role === 'butler' || act.role === 'maid' || act.role === 'staff') {
+          makeBtn('Serve Meal in Bed', 'meal', function () {
+            closeNpcConversation();
+            royalCommands.serveMealInBed(null, null, act);
+          });
+        } else if (act.role === 'chef') {
+          makeBtn('Cook Meal For Me', 'meal', function () {
+            closeNpcConversation();
+            royalCommands.cookForMe(act);
+          });
+        } else if (act.role === 'chauffeur') {
+          makeBtn('Drive Me Anywhere...', 'activity', function () {
+            closeNpcConversation();
+            openChauffeurRideSheet();
+          });
+          makeBtn('Carpool / Ride With Friends', 'activity', function () {
+            closeNpcConversation();
+            openCarPassengersSheet();
+          });
+        }
+
+        if (act.ageGroup !== 'toddler') {
+          makeBtn(act.summon && act.summon.follow ? 'Stop Walking With Me' : 'Form Group / Hang Out', 'activity', function () {
+            if (act.summon && act.summon.follow) {
+              act.summon = null;
+              activeConversation.turn += 1;
+              appendConversationTurn('you', 'You', 'Catch you later! I will see you around the block.');
+              appendConversationTurn('npc', act.name, 'Sounds good! Catch me anytime if you want company.');
+              renderConversationChoices();
+            } else {
+              closeNpcConversation();
+              royalCommands.summonActorToPlayer(act, { follow: true });
+              g.toast(act.name + ' is walking along with you!');
+            }
+          });
+        }
+
+        makeBtn('Give Gift (₡25)', 'friendly', function () {
+          activeConversation.turn += 1;
+          if ((g.money || 0) < 25) {
+            appendConversationTurn('npc', 'Pocket Check', 'You need ₡25 Crowns to give a gift right now.');
+            renderConversationChoices();
+            return;
+          }
+          g.money -= 25;
+          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 14, fun: 10 });
+          addRelScore(act, 14);
+          appendConversationTurn('you', 'You', 'Picked up a little ₡25 treat for you today!');
+          appendConversationTurn('npc', act.name || 'Friend', 'Wait, for me?! That is so thoughtful of you — thank you! (+14 Affinity)');
+          renderConversationChoices();
+        });
+
+        makeBtn('Say Goodbye', 'friendly', function () {
+          closeNpcConversation();
+        }, true);
+      }
+
       function openNpcConversation(act) {
         if (!act) return;
         closeActionSheet();
@@ -2173,7 +3250,7 @@
         if (activeConversation && activeConversation.actor && activeConversation.actor !== act) {
           activeConversation.actor.isTalking = false;
         }
-        activeConversation = { actor: act };
+        activeConversation = { actor: act, turn: 0, history: [], catFilter: 'all' };
         act.isTalking = true;
         if (typeof act.onInteract === 'function') act.onInteract();
 
@@ -2195,161 +3272,12 @@
           exitYaw: faceYaw,
         });
 
-        convTitle.textContent = act.name || act.prompt || 'Court Member';
+        convTitle.innerHTML = '<span class="s4-plumbob"></span>' + (act.name || act.prompt || 'Friend');
         const healthEntry = g.citizenHealthLog && g.citizenHealthLog[act.name];
-        convRole.textContent = (act.roleLabel || 'Versailles Court') + (healthEntry ? ' · Check-Up: ' + healthEntry.status : '');
+        convRole.textContent = (act.roleLabel || 'Riviera Resident') + (healthEntry ? ' · Check-Up: ' + healthEntry.status : '');
         addRelScore(act, 2);
-        convBubble.textContent = act.greetLine || 'Good day, Your Highness! It is an honour to stop and converse with you.';
-        convChoices.innerHTML = '';
-
-        const choicesList = [
-          {
-            label: 'Friendly Chat',
-            onPick: function () {
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 12, composure: 8 });
-              addRelScore(act, 6);
-              convBubble.textContent = (act.name || 'They') + ' smile warmly: "It is always refreshing when the Crown Princess stops to truly talk with us! How are you enjoying the Château & Town today?"';
-            },
-          },
-          {
-            label: 'Ask Court Gossip',
-            onPick: function () {
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 14 });
-              addRelScore(act, 5);
-              if (g.reputation) g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + 2);
-              convBubble.textContent = act.gossipLine || 'Whispers say Crown Dispatch has photographers near Club Couronne Privé and Grand Hôtel Impérial!';
-            },
-          },
-          {
-            label: 'Flirt / Charm (18+)',
-            onPick: function () {
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 18, composure: 4 });
-              if (g.reputation) g.reputation.scandal = Math.min(100, (g.reputation.scandal || 0) + 2);
-              addRelScore(act, 9);
-              convBubble.textContent = act.flirtLine || 'You lean closer with a charming royal smile... their gaze lingers warmly (+9 Affinity, +2 Scandal).';
-            },
-          },
-          {
-            label: 'Ask About Duties',
-            onPick: function () {
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 10 });
-              addRelScore(act, 4);
-              convBubble.textContent = act.dutyLine || 'We work tirelessly to keep Versailles, Greenfields Farm, the Hospital, and Riviera Town running smoothly!';
-            },
-          },
-        ];
-
-        if (act.isMedicalStaff) {
-          choicesList.push({
-            label: 'Run Medical Check-Up (Free)',
-            onPick: function () {
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 65, hygiene: 50, composure: 18 });
-              addRelScore(act, 10);
-              if (townServices && typeof townServices.recordCitizenCheckup === 'function') {
-                townServices.recordCitizenCheckup((g.princess && g.princess.firstName) || 'Crown Heiress', 'Cleared by ' + act.name);
-              }
-              convBubble.textContent = act.name + ' listens carefully with a stethoscope and checks your vitals: "Perfect royal heartbeat and immunity! (+65 Energy, +50 Hygiene, +10 Affinity)"';
-            },
-          });
-        } else if (act.isCitizen) {
-          choicesList.push({
-            label: 'Citizen Medical Check-Up (+₡25)',
-            onPick: function () {
-              g.money = (g.money || 0) + 25;
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 12, fun: 8 });
-              addRelScore(act, 10);
-              if (g.reputation) g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + 3);
-              if (townServices && typeof townServices.recordCitizenCheckup === 'function') {
-                townServices.recordCitizenCheckup(act.name, 'Hospital Check-Up Logged · Healthy');
-              }
-              convRole.textContent = (act.roleLabel || 'Riviera Citizen') + ' · Check-Up: Cleared (Healthy)';
-              convBubble.textContent = act.name + ' beams with relief: "Thank you for sponsoring my Hôpital Royal medical check-up and immunity certificate, Princess! (+₡25 Grant, +3 Clout, +10 Affinity)"';
-            },
-          });
-        }
-
-        if (act.role === 'butler' || act.role === 'maid' || act.role === 'staff') {
-          choicesList.push({
-            label: 'Command: Serve Meal in Bed',
-            onPick: function () {
-              closeNpcConversation();
-              royalCommands.serveMealInBed(null, null, act);
-            },
-          });
-          choicesList.push({
-            label: 'Command: Bring Champagne & Macarons',
-            onPick: function () {
-              closeNpcConversation();
-              royalCommands.serveChampagne(act);
-            },
-          });
-        } else if (act.role === 'chef') {
-          choicesList.push({
-            label: 'Command: Cook Gourmet Meal For Me',
-            onPick: function () {
-              closeNpcConversation();
-              royalCommands.cookForMe(act);
-            },
-          });
-        } else if (act.role === 'chauffeur') {
-          choicesList.push({
-            label: 'Command: Bring Royal Car Here',
-            onPick: function () {
-              closeNpcConversation();
-              royalCommands.summonMyCar();
-            },
-          });
-        }
-
-        choicesList.push({
-          label: act.summon && act.summon.follow ? 'Stop Following Me' : 'Follow / Escort Me Here',
-          onPick: function () {
-            if (act.summon && act.summon.follow) {
-              act.summon = null;
-              convBubble.textContent = act.name + ' bows politely: "Very well, Your Highness — I shall remain nearby."';
-            } else {
-              closeNpcConversation();
-              royalCommands.summonActorToPlayer(act, { follow: true });
-              g.toast(act.name + ' is escorting you!');
-            }
-          },
-        });
-
-        choicesList.push(
-          {
-            label: 'Give Gift (₡25)',
-            onPick: function () {
-              if ((g.money || 0) < 25) {
-                convBubble.textContent = 'You check your royal purse — you need ₡25 Crowns to present a sovereign gift.';
-                return;
-              }
-              g.money -= 25;
-              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 14, fun: 10 });
-              if (g.reputation) g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + 4);
-              addRelScore(act, 14);
-              convBubble.textContent = (act.name || 'They') + ' bow gratefully: "₡25 Gold Crowns! Your generosity shines across the entire Kingdom!" (+14 Affinity, +4 Clout)';
-            },
-          },
-          {
-            label: 'Say Goodbye',
-            isBye: true,
-            onPick: function () {
-              closeNpcConversation();
-            },
-          }
-        );
-
-        choicesList.forEach(function (ch) {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'world-converse-btn' + (ch.isBye ? ' bye' : '');
-          b.textContent = ch.label;
-          b.addEventListener('click', function () {
-            if (window.CrownAudio) window.CrownAudio.playSelect();
-            ch.onPick();
-          });
-          convChoices.appendChild(b);
-        });
+        appendConversationTurn('npc', act.name || 'Friend', act.greetLine || 'Hey! Good to run into you — how is your day going?');
+        renderConversationChoices();
 
         convOverlay.classList.add('open');
         syncHud(playerCtrl.actor.root.position);
@@ -2421,24 +3349,60 @@
         const pzNow = pPos.z;
         const offDist = typeof cfg.distance === 'number' ? cfg.distance : 1.35;
         const sideAngle = pYaw + (typeof cfg.sideAngle === 'number' ? cfg.sideAngle : 0.42);
+        const candOffsets = [0, 0.6, -0.6, 1.2, -1.2, 2.0, -2.0, 2.8];
         let tx = pxNow + Math.sin(sideAngle) * offDist;
         let tz = pzNow + Math.cos(sideAngle) * offDist;
         if (typeof castle.resolveCollision === 'function') {
-          const r = castle.resolveCollision(tx, tz, 0.28, pyNow);
-          tx = r.x;
-          tz = r.z;
+          let foundSpot = false;
+          for (let ci = 0; ci < candOffsets.length; ci++) {
+            const ang = sideAngle + candOffsets[ci];
+            const cx = pxNow + Math.sin(ang) * offDist;
+            const cz = pzNow + Math.cos(ang) * offDist;
+            const r = castle.resolveCollision(cx, cz, 0.28, pyNow);
+            if (Math.hypot(r.x - cx, r.z - cz) <= 0.35) {
+              tx = r.x;
+              tz = r.z;
+              foundSpot = true;
+              break;
+            }
+          }
+          if (!foundSpot) {
+            const r = castle.resolveCollision(tx, tz, 0.28, pyNow);
+            tx = r.x;
+            tz = r.z;
+          }
         }
         const nPos = act.mesh.root.position;
         const curDist = Math.hypot(nPos.x - tx, nPos.z - tz);
         const diffFloor = Math.abs(nPos.y - pyNow) > 1.4;
         if (diffFloor || curDist > 16) {
-          // Bring via nearby approach vector so they smoothly walk up in view
-          let spawnX = pxNow + Math.sin(sideAngle + 0.35) * 6.2;
-          let spawnZ = pzNow + Math.cos(sideAngle + 0.35) * 6.2;
-          if (typeof castle.resolveCollision === 'function') {
-            const sr = castle.resolveCollision(spawnX, spawnZ, 0.28, pyNow);
-            spawnX = sr.x;
-            spawnZ = sr.z;
+          // Bring via nearby open approach vector so they smoothly walk up without spawning inside walls
+          const spawnDists = [5.8, 3.2, 1.8];
+          const spawnAngles = [0.35, -0.35, 1.0, -1.0, 1.7, -1.7, 2.4, -2.4, 0];
+          let spawnX = tx;
+          let spawnZ = tz;
+          let pickedSpawn = false;
+          for (let di = 0; di < spawnDists.length && !pickedSpawn; di++) {
+            for (let ai = 0; ai < spawnAngles.length; ai++) {
+              const ang = sideAngle + spawnAngles[ai];
+              const cx = pxNow + Math.sin(ang) * spawnDists[di];
+              const cz = pzNow + Math.cos(ang) * spawnDists[di];
+              if (typeof castle.resolveCollision === 'function') {
+                const sr = castle.resolveCollision(cx, cz, 0.28, pyNow);
+                if (Math.hypot(sr.x - cx, sr.z - cz) <= 0.35 &&
+                    (!castle.hasBlockedSegment || !castle.hasBlockedSegment(sr.x, sr.z, tx, tz, 0.22, pyNow))) {
+                  spawnX = sr.x;
+                  spawnZ = sr.z;
+                  pickedSpawn = true;
+                  break;
+                }
+              } else {
+                spawnX = cx;
+                spawnZ = cz;
+                pickedSpawn = true;
+                break;
+              }
+            }
           }
           const sy = castle.groundHeightAt(spawnX, spawnZ, pyNow);
           nPos.set(spawnX, sy, spawnZ);
@@ -2458,6 +3422,8 @@
           arrived: false,
           onArrive: cfg.onArrive || null,
           firedArrive: false,
+          waypoints: Array.isArray(cfg.waypoints) ? cfg.waypoints.slice() : null,
+          wpIdx: 0,
         };
         if (cfg.announce !== false) {
           g.toast(cfg.announceText || (act.name + ' is walking over to you!'));
@@ -2599,14 +3565,24 @@
         let car = vehiclesList.find(function (v) { return v.id === 'royal_palace_car'; }) || vehiclesList[0];
         if (!car) return;
         if (playerCtrl.getTransport()) playerCtrl.exitTransport();
-        // Deliver cleanly 4.2m from Princess at street level if outdoors, or outside Château Portico if indoors
+        // Deliver cleanly on nearest paved street/apron (never grass) outside or at Château Portico if indoors
         const outdoors = pPos.y < 0.8 && !castle.isInsidePalace(pPos);
         let cx = outdoors ? pPos.x + 3.6 : 0;
-        let cz = outdoors ? pPos.z + 2.2 : 6.0;
+        let cz = outdoors ? pPos.z + 2.2 : 5.5;
+        if (typeof castle.snapToDrivableSurface === 'function') {
+          const snapped = castle.snapToDrivableSurface(cx, cz);
+          cx = snapped.x;
+          cz = snapped.z;
+        }
         if (typeof castle.resolveCollision === 'function') {
-          const r = castle.resolveCollision(cx, cz, 1.5, 0, { ignoreEntityId: car.id });
+          const r = castle.resolveCollision(cx, cz, 1.5, 0, { ignoreEntityId: car.id, carMode: true });
           cx = r.x;
           cz = r.z;
+        }
+        if (typeof castle.isDrivableSurface === 'function' && !castle.isDrivableSurface(cx, cz, 0.3) && typeof castle.snapToDrivableSurface === 'function') {
+          const snapped2 = castle.snapToDrivableSurface(cx, cz);
+          cx = snapped2.x;
+          cz = snapped2.z;
         }
         car.x = cx;
         car.z = cz;
@@ -2623,14 +3599,26 @@
         }
         const chauffeur = getActorById('chauffeur-lucien');
         if (chauffeur && outdoors) {
+          let lx = cx - 1.55;
+          let lz = cz + 0.65;
+          if (typeof castle.resolveCollision === 'function') {
+            const lr = castle.resolveCollision(lx, lz, 0.28, 0);
+            lx = lr.x;
+            lz = lr.z;
+          }
           summonActorToPlayer(chauffeur, {
             pose: 'converse',
             distance: 2.2,
             duration: 18,
             announce: false,
           });
+          if (chauffeur.summon) {
+            chauffeur.summon.targetX = lx;
+            chauffeur.summon.targetZ = lz;
+            chauffeur.summon.targetY = 0;
+          }
         }
-        g.toast((car.title || 'Royal Car') + ' delivered nearby with doors held open!');
+        g.toast((car.title || 'Royal Car') + ' delivered onto paved road with doors held open!');
       }
 
       function dismissAllSummons() {
@@ -2646,9 +3634,682 @@
         g.toast('Staff & guests returned politely to their posts.');
       }
 
-      actors.forEach(function (a) {
-        a.origHomeY = a.homeY;
-      });
+      // ---- LIVE DOCTOR+NURSE CHECKUP ON PRINCESS ----
+      let activeCheckupTimer = 0;
+      let activeCheckupLock = false;
+      function startMedicalCheckup(mode, actCtx) {
+        if (activeCheckupLock) {
+          g.toast('A Doctor & Nurse are already finishing your examination!');
+          return;
+        }
+        const cost = mode === 'er' ? 30 : mode === 'or' ? 40 : mode === 'vaccine' ? 15 : 0;
+        if (cost > 0 && (g.money || 0) < cost) {
+          g.toast('Need ₡' + cost + ' Crowns.');
+          return;
+        }
+        if (playerCtrl.getTransport()) playerCtrl.exitTransport();
+        activeCheckupLock = true;
+        let doc = getActorById('doctor-moreau');
+        let nurse = getActorById('nurse-amelie');
+        let patientSpec = {
+          id: 'checkup_desk_patient',
+          label: 'Hospital Check-Up',
+          pose: 'converse',
+          anchor: { x: 80.5, y: 0.12, z: -25.0, yaw: Math.PI * 0.5, floorY: 0.12, exitX: 80.2, exitZ: -24.2, exitYaw: 0 },
+          statusText: 'Dr. Moreau & Nurse Amélie are checking your vitals...',
+        };
+        let docPos = { x: 81.1, y: 0.12, z: -24.1, yaw: -0.3 };
+        let nursePos = { x: 81.1, y: 0.12, z: -25.9, yaw: -Math.PI + 0.3 };
+
+        if (mode === 'or') {
+          doc = getActorById('surgeon-valmont') || doc;
+          nurse = getActorById('nurse-sophie') || nurse;
+          patientSpec = {
+            id: 'hospital_exam_patient',
+            label: 'OR Telemetry Scan',
+            pose: 'sleep',
+            anchor: { x: 74.3, y: 1.02, z: -26.18, yaw: 0, rigOffsetY: 0.09, floorY: 0.12, exitX: 73.1, exitZ: -25.6, exitYaw: 0 },
+            statusText: 'Surgeon Valmont & Nurse Sophie performing telemetry scan...',
+          };
+          docPos = { x: 72.9, y: 0.12, z: -26.9, yaw: Math.PI * 0.5 };
+          nursePos = { x: 75.7, y: 0.12, z: -26.9, yaw: -Math.PI * 0.5 };
+        } else if (mode === 'er') {
+          doc = getActorById('er-doctor-vance') || doc;
+          nurse = getActorById('nurse-clara') || nurse;
+          patientSpec = {
+            id: 'hospital_bed_4_er_checkup',
+            label: 'ER Doctor Check-Up',
+            pose: 'sleep',
+            anchor: { x: 72.0, y: 0.70, z: -18.12, yaw: 0, rigOffsetY: 0.09, floorY: 0.12, exitX: 73.1, exitZ: -18.6, exitYaw: 0 },
+            statusText: 'ER Dr. Vance & Nurse Clara checking trauma vitals in ER Bay 01...',
+          };
+          const erPatPrev = getActorById('patient-emergency');
+          if (erPatPrev && erPatPrev.summon) erPatPrev.summon = null;
+          docPos = { x: 73.15, y: 0.12, z: -18.55, yaw: -Math.PI * 0.75 };
+          nursePos = { x: 70.95, y: 0.12, z: -18.55, yaw: Math.PI * 0.75 };
+        } else if (mode === 'vaccine') {
+          doc = getActorById('doctor-moreau') || doc;
+          nurse = getActorById('nurse-amelie') || nurse;
+          patientSpec = {
+            id: 'clinic_vaccine_checkup',
+            label: 'Clinic Screening',
+            pose: 'converse',
+            anchor: { x: 77.0, y: 0.12, z: -25.6, yaw: Math.PI, floorY: 0.12, exitX: 77.0, exitZ: -24.6, exitYaw: 0 },
+            statusText: 'Nurse Amélie & Dr. Moreau administering immunity screening...',
+          };
+          docPos = { x: 77.8, y: 0.12, z: -26.1, yaw: -Math.PI * 0.35 };
+          nursePos = { x: 76.2, y: 0.12, z: -26.1, yaw: Math.PI * 0.35 };
+        }
+
+        if (interactMgr) {
+          interactMgr.runAction(patientSpec);
+        }
+        if (doc) {
+          summonActorToPlayer(doc, { pose: mode === 'or' ? 'work_operate' : 'work_examine', holdProp: 'instrument', duration: 9, announce: false });
+          if (doc.summon) {
+            doc.summon.targetX = docPos.x;
+            doc.summon.targetY = docPos.y;
+            doc.summon.targetZ = docPos.z;
+          }
+        }
+        if (nurse) {
+          summonActorToPlayer(nurse, { pose: 'work_station', holdProp: 'chart', duration: 9, announce: false });
+          if (nurse.summon) {
+            nurse.summon.targetX = nursePos.x;
+            nurse.summon.targetY = nursePos.y;
+            nurse.summon.targetZ = nursePos.z;
+          }
+        }
+        g.toast((doc ? doc.name : 'Doctor') + ' & ' + (nurse ? nurse.name : 'Nurse') + ' are examining your vitals...');
+        clearTimeout(activeCheckupTimer);
+        activeCheckupTimer = window.setTimeout(function () {
+          activeCheckupLock = false;
+          if (!active) return;
+          if (cost > 0) g.money = Math.max(0, (g.money || 0) - cost);
+          const logCheckup = function (note) {
+            if (townServices && typeof townServices.recordCitizenCheckup === 'function') {
+              townServices.recordCitizenCheckup((g.princess && g.princess.firstName) || 'Crown Heiress', note);
+            }
+          };
+          if (mode === 'or') {
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 100, hygiene: 100, composure: 25, hunger: 25 });
+            logCheckup('OR Telemetry Scan · 62 BPM · SpO2 99%');
+            g.toast('Check-up & Telemetry Scan complete! 62 BPM · SpO2 99% (+100 Energy & Bath)');
+          } else if (mode === 'er') {
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 85, hygiene: 50, composure: 20 });
+            logCheckup('ER Doctor & Nurse Stabilization Complete');
+            g.toast('ER Doctor & Nurse stabilized your vitals! (+85 Energy, +50 Bath)');
+          } else if (mode === 'vaccine') {
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 60, hygiene: 40, composure: 12 });
+            logCheckup('Annual Immunity Booster · Cleared');
+            g.toast('Immunity Booster & Screening complete! (+60 Energy, +40 Hygiene)');
+          } else {
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ energy: 35, hygiene: 25, composure: 15, hunger: 10 });
+            logCheckup('BP 112/72 · Pulse 68 bpm · Full Clearance');
+            if (g.reputation) g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + 3);
+            g.toast('Medical Check-Up complete! Vitals 112/72 · +35 Energy, +25 Hygiene, +3 Clout.');
+          }
+          if (interactMgr && patientSpec.pose === 'converse') {
+            interactMgr.stopActivity(false);
+          }
+          if (doc && doc.summon) doc.summon.timer = Math.min(doc.summon.timer, 1.5);
+          if (nurse && nurse.summon) nurse.summon.timer = Math.min(nurse.summon.timer, 1.5);
+        }, 4200);
+      }
+      window.CrownHospitalCheckup = { startCheckup: startMedicalCheckup };
+
+      // ---- LIVE ER EMERGENCY EVENT SYSTEM ----
+      let emergencyCooldown = 48;
+      let emergencyActiveTimer = 0;
+      function triggerEmergencyEvent(manual) {
+        if (activeCheckupLock) return;
+        const erPat = getActorById('patient-emergency');
+        const drVance = getActorById('er-doctor-vance');
+        const drMarch = getActorById('er-doctor-marchetti');
+        const nurseCl = getActorById('nurse-clara');
+        if (!erPat) return;
+        emergencyActiveTimer = 16;
+        emergencyCooldown = 78;
+        const epPos = erPat.mesh.root.position;
+        if (Math.hypot(epPos.x - 79.6, epPos.z - -15.5) > 22) {
+          epPos.set(81.5, 0.0, -14.2);
+        }
+        const patWps = [];
+        if (epPos.z > -16.5) patWps.push({ x: 79.6, z: -15.5 });
+        if (epPos.x >= 78.0) patWps.push({ x: 79.6, z: -18.5 }, { x: 75.8, z: -18.5 }, { x: 75.8, z: -17.25 });
+        else if (epPos.x > 73.5) patWps.push({ x: 75.8, z: -17.25 });
+        patWps.push({ x: 72.0, z: -17.25 });
+        erPat.summon = {
+          active: true,
+          waypoints: patWps,
+          wpIdx: 0,
+          targetX: 72.0,
+          targetY: 0.70,
+          targetZ: -18.12,
+          pose: 'sleep',
+          holdProp: null,
+          follow: false,
+          timer: 15.5,
+          arrived: false,
+          firedArrive: false,
+          rigOffsetY: 0.09,
+          faceYaw: 0,
+          yOverride: 0.70,
+        };
+        function makeErStaffWps(actObj) {
+          const p = actObj.mesh.root.position;
+          if (p.x >= 78.0) {
+            return [{ x: 78.6, z: -18.5 }, { x: 75.8, z: -18.5 }, { x: 75.8, z: -17.25 }];
+          }
+          if (p.z < -19.8) {
+            return [{ x: 75.8, z: -17.25 }];
+          }
+          return null;
+        }
+        if (drVance) {
+          drVance.summon = {
+            active: true, waypoints: makeErStaffWps(drVance), wpIdx: 0,
+            targetX: 73.18, targetY: 0.12, targetZ: -18.4,
+            pose: 'work_examine', holdProp: 'instrument', follow: false, timer: 15.5, arrived: false, firedArrive: false,
+            faceYaw: -Math.PI * 0.5,
+          };
+          setActorPropVisible(drVance, 'instrument');
+        }
+        if (drMarch) {
+          drMarch.summon = {
+            active: true, waypoints: makeErStaffWps(drMarch), wpIdx: 0,
+            targetX: 73.18, targetY: 0.12, targetZ: -17.4,
+            pose: 'work_station', holdProp: 'chart', follow: false, timer: 15.5, arrived: false, firedArrive: false,
+            faceYaw: -Math.PI * 0.75,
+          };
+          setActorPropVisible(drMarch, 'chart');
+        }
+        if (nurseCl) {
+          nurseCl.summon = {
+            active: true, waypoints: makeErStaffWps(nurseCl), wpIdx: 0,
+            targetX: 72.0, targetY: 0.12, targetZ: -17.35,
+            pose: 'work_operate', holdProp: 'instrument', follow: false, timer: 15.5, arrived: false, firedArrive: false,
+            faceYaw: Math.PI,
+          };
+          setActorPropVisible(nurseCl, 'instrument');
+        }
+        if (manual || Math.hypot(playerCtrl.actor.root.position.x - 79.6, playerCtrl.actor.root.position.z - -21.0) < 62) {
+          g.toast('LIVE EMERGENCY: Resident rushing into Hôpital Royal ER Bay 01 — ER Doctors & Nurses responding!');
+        }
+      }
+
+      // ---- CHAUFFEUR DRIVE & CAR PASSENGERS ----
+      const CHAUFFEUR_DESTINATIONS = [
+        { id: 'palace', title: 'Grand Château Portico', x: 0, z: 5.5, yaw: Math.PI * 0.5 },
+        { id: 'hotel', title: 'Grand Hôtel Montieri & Valet Lot', x: 125.0, z: 9.8, yaw: Math.PI * 0.5 },
+        { id: 'bakery', title: 'Wallflour & Maison Brioche Bakery', x: -84.0, z: 48.0, yaw: -Math.PI * 0.5 },
+        { id: 'hospital', title: 'Hôpital Royal & Emergency ER', x: 86.2, z: -10.5, yaw: Math.PI * 0.5 },
+        { id: 'pizza', title: 'Palazzo Napoli Pizzeria', x: -139.0, z: 48.0, yaw: -Math.PI * 0.5 },
+        { id: 'club', title: 'Club Couronne Privé Nightclub', x: 133.6, z: 48.0, yaw: Math.PI * 0.5 },
+        { id: 'pool', title: 'Villa Azure Resort Pool', x: 79.6, z: 19.2, yaw: Math.PI * 0.5 },
+        { id: 'stables', title: 'Royal Stables & Paddock', x: -136.0, z: 0.0, yaw: -Math.PI * 0.5 },
+        { id: 'farm', title: 'Greenfields Royal Farm', x: -153.5, z: -32.0, yaw: -Math.PI * 0.5 },
+        { id: 'elmwood', title: 'Elmwood 3-Bedroom Houses', x: -83.0, z: 0.0, yaw: -Math.PI * 0.5 },
+        { id: 'university', title: 'Crown University & High School', x: 106.5, z: 0.0, yaw: Math.PI * 0.5 },
+      ];
+
+      let roadGraphCache = null;
+      function getRoadGraph() {
+        if (roadGraphCache) return roadGraphCache;
+        const nodes = [];
+        const edges = [];
+        function addNode(x, z) {
+          for (let i = 0; i < nodes.length; i++) {
+            if (Math.hypot(nodes[i].x - x, nodes[i].z - z) < 0.1) return i;
+          }
+          nodes.push({ x: x, z: z });
+          edges.push([]);
+          return nodes.length - 1;
+        }
+        function isEdgeClean(x0, z0, x1, z1) {
+          const dist = Math.hypot(x1 - x0, z1 - z0);
+          const steps = Math.max(4, Math.ceil(dist / 0.8));
+          for (let s = 0; s <= steps; s++) {
+            const t = s / steps;
+            const x = x0 + (x1 - x0) * t;
+            const z = z0 + (z1 - z0) * t;
+            if (typeof castle.isDrivableSurface === 'function' && !castle.isDrivableSurface(x, z, 0.3)) return false;
+          }
+          if (typeof castle.hasBlockedSegment === 'function' && castle.hasBlockedSegment(x0, z0, x1, z1, 0.9, 0, { carMode: true })) return false;
+          return true;
+        }
+        function connectAxis(xs, zs) {
+          for (let zi = 0; zi < zs.length; zi++) {
+            const z = zs[zi];
+            for (let xi = 0; xi < xs.length - 1; xi++) {
+              if (isEdgeClean(xs[xi], z, xs[xi + 1], z)) {
+                const a = addNode(xs[xi], z);
+                const b = addNode(xs[xi + 1], z);
+                const w = Math.abs(xs[xi + 1] - xs[xi]);
+                edges[a].push({ to: b, w: w });
+                edges[b].push({ to: a, w: w });
+              }
+            }
+          }
+          for (let xi = 0; xi < xs.length; xi++) {
+            const x = xs[xi];
+            for (let zi = 0; zi < zs.length - 1; zi++) {
+              if (isEdgeClean(x, zs[zi], x, zs[zi + 1])) {
+                const a = addNode(x, zs[zi]);
+                const b = addNode(x, zs[zi + 1]);
+                const w = Math.abs(zs[zi + 1] - zs[zi]);
+                edges[a].push({ to: b, w: w });
+                edges[b].push({ to: a, w: w });
+              }
+            }
+          }
+        }
+        connectAxis([-153.5, -123.5, -95.0, -67.0, -44.0], [-10.5, 0.0, 19.2, 48.0]);
+        connectAxis([-153.5, -67.0], [-32.0, -10.5]);
+        connectAxis([-44.0, -20.0, 0.0, 20.0, 44.0], [4.8, 20.2, 36.5, 48.0]);
+        connectAxis([0.0], [4.8, 5.5, 20.2, 36.5, 48.0]);
+        connectAxis([44.0, 67.0, 92.5, 120.5, 156.5], [-10.5, 0.0, 19.2, 48.0]);
+        connectAxis([67.0, 92.5, 120.5, 156.5], [-32.0, -10.5]);
+        connectAxis([120.5], [0.0, 9.8, 19.2]);
+        connectAxis([120.5, 125.0], [9.8]);
+        roadGraphCache = { nodes: nodes, edges: edges, isEdgeClean: isEdgeClean };
+        return roadGraphCache;
+      }
+
+      function buildCarRoadWaypoints(sx, sz, dx, dz, endYaw) {
+        const rg = getRoadGraph();
+        const nodes = rg.nodes;
+        const edges = rg.edges;
+        const isEdgeClean = rg.isEdgeClean;
+        const sSnap = typeof castle.snapToDrivableSurface === 'function' ? castle.snapToDrivableSurface(sx, sz) : { x: sx, z: sz };
+        const dSnap = typeof castle.snapToDrivableSurface === 'function' ? castle.snapToDrivableSurface(dx, dz) : { x: dx, z: dz };
+
+        function attachPt(pt) {
+          const list = [];
+          for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            const d = Math.hypot(n.x - pt.x, n.z - pt.z);
+            if (d <= 60 && isEdgeClean(pt.x, pt.z, n.x, n.z)) list.push({ i: i, d: d });
+          }
+          list.sort(function (a, b) { return a.d - b.d; });
+          if (!list.length) {
+            let bi = 0;
+            let bd = Infinity;
+            for (let i = 0; i < nodes.length; i++) {
+              const d = Math.hypot(nodes[i].x - pt.x, nodes[i].z - pt.z);
+              if (d < bd) { bd = d; bi = i; }
+            }
+            list.push({ i: bi, d: bd });
+          }
+          return list.slice(0, 4);
+        }
+
+        const starts = attachPt(sSnap);
+        const ends = attachPt(dSnap);
+        const endMap = {};
+        ends.forEach(function (e) { endMap[e.i] = e.d; });
+
+        const dist = new Array(nodes.length).fill(Infinity);
+        const prev = new Array(nodes.length).fill(-1);
+        const vis = new Array(nodes.length).fill(false);
+        starts.forEach(function (s) { dist[s.i] = s.d; });
+
+        let bestEndNode = -1;
+        let bestTotal = Infinity;
+        for (let iter = 0; iter < nodes.length; iter++) {
+          let u = -1;
+          let ud = Infinity;
+          for (let i = 0; i < nodes.length; i++) {
+            if (!vis[i] && dist[i] < ud) { ud = dist[i]; u = i; }
+          }
+          if (u === -1) break;
+          vis[u] = true;
+          if (typeof endMap[u] === 'number' && ud + endMap[u] < bestTotal) {
+            bestTotal = ud + endMap[u];
+            bestEndNode = u;
+          }
+          for (let ei = 0; ei < edges[u].length; ei++) {
+            const e = edges[u][ei];
+            if (ud + e.w < dist[e.to]) { dist[e.to] = ud + e.w; prev[e.to] = u; }
+          }
+        }
+
+        const raw = [];
+        if (Math.hypot(sSnap.x - sx, sSnap.z - sz) > 0.25) raw.push({ x: sSnap.x, z: sSnap.z });
+        const nodeSeq = [];
+        let cur = bestEndNode;
+        while (cur !== -1) {
+          nodeSeq.unshift(nodes[cur]);
+          cur = prev[cur];
+        }
+        for (let i = 0; i < nodeSeq.length; i++) raw.push({ x: nodeSeq[i].x, z: nodeSeq[i].z });
+        if (Math.hypot(dSnap.x - dx, dSnap.z - dz) > 0.25) raw.push({ x: dSnap.x, z: dSnap.z });
+        raw.push({ x: dx, z: dz, yaw: endYaw });
+
+        const out = [];
+        for (let i = 0; i < raw.length; i++) {
+          const p = raw[i];
+          if (out.length && Math.hypot(p.x - out[out.length - 1].x, p.z - out[out.length - 1].z) < 0.25 && typeof p.yaw === 'undefined') {
+            continue;
+          }
+          out.push(p);
+        }
+        return out;
+      }
+
+      function resolveTargetVehicle(vehicleId) {
+        const list = castle.vehicles || [];
+        if (vehicleId) {
+          const found = list.find(function (v) { return v.id === vehicleId; });
+          if (found) return found;
+        }
+        const curTr = playerCtrl.getTransport();
+        if (curTr && curTr.kind === 'car' && curTr.entity) return curTr.entity;
+        return list.find(function (v) { return v.id === 'royal_palace_car'; }) || list[0] || null;
+      }
+
+      function openChauffeurRideSheet(vehicleId) {
+        const carDef = resolveTargetVehicle(vehicleId);
+        const lucien = getActorById('chauffeur-lucien');
+        if (!carDef || !lucien) {
+          g.toast('No vehicle or Chauffeur Lucien available right now.');
+          return;
+        }
+        actionTitle.textContent = 'Chauffeur Lucien — Choose Destination';
+        actionList.innerHTML = '';
+        CHAUFFEUR_DESTINATIONS.forEach(function (dest) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'world-action-item';
+          const tEl = document.createElement('strong');
+          tEl.textContent = 'Drive to ' + dest.title;
+          const hEl = document.createElement('span');
+          hEl.textContent = 'Sit in passenger seat while Lucien drives ' + (carDef.title || 'Royal Car') + ' there';
+          btn.appendChild(tEl);
+          btn.appendChild(hEl);
+          btn.addEventListener('click', function () {
+            closeActionSheet();
+            const wps = buildCarRoadWaypoints(carDef.x, carDef.z, dest.x, dest.z, dest.yaw);
+            playerCtrl.setChauffeurRide(carDef, lucien, wps, dest.title, function (arrivedTitle) {
+              g.toast('Chauffeur Lucien pulled up cleanly at ' + arrivedTitle + '!');
+            });
+            g.toast('Chauffeur Lucien is driving you to ' + dest.title + '!');
+            syncHud(playerCtrl.actor.root.position);
+          });
+          actionList.appendChild(btn);
+        });
+        actionOverlay.classList.add('open');
+      }
+
+      function openCarPassengersSheet(vehicleId) {
+        const carDef = resolveTargetVehicle(vehicleId);
+        if (!carDef) return;
+        const curTr = playerCtrl.getTransport();
+        if (!curTr || curTr.kind !== 'car' || curTr.entity.id !== carDef.id) {
+          playerCtrl.enterCar(carDef);
+        }
+        actionTitle.textContent = 'Invite Companions Into ' + (carDef.title || 'Car');
+        actionList.innerHTML = '';
+
+        const seatedList = playerCtrl.getPassengers ? playerCtrl.getPassengers() : [];
+        const seatedMap = {};
+        for (let i = 0; i < seatedList.length; i++) seatedMap[seatedList[i].id] = seatedList[i];
+
+        const chaufBtn = document.createElement('button');
+        chaufBtn.type = 'button';
+        chaufBtn.className = 'world-action-item';
+        const cTitle = document.createElement('strong');
+        cTitle.textContent = 'Have Chauffeur Lucien Drive Us Instead';
+        const cHint = document.createElement('span');
+        cHint.textContent = 'Pick a destination while everyone rides along in back';
+        chaufBtn.appendChild(cTitle);
+        chaufBtn.appendChild(cHint);
+        chaufBtn.addEventListener('click', function () {
+          openChauffeurRideSheet(carDef.id);
+        });
+        actionList.appendChild(chaufBtn);
+
+        const candidates = actors.filter(function (a) {
+          return a.id !== 'chauffeur-lucien' && (a.actorCategory === 'friend' || a.actorCategory === 'staff' || a.actorCategory === 'citizen') && a.ageGroup !== 'toddler';
+        }).slice(0, 14);
+
+        candidates.forEach(function (act) {
+          const isIn = Boolean(seatedMap[act.id]);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'world-action-item';
+          const tEl = document.createElement('strong');
+          tEl.textContent = (isIn ? '✓ Unboard ' : '+ Board ') + act.name;
+          const hEl = document.createElement('span');
+          hEl.textContent = isIn ? ('Sitting in seat: ' + seatedMap[act.id].seatKey) : (act.roleLabel || 'Court Guest');
+          btn.appendChild(tEl);
+          btn.appendChild(hEl);
+          btn.addEventListener('click', function () {
+            if (isIn) {
+              playerCtrl.removePassenger(act.id);
+              g.toast(act.name + ' stepped out of the car.');
+            } else {
+              const ok = playerCtrl.addPassenger({ id: act.id, name: act.name, actor: act.mesh, npcRef: act });
+              if (!ok) g.toast('All passenger seats are full! Unboard someone first.');
+              else g.toast(act.name + ' climbed into the car beside you!');
+            }
+            openCarPassengersSheet(carDef.id);
+            syncHud(playerCtrl.actor.root.position);
+          });
+          actionList.appendChild(btn);
+        });
+        actionOverlay.classList.add('open');
+      }
+
+      // ---- MULTI-CHAIR "CALL TO MEAL" & DINE WITH SOMEONE ----
+      let activeDiningGroup = [];
+      function releaseDiningGroup() {
+        for (let di = 0; di < activeDiningGroup.length; di++) {
+          const dm = activeDiningGroup[di];
+          if (!dm) continue;
+          dm.summon = null;
+          setActorPropVisible(dm, null);
+          if (dm.wasInPose && dm.mesh) {
+            dm.wasInPose = false;
+            if (dm.mesh.rig) dm.mesh.rig.position.set(0, 0, 0);
+            if (dm.mesh.leftLeg) dm.mesh.leftLeg.rotation.set(0, 0, 0);
+            if (dm.mesh.rightLeg) dm.mesh.rightLeg.rotation.set(0, 0, 0);
+            if (dm.mesh.leftArm) dm.mesh.leftArm.rotation.set(0, 0, 0);
+            if (dm.mesh.rightArm) dm.mesh.rightArm.rotation.set(0, 0, 0);
+          }
+          if (dm.mesh && dm.mesh.root) {
+            dm.mesh.root.position.set(dm.homeX, dm.homeY || 0, dm.homeZ);
+          }
+        }
+        activeDiningGroup = [];
+      }
+
+      function seatMemberAtChair(act, seat, instantSit) {
+        if (!act || !seat) return;
+        const nPos = act.mesh.root.position;
+        const diffFloor = Math.abs(nPos.y - seat.y) > 1.3;
+        const distFar = Math.hypot(nPos.x - seat.x, nPos.z - seat.z) > 22;
+        if (diffFloor || distFar) {
+          const sx = typeof seat.approachX === 'number' ? seat.approachX : seat.x;
+          const sz = typeof seat.approachZ === 'number' ? seat.approachZ : seat.z;
+          nPos.set(sx, seat.y, sz);
+          act.homeY = seat.y;
+        }
+        act.isTalking = false;
+        setActorPropVisible(act, 'teacup');
+        if (instantSit) {
+          nPos.set(seat.x, seat.y, seat.z);
+          act.mesh.root.rotation.y = seat.yaw || 0;
+        }
+        act.summon = {
+          active: true,
+          targetX: seat.x,
+          targetY: seat.y,
+          targetZ: seat.z,
+          pose: 'eat',
+          holdProp: 'teacup',
+          follow: false,
+          timer: 180,
+          arrived: Boolean(instantSit),
+          firedArrive: Boolean(instantSit),
+          rigOffsetY: seat.rigOffsetY,
+          faceYaw: seat.yaw,
+          yOverride: seat.y,
+          waypoints: instantSit || typeof seat.approachX !== 'number' ? null : [{ x: seat.approachX, z: seat.approachZ }],
+          wpIdx: 0,
+          assignedSeat: seat,
+        };
+      }
+
+      function getAvailableDiningSeats(seatsList) {
+        if (!Array.isArray(seatsList) || !seatsList.length) return [];
+        const pPos = playerCtrl.actor.root.position;
+        // Identify which chair the player is sitting in (nearest chair within 1.1m, else index 0)
+        let playerSeatIdx = 0;
+        let bestP = Infinity;
+        for (let si = 0; si < seatsList.length; si++) {
+          const d = Math.hypot(pPos.x - seatsList[si].x, pPos.z - seatsList[si].z);
+          if (d < bestP) {
+            bestP = d;
+            playerSeatIdx = si;
+          }
+        }
+        const avail = [];
+        for (let si = 0; si < seatsList.length; si++) {
+          if (si === playerSeatIdx) continue;
+          const seat = seatsList[si];
+          const taken = activeDiningGroup.some(function (dm) {
+            return dm && dm.summon && dm.summon.assignedSeat &&
+              Math.hypot(dm.summon.assignedSeat.x - seat.x, dm.summon.assignedSeat.z - seat.z) < 0.25;
+          });
+          if (!taken) avail.push(seat);
+        }
+        return avail;
+      }
+
+      function callGroupToMeal(spot, action) {
+        const activeAct = interactMgr ? interactMgr.getActiveActivity() : null;
+        let targetSpot = spot;
+        if (!targetSpot && action && action.spotId && castle && castle.spots) {
+          targetSpot = castle.spots[action.spotId];
+        }
+        const seatsList =
+          (targetSpot && targetSpot.seats) ||
+          (activeAct && activeAct.seats) ||
+          (activeAct && activeAct.partnerAnchor ? [activeAct.partnerAnchor] : null);
+
+        if (!seatsList || !seatsList.length) {
+          g.toast('No dining chairs found nearby!');
+          return;
+        }
+
+        // Seat the player in seat[0] first if not already seated eating
+        if (!activeAct || activeAct.pose !== 'eat') {
+          const eatAction = targetSpot && Array.isArray(targetSpot.actions)
+            ? targetSpot.actions.find(function (a) { return a.pose === 'eat'; })
+            : null;
+          if (eatAction && interactMgr) {
+            interactMgr.runAction(eatAction);
+          }
+        }
+
+        releaseDiningGroup();
+        const availSeats = getAvailableDiningSeats(seatsList);
+        if (!availSeats.length) {
+          g.toast('Every dining chair at this table is already filled!');
+          return;
+        }
+
+        const pPos = playerCtrl.actor.root.position;
+        const pool = actors
+          .filter(function (a) {
+            return a.ageGroup !== 'toddler' && !a.isTalking &&
+              (a.actorCategory === 'friend' || a.actorCategory === 'citizen' || a.actorCategory === 'staff');
+          })
+          .sort(function (a, b) {
+            const aFriend = a.actorCategory === 'friend' ? -30 : 0;
+            const bFriend = b.actorCategory === 'friend' ? -30 : 0;
+            const aFloor = Math.abs((a.homeY || 0) - pPos.y) < 1.5 ? 0 : 18;
+            const bFloor = Math.abs((b.homeY || 0) - pPos.y) < 1.5 ? 0 : 18;
+            const da = Math.hypot(a.mesh.root.position.x - pPos.x, a.mesh.root.position.z - pPos.z) + aFriend + aFloor;
+            const db = Math.hypot(b.mesh.root.position.x - pPos.x, b.mesh.root.position.z - pPos.z) + bFriend + bFloor;
+            return da - db;
+          });
+
+        const count = Math.min(availSeats.length, pool.length);
+        const names = [];
+        for (let i = 0; i < count; i++) {
+          const guest = pool[i];
+          const seat = availSeats[i];
+          activeDiningGroup.push(guest);
+          seatMemberAtChair(guest, seat, false);
+          names.push(guest.name);
+        }
+
+        if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 16, composure: 10 });
+        g.toast('Called to meal: ' + names.join(', ') + ' — everyone is heading to their own chair!');
+      }
+
+      function openDiningPartnerSheet() {
+        const activeAct = interactMgr ? interactMgr.getActiveActivity() : null;
+        const seatsList = (activeAct && activeAct.seats) || (activeAct && activeAct.partnerAnchor ? [activeAct.partnerAnchor] : null);
+        if (!activeAct || !seatsList || !seatsList.length) {
+          g.toast('Sit at any dining table, bistro, or breakfast bar first!');
+          return;
+        }
+        const availSeats = getAvailableDiningSeats(seatsList);
+        if (!availSeats.length) {
+          g.toast('All dining chairs at this table are occupied!');
+          return;
+        }
+
+        actionTitle.innerHTML = '<span class="s4-plumbob"></span>Call to Meal · Invite Guests';
+        actionList.innerHTML = '';
+
+        const callAllBtn = document.createElement('button');
+        callAllBtn.type = 'button';
+        callAllBtn.className = 'world-action-item s4-card s4-cat-meal';
+        callAllBtn.innerHTML =
+          '<strong>Call Household & Friends to Meal (' + availSeats.length + ' Open Chairs)</strong>' +
+          '<span>Fills every open seat automatically — zero chair stacking!</span>';
+        callAllBtn.addEventListener('click', function () {
+          closeActionSheet();
+          callGroupToMeal(null, null);
+        });
+        actionList.appendChild(callAllBtn);
+
+        const pool = actors.filter(function (a) {
+          return a.ageGroup !== 'toddler' &&
+            activeDiningGroup.indexOf(a) === -1 &&
+            (a.actorCategory === 'friend' || a.actorCategory === 'staff' || a.actorCategory === 'citizen');
+        }).slice(0, 14);
+
+        pool.forEach(function (act) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'world-action-item s4-card s4-cat-friendly';
+          const tEl = document.createElement('strong');
+          tEl.textContent = 'Invite ' + act.name + ' to Their Own Chair';
+          const hEl = document.createElement('span');
+          hEl.textContent = (act.roleLabel || 'Guest') + ' · Takes open seat #' + (activeDiningGroup.length + 2);
+          btn.appendChild(tEl);
+          btn.appendChild(hEl);
+          btn.addEventListener('click', function () {
+            closeActionSheet();
+            const openNow = getAvailableDiningSeats(seatsList);
+            if (!openNow.length) {
+              g.toast('All chairs are taken!');
+              return;
+            }
+            activeDiningGroup.push(act);
+            seatMemberAtChair(act, openNow[0], true);
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 14, composure: 8 });
+            g.toast(act.name + ' sat down in their own chair to dine with you! (+14 Fun)');
+          });
+          actionList.appendChild(btn);
+        });
+        actionOverlay.classList.add('open');
+      }
 
       const royalCommands = {
         summonActorToPlayer: summonActorToPlayer,
@@ -2657,6 +4318,11 @@
         serveChampagne: serveChampagne,
         summonMyCar: summonMyCar,
         dismissAllSummons: dismissAllSummons,
+        triggerEmergency: triggerEmergencyEvent,
+        openChauffeurRideSheet: openChauffeurRideSheet,
+        openCarPassengersSheet: openCarPassengersSheet,
+        openDiningPartnerSheet: openDiningPartnerSheet,
+        callGroupToMeal: callGroupToMeal,
       };
       window.CrownCommands = royalCommands;
 
@@ -2672,9 +4338,7 @@
       activityExtraBtn.addEventListener('click', function () {
         const tr = playerCtrl.getTransport();
         if (tr && tr.kind === 'car') {
-          if (window.CrownAudio) window.CrownAudio.playHorn ? window.CrownAudio.playHorn() : window.CrownAudio.playSelect();
-          if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 4 });
-          g.toast('Beep beep!');
+          openCarPassengersSheet(tr.entity && tr.entity.id);
         } else if (tr && tr.kind === 'horse') {
           tr.boost = !tr.boost;
           activityExtraBtn.textContent = tr.boost ? 'Canter: Fast' : 'Trot Pace';
@@ -2683,11 +4347,14 @@
           const activeAct = interactMgr ? interactMgr.getActiveActivity() : null;
           if (activeAct && (activeAct.pose === 'sleep' || activeAct.pose === 'nap')) {
             serveMealInBed(null, activeAct);
+          } else if (activeAct && activeAct.pose === 'eat' && (activeAct.partnerAnchor || activeAct.seats)) {
+            openDiningPartnerSheet();
           }
         }
       });
 
       activityStopBtn.addEventListener('click', function () {
+        releaseDiningGroup();
         if (playerCtrl.getTransport()) {
           playerCtrl.exitTransport();
           syncHud(playerCtrl.actor.root.position);
@@ -2701,13 +4368,33 @@
         if (interactMgr) interactMgr.stopActivity(false);
       });
 
+      function classifyActionSims4(act) {
+        const idStr = ((act.id || '') + ' ' + (act.label || '') + ' ' + (act.pose || '')).toLowerCase();
+        if (/swim|float|splash|ocean|pool|boat|row|yacht|bath|shower/.test(idStr)) {
+          return { cat: 'swim', tag: 'Water & Ocean' };
+        }
+        if (/eat|meal|dine|cook|breakfast|feast|macaron|champagne|tea|espresso|bakery|pastry/.test(idStr)) {
+          return { cat: 'meal', tag: 'Food & Drink' };
+        }
+        if (/flirt|kiss|romance|candle/.test(idStr)) {
+          return { cat: 'romance', tag: 'Romance' };
+        }
+        if (/joke|play|dance|fun|game|party|carousel|toy|piano/.test(idStr)) {
+          return { cat: 'funny', tag: 'Fun & Play' };
+        }
+        if (/drive|car|chauffeur|carpool|horse|ride|sleep|nap|sit|study|read/.test(idStr)) {
+          return { cat: 'activity', tag: 'Activity' };
+        }
+        return { cat: 'friendly', tag: 'Social & Life' };
+      }
+
       function openObjectSheet(target, backCategory) {
         if (!target || !interactMgr) return;
         if (target.kind === 'actor' && target.actor) {
           openNpcConversation(target.actor);
           return;
         }
-        actionTitle.textContent = target.title || 'Royal Action';
+        actionTitle.innerHTML = '<span class="s4-plumbob"></span>' + (target.title || 'Sims Action');
         actionList.innerHTML = '';
 
         if (backCategory) {
@@ -2727,11 +4414,11 @@
           const anc = primaryAct.anchor;
           const walkBtn = document.createElement('button');
           walkBtn.type = 'button';
-          walkBtn.className = 'world-action-item';
+          walkBtn.className = 'world-action-item s4-card s4-cat-activity';
           const wTitle = document.createElement('strong');
-          wTitle.textContent = 'Go To Room / Inspect Area';
+          wTitle.textContent = 'Walk Over Here';
           const wHint = document.createElement('span');
-          wHint.textContent = 'Walk directly up to ' + (target.title || 'location');
+          wHint.textContent = 'Go directly to ' + (target.title || 'location');
           walkBtn.appendChild(wTitle);
           walkBtn.appendChild(wHint);
           walkBtn.addEventListener('click', function () {
@@ -2750,16 +4437,28 @@
           actionList.appendChild(walkBtn);
         }
 
+        const gridBox = document.createElement('div');
+        gridBox.className = 's4-action-grid';
+        actionList.appendChild(gridBox);
+
         (target.actions || []).forEach(function (act) {
+          const cls = classifyActionSims4(act);
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'world-action-item';
+          btn.className = 'world-action-item s4-card s4-cat-' + cls.cat;
           const titleEl = document.createElement('strong');
           titleEl.textContent = act.label;
           const hintEl = document.createElement('span');
           hintEl.textContent = act.hint || '';
+          const tagRow = document.createElement('div');
+          tagRow.className = 's4-tag-row';
+          const pill = document.createElement('span');
+          pill.className = 's4-cat-pill';
+          pill.textContent = cls.tag;
+          tagRow.appendChild(pill);
           btn.appendChild(titleEl);
           btn.appendChild(hintEl);
+          btn.appendChild(tagRow);
           btn.addEventListener('click', function () {
             closeActionSheet();
             floorMode = 'auto';
@@ -2768,7 +4467,7 @@
             interactMgr.runAction(act);
             camCtrl.resetCamera(playerCtrl.actor.root.rotation.y);
           });
-          actionList.appendChild(btn);
+          gridBox.appendChild(btn);
         });
         actionOverlay.classList.add('open');
       }
@@ -3054,6 +4753,15 @@
             });
             addCmdItem('Summon My Royal Car Here', 'Deliver Royal Roadster nearby with doors held open & Chauffeur Lucien', function () {
               summonMyCar();
+            });
+            addCmdItem('Have Chauffeur Lucien Drive Me...', 'Pick any Palace, Montieri Hotel or Riviera destination while Lucien drives', function () {
+              openChauffeurRideSheet();
+            });
+            addCmdItem('Carpool / Ride With Friends', 'Invite friends, family or neighbors to hop inside your car', function () {
+              openCarPassengersSheet();
+            });
+            addCmdItem('Call Live Hospital ER Emergency', 'Trigger ambulance emergency arrival with ER doctors & nurses treating live', function () {
+              triggerEmergencyEvent(true);
             });
             addCmdItem('Summon Medical House Call', 'Call Chief Physician Dr. Moreau or Nurse Amélie for check-up (+65 Energy)', function () {
               const pPos = playerCtrl.actor.root.position;
@@ -3527,17 +5235,30 @@
         const swimmingNow = playerCtrl.isSwimming();
 
         if (tr) {
-          setExtraBtnDisplay('inline-block');
           if (tr.kind === 'car') {
+            setExtraBtnDisplay('inline-block');
             setDoorBtnDisplay('inline-block');
             const cd = tr.entity && tr.entity.group && tr.entity.group.userData && tr.entity.group.userData.carDoors;
             setTextCached(activityDoorBtn, 'doorText', cd && cd.manualOpen ? 'Close Doors' : 'Open Doors');
-            setTextCached(activityText, 'actText', 'Driving ' + (tr.entity.title || 'Car'));
-            setTextCached(activityExtraBtn, 'extraText', 'Honk Horn');
+            const passCount = Array.isArray(tr.passengers) ? tr.passengers.length : 0;
+            const autoActive = Boolean(tr.chauffeur && tr.chauffeurRoute && tr.chauffeurRoute.active);
+            const carStatus = autoActive
+              ? ('Chauffeur Lucien → ' + (tr.chauffeurRoute.destTitle || 'Destination'))
+              : (tr.chauffeur ? 'Chauffeur Parked' : 'Driving ' + (tr.entity.title || 'Car')) + (passCount ? (' · ' + passCount + ' w/ you') : '');
+            setTextCached(activityText, 'actText', carStatus);
+            setTextCached(activityExtraBtn, 'extraText', 'Ride w/ Friends');
             setTextCached(activityStopBtn, 'stopText', 'Exit Car');
             setHtmlCached(interactBtn, 'interactHtml', '<span>Park & Exit Car</span><span>Tap / E</span>');
+          } else if (tr.kind === 'boat') {
+            setDoorBtnDisplay('none');
+            setExtraBtnDisplay('none');
+            const boatVerb = tr.entity && tr.entity.isYacht ? 'Piloting ' : 'Rowing ';
+            setTextCached(activityText, 'actText', boatVerb + (tr.entity.title || 'Boat') + ' · Stick / WASD');
+            setTextCached(activityStopBtn, 'stopText', 'Step Ashore');
+            setHtmlCached(interactBtn, 'interactHtml', '<span>Step Ashore</span><span>Tap / E</span>');
           } else {
             setDoorBtnDisplay('none');
+            setExtraBtnDisplay('inline-block');
             setTextCached(activityText, 'actText', 'Riding ' + (tr.entity.title || 'Steed'));
             setTextCached(activityExtraBtn, 'extraText', tr.boost ? 'Canter: Fast' : 'Trot Pace');
             setTextCached(activityStopBtn, 'stopText', 'Dismount');
@@ -3552,9 +5273,12 @@
         setDoorBtnDisplay('none');
         if (activeAct) {
           const isInBed = activeAct.pose === 'sleep' || activeAct.pose === 'nap';
-          setExtraBtnDisplay(isInBed ? 'inline-block' : 'none');
+          const canDinePartner = activeAct.pose === 'eat' && Boolean(activeAct.partnerAnchor || activeAct.seats);
+          setExtraBtnDisplay(isInBed || canDinePartner ? 'inline-block' : 'none');
           if (isInBed) {
             setTextCached(activityExtraBtn, 'extraText', 'Meal in Bed');
+          } else if (canDinePartner) {
+            setTextCached(activityExtraBtn, 'extraText', 'Call to Meal');
           }
           setTextCached(activityText, 'actText', activeAct.statusText || activeAct.label);
           setTextCached(activityStopBtn, 'stopText', isInBed || activeAct.pose === 'eat_in_bed' ? 'Wake Up' : 'Stand Up');
@@ -3574,11 +5298,12 @@
         setExtraBtnDisplay('none');
 
         if (swimmingNow) {
-          setTextCached(activityText, 'actText', 'Swimming freely — move with stick/WASD!');
-          setTextCached(activityStopBtn, 'stopText', 'Exit Pool');
+          const inOcean = pos.z >= 58.6;
+          setTextCached(activityText, 'actText', (inOcean ? 'Swimming in Riviera Ocean' : 'Swimming in Pool') + ' — stick/WASD!');
+          setTextCached(activityStopBtn, 'stopText', 'Exit Water');
           setBannerVisible(true);
           if (interactBtn.disabled) interactBtn.disabled = false;
-          setHtmlCached(interactBtn, 'interactHtml', '<span>Climb Out of Pool</span><span>Tap / E</span>');
+          setHtmlCached(interactBtn, 'interactHtml', '<span>' + (inOcean ? 'Walk Back Ashore' : 'Climb Out of Pool') + '</span><span>Tap / E</span>');
           currentTarget = null;
           return;
         }
@@ -3653,6 +5378,7 @@
         active = false;
         cancelAnimationFrame(frameHandle);
         clearTimeout(frameHandle);
+        clearTimeout(activeCheckupTimer);
         window.removeEventListener('resize', onResize);
         window.removeEventListener('keydown', onWorldKeyDown);
         renderer.domElement.removeEventListener('pointerdown', onCanvasPointerDown);
@@ -3824,11 +5550,107 @@
         }
         const updateSkinFn = typeof playerCtrl.updateLivingSkin === 'function' ? playerCtrl.updateLivingSkin : null;
 
-        // Natural Waypoint Pedestrian Walking + Arrival Pauses + Summoned Staff/Friends + Genuine Conversation Facing
+        // Autonomous Hospital ER Emergency Cycle (~78s cadence)
+        if (emergencyActiveTimer > 0) {
+          emergencyActiveTimer -= delta;
+        } else {
+          emergencyCooldown -= delta;
+          if (emergencyCooldown <= 0) {
+            emergencyCooldown = 78;
+            if (Math.hypot(px - 79.6, pz - -21.0) < 62) {
+              triggerEmergencyEvent(false);
+            }
+          }
+        }
+
+        // Release all seated dining companions cleanly if Princess stood up via WASD
+        const curPlayerAct = interactMgr && typeof interactMgr.getActiveActivity === 'function' ? interactMgr.getActiveActivity() : null;
+        if (activeDiningGroup.length && (!curPlayerAct || curPlayerAct.pose !== 'eat')) {
+          releaseDiningGroup();
+        }
+
+        // Map any actors currently seated inside the active car (Chauffeur driver or passengers)
+        const carOccupantsMap = {};
+        if (pInfo.transport && pInfo.transport.kind === 'car' && pInfo.transport.entity && pInfo.transport.entity.group) {
+          const trCar = pInfo.transport;
+          const grpCar = trCar.entity.group;
+          const cUd = grpCar.userData || {};
+          const seatsMap = cUd.seats || {
+            driver: { x: cUd.seatX || -0.35, y: cUd.seatY || 0.44, z: cUd.seatZ || -0.14 },
+            frontPass: { x: 0.35, y: cUd.seatY || 0.44, z: cUd.seatZ || -0.14 },
+            rearLeft: { x: -0.35, y: 0.42, z: -0.78 },
+            rearRight: { x: 0.35, y: 0.42, z: -0.78 },
+          };
+          const cCos = Math.cos(grpCar.rotation.y);
+          const cSin = Math.sin(grpCar.rotation.y);
+          if (trCar.chauffeur && trCar.chauffeur.id) {
+            carOccupantsMap[trCar.chauffeur.id] = { grp: grpCar, seat: seatsMap.driver, pose: 'drive', steer: trCar.steer, cos: cCos, sin: cSin };
+          }
+          if (Array.isArray(trCar.passengers)) {
+            for (let pi = 0; pi < trCar.passengers.length; pi++) {
+              const pass = trCar.passengers[pi];
+              if (pass && pass.id && seatsMap[pass.seatKey]) {
+                carOccupantsMap[pass.id] = { grp: grpCar, seat: seatsMap[pass.seatKey], pose: 'drive_passenger', steer: trCar.steer, cos: cCos, sin: cSin };
+              }
+            }
+          }
+        }
+
+        function resetNpcToUpright(actObj, keepProp) {
+          const m = actObj && actObj.mesh;
+          if (!m) return;
+          if (m.rig) {
+            m.rig.position.set(0, 0, 0);
+            m.rig.rotation.set(0, 0, 0);
+          }
+          if (m.skirtMesh) {
+            m.skirtMesh.rotation.set(0, 0, 0);
+            m.skirtMesh.scale.set(1, 1, 1);
+          }
+          if (m.bodyGroup) {
+            m.bodyGroup.position.y = m.baseLeg || 0.94;
+            m.bodyGroup.rotation.set(0, 0, 0);
+          }
+          if (m.leftLeg) m.leftLeg.rotation.set(0, 0, 0);
+          if (m.rightLeg) m.rightLeg.rotation.set(0, 0, 0);
+          if (m.leftKnee) m.leftKnee.rotation.set(0, 0, 0);
+          if (m.rightKnee) m.rightKnee.rotation.set(0, 0, 0);
+          if (m.leftArm) m.leftArm.rotation.set(0, 0, 0);
+          if (m.rightArm) m.rightArm.rotation.set(0, 0, 0);
+          if (m.headGroup) m.headGroup.rotation.set(0, 0, 0);
+          if (m.contactShadow) m.contactShadow.visible = true;
+          if (!keepProp) setActorPropVisible(actObj, null);
+        }
+
+        // Natural Waypoint Pedestrian Walking + Arrival Pauses + Summoned Staff/Friends + Car Occupants + Work/Home Poses
         for (let actIdx = 0; actIdx < actors.length; actIdx++) {
           const act = actors[actIdx];
           const rootObj = act.mesh.root;
           const posNow = rootObj.position;
+          const carSeatInfo = carOccupantsMap[act.id];
+
+          if (carSeatInfo) {
+            rootObj.visible = true;
+            const sg = carSeatInfo.grp;
+            const st = carSeatInfo.seat;
+            posNow.set(
+              sg.position.x + st.x * carSeatInfo.cos + st.z * carSeatInfo.sin,
+              sg.position.y + st.y - 0.28,
+              sg.position.z - st.x * carSeatInfo.sin + st.z * carSeatInfo.cos
+            );
+            rootObj.rotation.y = sg.rotation.y;
+            if (window.CrownAnim) {
+              const aBaseLeg = act.mesh.baseLeg || 0.94;
+              window.CrownAnim.applyPose(act.mesh, carSeatInfo.pose, delta, elapsed + act.phase, {
+                steer: carSeatInfo.steer || 0,
+                rigOffsetY: -aBaseLeg * 0.62,
+              });
+              act.wasInPose = true;
+            }
+            if (updateSkinFn) updateSkinFn(act.mesh, elapsed + act.phase, null, false, 0);
+            continue;
+          }
+
           const sum = act.summon;
           const isSummoned = Boolean(sum && sum.active);
 
@@ -3838,14 +5660,47 @@
             const distSqP = dxP * dxP + dzP * dzP;
             const actorInPalace = Math.abs(posNow.x) <= 30.8 && posNow.z <= -17.2 && posNow.z >= -38.8;
             const hiddenByCutaway = actorInPalace && getPalaceFloorFromY(typeof act.homeY === 'number' ? act.homeY : posNow.y) > visiblePalaceMaxFloor;
-            const showActor = !hiddenByCutaway && distSqP <= 3364;
+            const insideHotelNow = px >= 133.2 && px <= 152.4 && pz >= 3.5 && pz <= 16.1;
+            const hiddenByHotelCutaway = typeof act.hotelFloor === 'number' && insideHotelNow && (
+              (act.hotelFloor >= 3 && py < 7.2) || (act.hotelFloor >= 2 && py < 2.2)
+            );
+            const showActor = !hiddenByCutaway && !hiddenByHotelCutaway && distSqP <= 3364;
             if (rootObj.visible !== showActor) rootObj.visible = showActor;
             if (!showActor) continue;
           } else if (!rootObj.visible) {
             rootObj.visible = true;
           }
 
+          if (typeof act.mesh.setSwimwear === 'function') {
+            act.mesh.setSwimwear(Boolean(castle.isInPool && castle.isInPool(posNow)));
+          }
+
           if (act.isTalking) {
+            const stPose = act.stationaryPose;
+            const curWpPose = Array.isArray(act.waypoints) && act.waypoints.length >= 2 && (act.pauseTimer || 0) > 0
+              ? (act.waypoints[(act.wpIndex - 1 + act.waypoints.length) % act.waypoints.length] || {}).workPose
+              : null;
+            const activeRestPose = (isSummoned && sum.arrived && sum.pose) || stPose || curWpPose;
+            const keepRestingPose = Boolean(
+              activeRestPose && (
+                activeRestPose === 'sleep' || activeRestPose === 'nap' || activeRestPose === 'sit' ||
+                activeRestPose === 'sofa' || activeRestPose === 'eat' || activeRestPose === 'eat_in_bed' ||
+                activeRestPose === 'sit_read'
+              )
+            );
+            if (keepRestingPose && window.CrownAnim) {
+              window.CrownAnim.applyPose(act.mesh, activeRestPose, delta, elapsed + act.phase, { rigOffsetY: act.rigOffsetY });
+              act.mesh.headGroup.rotation.x = Math.sin(elapsed * 2.1 + act.phase) * 0.06;
+              act.mesh.headGroup.rotation.y = Math.sin(elapsed * 1.4 + act.phase) * 0.08;
+              act.wasInPose = true;
+              if (updateSkinFn) updateSkinFn(act.mesh, elapsed + act.phase, null, false, 0);
+              continue;
+            }
+            if (act.wasInPose) {
+              resetNpcToUpright(act, Boolean(isSummoned && sum.holdProp));
+              act.wasInPose = false;
+              posNow.y = castle.groundHeightAt(posNow.x, posNow.z, typeof act.homeY === 'number' ? act.homeY : posNow.y);
+            }
             if (updateSkinFn) {
               updateSkinFn(act.mesh, elapsed + act.phase, null, false, 0);
             }
@@ -3869,52 +5724,114 @@
               sum.targetX = px - Math.sin(pYaw) * 1.75;
               sum.targetZ = pz - Math.cos(pYaw) * 1.75;
               sum.targetY = py;
+              sum.waypoints = null;
               if (Math.hypot(sum.targetX - posNow.x, sum.targetZ - posNow.z) > 18 || Math.abs(posNow.y - py) > 2.2) {
-                posNow.set(sum.targetX, py, sum.targetZ);
+                let fx = sum.targetX;
+                let fz = sum.targetZ;
+                if (typeof castle.resolveCollision === 'function') {
+                  const fr = castle.resolveCollision(fx, fz, 0.28, py);
+                  fx = fr.x;
+                  fz = fr.z;
+                }
+                posNow.set(fx, py, fz);
               }
             } else {
               sum.timer -= delta;
               if (sum.timer <= 0) {
                 act.summon = null;
-                setActorPropVisible(act, null);
+                if (act.wasInPose) {
+                  resetNpcToUpright(act, false);
+                  act.wasInPose = false;
+                } else {
+                  setActorPropVisible(act, null);
+                }
+                posNow.y = castle.groundHeightAt(posNow.x, posNow.z, typeof act.homeY === 'number' ? act.homeY : 0);
                 continue;
               }
             }
-            const sdx = sum.targetX - posNow.x;
-            const sdz = sum.targetZ - posNow.z;
+
+            let goalX = sum.targetX;
+            let goalZ = sum.targetZ;
+            let viaWaypoint = false;
+            if (Array.isArray(sum.waypoints) && (sum.wpIdx || 0) < sum.waypoints.length) {
+              const swp = sum.waypoints[sum.wpIdx || 0];
+              if (Math.hypot(swp.x - posNow.x, swp.z - posNow.z) < 0.35) {
+                sum.wpIdx = (sum.wpIdx || 0) + 1;
+              }
+              if ((sum.wpIdx || 0) < sum.waypoints.length) {
+                goalX = sum.waypoints[sum.wpIdx || 0].x;
+                goalZ = sum.waypoints[sum.wpIdx || 0].z;
+                viaWaypoint = true;
+              }
+            }
+
+            const sdx = goalX - posNow.x;
+            const sdz = goalZ - posNow.z;
             const sDist = Math.hypot(sdx, sdz);
-            if (sDist > 0.34) {
+            const arrivedThreshold = viaWaypoint ? 0.25 : 0.34;
+            if (sDist > arrivedThreshold || viaWaypoint) {
               sum.arrived = false;
+              if (act.wasInPose) {
+                resetNpcToUpright(act, Boolean(sum.holdProp));
+                act.wasInPose = false;
+              }
               const spd = (act.walkSpeed || 1.32) * (sum.follow ? 1.75 : 1.48);
               act.curSpeed = spd;
-              const step = Math.min(sDist, spd * delta);
-              const dirX = sdx / sDist;
-              const dirZ = sdz / sDist;
-              let nx = posNow.x + dirX * step;
-              let nz = posNow.z + dirZ * step;
+              const step = Math.min(Math.max(0.01, sDist), spd * delta);
+              const baseAng = Math.atan2(sdx, sdz);
+              let bestX = posNow.x + (sdx / Math.max(0.001, sDist)) * step;
+              let bestZ = posNow.z + (sdz / Math.max(0.001, sDist)) * step;
+              let chosenAng = baseAng;
+              const nearFinalBed = !viaWaypoint && (typeof sum.yOverride === 'number' || sum.pose === 'sleep') && sDist < 1.55;
               if (typeof castle.resolveCollision === 'function') {
-                const res = castle.resolveCollision(nx, nz, 0.24, sum.targetY);
-                nx = res.x;
-                nz = res.z;
+                const res = castle.resolveCollision(bestX, bestZ, 0.24, sum.targetY, {
+                  prevX: posNow.x,
+                  prevZ: posNow.z,
+                  wallsOnly: nearFinalBed,
+                });
+                let moved = Math.hypot(res.x - posNow.x, res.z - posNow.z);
+                bestX = res.x;
+                bestZ = res.z;
+                if (moved < step * 0.35 && !nearFinalBed) {
+                  const steerOffsets = [0.78, -0.78, 1.35, -1.35, 1.75, -1.75];
+                  for (let si = 0; si < steerOffsets.length; si++) {
+                    const ang = baseAng + steerOffsets[si];
+                    const cx = posNow.x + Math.sin(ang) * step;
+                    const cz = posNow.z + Math.cos(ang) * step;
+                    const sr = castle.resolveCollision(cx, cz, 0.24, sum.targetY, {
+                      prevX: posNow.x,
+                      prevZ: posNow.z,
+                    });
+                    const mDist = Math.hypot(sr.x - posNow.x, sr.z - posNow.z);
+                    if (mDist > moved + 0.001) {
+                      moved = mDist;
+                      bestX = sr.x;
+                      bestZ = sr.z;
+                      chosenAng = ang;
+                    }
+                  }
+                }
               }
-              posNow.set(nx, castle.groundHeightAt(nx, nz, sum.targetY), nz);
-              const targetYaw = Math.atan2(dirX, dirZ);
-              let yawDiff = ((targetYaw - rootObj.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
+              posNow.set(bestX, castle.groundHeightAt(bestX, bestZ, sum.targetY), bestZ);
+              let yawDiff = ((chosenAng - rootObj.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
               if (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
               rootObj.rotation.y += yawDiff * Math.min(1, delta * 9.0);
               act.phase += delta * 6.0;
-              const swing = Math.sin(act.phase) * 0.38;
-              act.mesh.leftLeg.rotation.x = swing;
-              act.mesh.rightLeg.rotation.x = -swing;
-              if (act.mesh.leftKnee) act.mesh.leftKnee.rotation.x = Math.max(0, Math.sin(act.phase + 0.45) * 0.3);
-              if (act.mesh.rightKnee) act.mesh.rightKnee.rotation.x = Math.max(0, Math.sin(-act.phase + 0.45) * 0.3);
-              if (sum.pose === 'serve' && window.CrownAnim) {
+              if (window.CrownAnim) {
+                window.CrownAnim.applyLocomotion(act.mesh, delta, act.phase, 1.0, 0, act.mesh.baseLeg || 0.94);
+              } else {
+                const swing = Math.sin(act.phase) * 0.38;
+                act.mesh.leftLeg.rotation.x = swing;
+                act.mesh.rightLeg.rotation.x = -swing;
+                if (act.mesh.leftKnee) act.mesh.leftKnee.rotation.x = Math.max(0, Math.sin(act.phase + 0.45) * 0.3);
+                if (act.mesh.rightKnee) act.mesh.rightKnee.rotation.x = Math.max(0, Math.sin(-act.phase + 0.45) * 0.3);
+                act.mesh.leftArm.rotation.x = -swing * 0.6;
+                act.mesh.rightArm.rotation.x = swing * 0.6;
+              }
+              if (sum.pose === 'serve') {
                 act.mesh.rightArm.rotation.x = -1.18;
                 act.mesh.rightArm.rotation.z = -0.14;
                 act.mesh.leftArm.rotation.x = -0.35;
-              } else {
-                act.mesh.leftArm.rotation.x = -swing * 0.6;
-                act.mesh.rightArm.rotation.x = swing * 0.6;
               }
             } else {
               sum.arrived = true;
@@ -3923,18 +5840,26 @@
                 sum.firedArrive = true;
                 if (typeof sum.onArrive === 'function') sum.onArrive();
               }
-              rootObj.rotation.y = Math.atan2(px - posNow.x, pz - posNow.z);
+              if (typeof sum.yOverride === 'number' || sum.pose === 'sleep') {
+                posNow.set(sum.targetX, sum.targetY, sum.targetZ);
+              }
+              rootObj.rotation.y = typeof sum.faceYaw === 'number' ? sum.faceYaw : Math.atan2(px - posNow.x, pz - posNow.z);
               act.mesh.leftLeg.rotation.x = 0;
               act.mesh.rightLeg.rotation.x = 0;
-              if (sum.pose === 'serve' && window.CrownAnim) {
-                window.CrownAnim.applyPose(act.mesh, 'serve', delta, elapsed);
+              if (window.CrownAnim && sum.pose && sum.pose !== 'converse') {
+                window.CrownAnim.applyPose(act.mesh, sum.pose, delta, elapsed + act.phase, { rigOffsetY: sum.rigOffsetY });
+                act.wasInPose = true;
               } else {
+                if (act.wasInPose) {
+                  resetNpcToUpright(act, Boolean(sum.holdProp));
+                  act.wasInPose = false;
+                }
                 act.mesh.leftArm.rotation.x = -0.24 + Math.sin(elapsed * 2.2 + act.phase) * 0.08;
                 act.mesh.rightArm.rotation.x = -0.32 + Math.cos(elapsed * 2.4 + act.phase) * 0.08;
                 act.mesh.headGroup.rotation.y = Math.sin(elapsed * 1.1 + act.phase) * 0.1;
               }
             }
-            if (updateSkinFn) updateSkinFn(act.mesh, elapsed + act.phase, null, false, sDist > 0.34 ? 1 : 0);
+            if (updateSkinFn) updateSkinFn(act.mesh, elapsed + act.phase, null, false, sDist > arrivedThreshold || viaWaypoint ? 1 : 0);
             continue;
           }
 
@@ -3942,12 +5867,15 @@
 
           if (!Array.isArray(act.waypoints) || act.waypoints.length < 2 || act.patrolR <= 0) {
             if (act.stationaryPose && window.CrownAnim) {
-              const curActObj = interact && typeof interact.getActiveActivity === 'function' ? interact.getActiveActivity() : null;
-              const curActIdStr = curActObj && curActObj.id ? curActObj.id : '';
+              const curActIdStr = curPlayerAct && curPlayerAct.id ? curPlayerAct.id : '';
               const vacatedByPlayer = Boolean(
                 act.occupiesSpotId && act.vacatePos && curActIdStr.indexOf(act.occupiesSpotId) === 0
               );
               if (vacatedByPlayer) {
+                if (act.wasInPose) {
+                  resetNpcToUpright(act, false);
+                  act.wasInPose = false;
+                }
                 posNow.set(act.vacatePos.x, act.vacatePos.y, act.vacatePos.z);
                 rootObj.rotation.y = act.vacatePos.yaw || 0;
                 window.CrownAnim.applyLocomotion(act.mesh, delta, elapsed + act.phase, 0, 0, act.mesh.baseLeg || 0.94);
@@ -3957,6 +5885,7 @@
                 window.CrownAnim.applyPose(act.mesh, act.stationaryPose, delta, elapsed + act.phase, {
                   rigOffsetY: act.rigOffsetY,
                 });
+                act.wasInPose = true;
               }
               if (nearDetail && updateSkinFn) {
                 updateSkinFn(act.mesh, elapsed + act.phase, null, false, 0);
@@ -3984,23 +5913,41 @@
           if ((act.pauseTimer || 0) > 0) {
             act.pauseTimer = Math.max(0, act.pauseTimer - delta);
             act.curSpeed = Math.max(0, (act.curSpeed || 0) - delta * 4.5);
-            if (prevWp && typeof prevWp.faceYaw === 'number') {
+            const curActStr = curPlayerAct && curPlayerAct.id ? curPlayerAct.id : '';
+            const wpBlockedByPlayer = Boolean(prevWp && prevWp.lockSpotId && curActStr.indexOf(prevWp.lockSpotId) === 0);
+            if (prevWp && typeof prevWp.faceYaw === 'number' && !wpBlockedByPlayer) {
               let fDiff = ((prevWp.faceYaw - rootObj.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
               if (fDiff < -Math.PI) fDiff += Math.PI * 2;
               rootObj.rotation.y += fDiff * Math.min(1, delta * 6.5);
             }
-            if (prevWp && prevWp.workPose && window.CrownAnim) {
-              window.CrownAnim.applyPose(act.mesh, prevWp.workPose, delta, elapsed + act.phase);
+            if (prevWp && prevWp.workPose && window.CrownAnim && !wpBlockedByPlayer) {
+              if (typeof prevWp.yOverride === 'number') {
+                posNow.set(prevWp.x, prevWp.yOverride, prevWp.z);
+              }
+              window.CrownAnim.applyPose(act.mesh, prevWp.workPose, delta, elapsed + act.phase, { rigOffsetY: prevWp.rigOffsetY });
+              act.wasInPose = true;
               if (nearDetail && updateSkinFn) {
                 updateSkinFn(act.mesh, elapsed + act.phase, null, false, 0);
               }
               continue;
             } else {
-              setActorPropVisible(act, null);
+              if (act.wasInPose) {
+                resetNpcToUpright(act, false);
+                act.wasInPose = false;
+              } else {
+                setActorPropVisible(act, null);
+              }
               act.mesh.headGroup.rotation.x = Math.sin(elapsed * 1.1 + act.phase) * 0.04;
               act.mesh.headGroup.rotation.y = Math.sin(elapsed * 0.8 + act.phase) * 0.16;
             }
           } else {
+            if (act.wasInPose) {
+              resetNpcToUpright(act, false);
+              act.wasInPose = false;
+              posNow.y = castle.groundHeightAt(posNow.x, posNow.z, baseY);
+            } else if (prevWp && typeof prevWp.yOverride === 'number') {
+              posNow.y = castle.groundHeightAt(posNow.x, posNow.z, baseY);
+            }
             setActorPropVisible(act, null);
             const dx = targetWp.x - posNow.x;
             const dz = targetWp.z - posNow.z;
@@ -4021,8 +5968,16 @@
               let nx = posNow.x + dirX * moveStep;
               let nz = posNow.z + dirZ * moveStep;
 
-              if (baseY < 0.45 && typeof castle.resolveCollision === 'function') {
-                const resolved = castle.resolveCollision(nx, nz, 0.26);
+              const nearFurnitureTarget =
+                (typeof targetWp.yOverride === 'number' && dist < 1.55) ||
+                (prevWp && typeof prevWp.yOverride === 'number' && Math.hypot(posNow.x - prevWp.x, posNow.z - prevWp.z) < 1.55);
+
+              if (typeof castle.resolveCollision === 'function') {
+                const resolved = castle.resolveCollision(nx, nz, 0.26, baseY, {
+                  prevX: posNow.x,
+                  prevZ: posNow.z,
+                  wallsOnly: nearFurnitureTarget,
+                });
                 nx = resolved.x;
                 nz = resolved.z;
               }
@@ -4056,7 +6011,12 @@
             updateSkinFn(act.mesh, elapsed + act.phase, null, false, spdNorm > 0.12 ? 1 : 0);
           }
 
-          if (spdNorm > 0.04) {
+          if (window.CrownAnim) {
+            if (spdNorm > 0.04) {
+              act.phase += delta * (4.35 * Math.max(0.45, spdNorm));
+            }
+            window.CrownAnim.applyLocomotion(act.mesh, delta, act.phase, spdNorm, 0, act.mesh.baseLeg || 0.94);
+          } else if (spdNorm > 0.04) {
             act.phase += delta * (4.35 * Math.max(0.45, spdNorm));
             const swing = Math.sin(act.phase) * 0.34 * spdNorm;
             act.mesh.leftLeg.rotation.x = swing;
