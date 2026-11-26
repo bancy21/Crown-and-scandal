@@ -526,6 +526,39 @@
       bodyRotZ = Math.sin(sp * 0.5) * 0.08;
       headRotX = -0.12;
       headRotY = Math.sin(sp * 0.7) * 0.22;
+    } else if (poseName === 'swim_dive' || poseName === 'snorkel') {
+      if (actor.contactShadow) actor.contactShadow.visible = false;
+      const glide = t * 3.1;
+      rigRotX = -Math.PI * 0.49;
+      rigY = (typeof cfg.rigOffsetY === 'number' ? cfg.rigOffsetY : -0.12) + Math.sin(glide * 0.8) * 0.04;
+      hipLX = Math.sin(glide * 1.8) * 0.26;
+      hipRX = -Math.sin(glide * 1.8) * 0.26;
+      kneeLX = 0.22 + Math.max(0, Math.cos(glide * 1.8)) * 0.28;
+      kneeRX = 0.22 + Math.max(0, -Math.cos(glide * 1.8)) * 0.28;
+      const sweep = Math.sin(glide) * 0.55;
+      armLX = -2.45 + Math.cos(glide) * 0.35;
+      armRX = -2.45 + Math.cos(glide) * 0.35;
+      armLZ = -0.22 - Math.abs(sweep) * 0.65;
+      armRZ = 0.22 + Math.abs(sweep) * 0.65;
+      headRotX = 0.42;
+      headRotY = Math.sin(t * 1.1) * 0.14;
+      skirtScaleX = 0.84;
+      skirtScaleZ = 0.44;
+    } else if (poseName === 'fish') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const tug = Math.sin(t * 2.1);
+      const reel = Math.max(0, Math.sin(t * 1.25));
+      bodyRotX = 0.06 - reel * 0.12;
+      hipLX = -0.08;
+      hipRX = 0.08;
+      kneeLX = 0.1;
+      kneeRX = 0.12;
+      armLX = -0.95 + tug * 0.08;
+      armRX = -1.28 - reel * 0.36 + tug * 0.08;
+      armLZ = 0.06;
+      armRZ = -0.06;
+      headRotX = 0.14 - reel * 0.1;
+      headRotY = Math.sin(t * 0.7) * 0.12;
     } else if (poseName === 'row_boat') {
       if (actor.contactShadow) actor.contactShadow.visible = false;
       const rp = cfg.rowPhase || t * 2.6;
@@ -701,6 +734,20 @@
       armRZ = 0.18 + Math.abs(Math.cos(t * 2.1)) * 0.12;
       headRotX = nod;
       headRotY = Math.sin(t * 1.35) * 0.11;
+    } else if (poseName === 'workout') {
+      if (actor.contactShadow) actor.contactShadow.visible = true;
+      const run = t * 6.8;
+      rigY = Math.abs(Math.sin(run)) * 0.06;
+      hipLX = Math.sin(run) * 0.62;
+      hipRX = -Math.sin(run) * 0.62;
+      kneeLX = Math.max(0, Math.cos(run)) * 0.65;
+      kneeRX = Math.max(0, -Math.cos(run)) * 0.65;
+      armLX = -1.25 - Math.sin(run) * 0.48;
+      armRX = -1.25 + Math.sin(run) * 0.48;
+      armLZ = -0.14;
+      armRZ = 0.14;
+      bodyRotX = 0.1;
+      headRotX = 0.06;
     }
 
     const s = 10;

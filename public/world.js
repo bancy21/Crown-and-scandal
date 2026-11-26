@@ -620,6 +620,20 @@
       .world-converse-btn.s4-cat-funny { border-left: 4px solid #e08d18; }
       .world-converse-btn.s4-cat-activity { border-left: 4px solid #6b4cb8; }
       .world-converse-btn.s4-cat-meal { border-left: 4px solid #b88938; }
+
+      .world-underwater-tint {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+        opacity: 0;
+        background: radial-gradient(circle at 50% 25%, rgba(28, 175, 224, 0.24) 0%, rgba(10, 88, 168, 0.48) 70%, rgba(6, 48, 114, 0.64) 100%);
+        transition: opacity 0.25s ease;
+      }
+
+      .world-underwater-tint.visible {
+        opacity: 1;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -710,7 +724,10 @@
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.16;
 
-      const qualityCap = g.settings.quality === 'low' ? 1 : g.settings.quality === 'medium' ? 1.25 : 1.5;
+      const isMobileDevice = Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      const qualityCap = isMobileDevice
+        ? (g.settings.quality === 'low' ? 0.9 : g.settings.quality === 'medium' ? 1.05 : 1.25)
+        : (g.settings.quality === 'low' ? 1 : g.settings.quality === 'medium' ? 1.25 : 1.5);
       renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio || 1, qualityCap));
       renderer.shadowMap.enabled = !isSoftwareGl;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -720,7 +737,7 @@
       const scene = new THREE.Scene();
       const skyHex = 0xcce4f8;
       scene.background = new THREE.Color(skyHex);
-      scene.fog = new THREE.FogExp2(skyHex, 0.0017);
+      scene.fog = new THREE.FogExp2(skyHex, 0.0014);
 
       let envRT = null;
       if (window.CrownRoomEnvironment) {
@@ -731,7 +748,7 @@
       }
 
       const aspect = (window.innerWidth || 390) / Math.max(1, window.innerHeight || 844);
-      const camera = new THREE.PerspectiveCamera(aspect < 0.8 ? 58 : 54, aspect, 0.25, 420);
+      const camera = new THREE.PerspectiveCamera(aspect < 0.8 ? 58 : 54, aspect, 0.25, 820);
 
       // Procedural Atmospheric SkyDome (Zenith gradient + Horizon glow + Sun disc + Twilight stars)
       const skyUniforms = {
@@ -741,7 +758,7 @@
         uSunColor: { value: new THREE.Color(0xfff4d6) },
         uNightMix: { value: 0.0 },
       };
-      const skyGeo = new THREE.SphereGeometry(285, 24, 16);
+      const skyGeo = new THREE.SphereGeometry(560, 24, 16);
       const skyMat = new THREE.ShaderMaterial({
         side: THREE.BackSide,
         depthWrite: false,
@@ -788,7 +805,11 @@
       const sunLight = new THREE.DirectionalLight(0xfff1d2, 2.15);
       sunLight.position.set(36, 52, 34);
       sunLight.castShadow = !isSoftwareGl;
-      const sunShadowRes = isSoftwareGl ? 512 : g.settings.quality === 'low' ? 768 : g.settings.quality === 'medium' ? 1024 : 1536;
+      const sunShadowRes = isSoftwareGl
+        ? 512
+        : isMobileDevice
+          ? (g.settings.quality === 'low' ? 512 : g.settings.quality === 'medium' ? 768 : 1024)
+          : (g.settings.quality === 'low' ? 768 : g.settings.quality === 'medium' ? 1024 : 1536);
       sunLight.shadow.mapSize.width = sunShadowRes;
       sunLight.shadow.mapSize.height = sunShadowRes;
       sunLight.shadow.camera.near = 5;
@@ -811,6 +832,7 @@
       const crestHex = (g.household && g.household.crestColor) || '#b8324f';
       const castle = window.CrownCastle.buildVersaillesEstate(scene, renderer, {
         isSoftwareGl: isSoftwareGl,
+        isLowQuality: g.settings.quality === 'low' || isMobileDevice,
         crestHex: crestHex,
       });
 
@@ -818,11 +840,15 @@
         groundHeightAt: castle.groundHeightAt,
         resolveCollision: castle.resolveCollision,
         isInPool: castle.isInPool,
+        isNearWaterZone: castle.isNearWaterZone,
+        getWaveHeight: castle.getWaveHeight,
+        triggerWaterSplash: castle.triggerWaterSplash,
+        resolveOceanBoat: castle.resolveOceanBoat,
       };
 
       // Reset unsafe old spawn or spawn cleanly along the Parterre Promenade
       if (!g.world) g.world = {};
-      if (!g.world.playerPos || Math.abs(g.world.playerPos.z) > 68 || Math.abs(g.world.playerPos.x) > 162) {
+      if (!g.world.playerPos || g.world.playerPos.z < -60 || g.world.playerPos.z > 275 || Math.abs(g.world.playerPos.x) > 290) {
         g.world.playerPos = { x: 2.8, y: 0, z: 18 };
         g.world.playerYaw = Math.PI;
       }
@@ -1047,6 +1073,18 @@
           { id: 'stables', name: 'Horse Stables', title: 'Royal Equestrian Stables', spotId: 'horse_1', x: -131.0, y: 0, z: 9.5, yaw: -Math.PI * 0.5 },
           { id: 'pool', name: 'Swimming Pool', title: 'Villa Azure Resort Pool', spotId: 'azure_pool_swim', x: 79.6, y: 0.24, z: 22.0, yaw: Math.PI },
           { id: 'hotel', name: 'Hotel', title: 'Grand Hôtel Montieri Paris', spotId: 'hotel_concierge', x: 136.4, y: 0.14, z: 7.4, yaw: 0 },
+          { id: 'bank', name: 'Crown Bank', title: 'Royal Crown Bank & Treasury', spotId: 'town_bank', x: -170.0, y: 0.12, z: 5.5, yaw: Math.PI },
+          { id: 'salon', name: 'Beauty Salon', title: 'Lumina Beauty Salon & Spa', spotId: 'town_salon', x: -202.0, y: 0.12, z: 5.5, yaw: Math.PI },
+          { id: 'gym', name: 'Athletic Club', title: 'Couronne Athletic Club (Gym)', spotId: 'town_gym', x: -170.0, y: 0.12, z: 29.0, yaw: Math.PI },
+          { id: 'library', name: 'Public Library', title: 'Grand Royal Public Library', spotId: 'town_library', x: -202.0, y: 0.12, z: 29.0, yaw: Math.PI },
+          { id: 'cinema', name: 'Cinema', title: 'Riviera Grand Public Cinema', spotId: 'town_cinema', x: 173.5, y: 0.12, z: 5.5, yaw: Math.PI },
+          { id: 'offices', name: 'Civic Offices', title: 'Maison Civic & Business Offices', spotId: 'town_offices', x: 206.0, y: 0.12, z: 5.5, yaw: Math.PI },
+          { id: 'community', name: 'Community Hall', title: 'Kingdom Community Centre', spotId: 'town_community', x: 173.5, y: 0.12, z: 29.0, yaw: Math.PI },
+          { id: 'apartments', name: 'Apartments', title: 'Belvedere 2-Storey Luxury Apartments', spotId: 'town_apartments', x: 206.0, y: 0.12, z: 29.0, yaw: Math.PI },
+          { id: 'villa_west', name: 'Beach House W', title: 'Villa Soléa Waterfront Beach House', spotId: 'beach_villa_west', x: -194.0, y: 0.12, z: 54.4, yaw: Math.PI },
+          { id: 'villa_east', name: 'Beach House E', title: 'Cap d’Azur Waterfront Beach House', spotId: 'beach_villa_east', x: 194.0, y: 0.12, z: 54.4, yaw: Math.PI },
+          { id: 'cliff_west', name: 'Sunset Cliff', title: 'Falaise d’Or Sunset Coastal Cliff', spotId: 'cliff_west', x: -232.0, y: 4.0, z: 65.0, yaw: 0 },
+          { id: 'cliff_east', name: 'Sunrise Cliff', title: 'Cap Sapphire Sunrise Coastal Cliff', spotId: 'cliff_east', x: 232.0, y: 4.0, z: 65.0, yaw: 0 },
         ];
 
         return {
@@ -2460,6 +2498,45 @@
           flirt: 'You are the coolest Princess in the whole kingdom!',
           clout: 1, male: true, isCitizen: true,
         },
+        {
+          id: 'captain-henri', role: 'chauffeur', name: 'Captain Henri (Royal Yacht)', roleLabel: 'Royal Riviera Yachtmaster',
+          x: -10.5, z: 58.2, y: 0.26, patrolR: 0, stationaryPose: 'idle', stationaryYaw: 0,
+          dressHex: '#193558', trimHex: '#d4af55', hairStyle: 'classic-chignon',
+          outfitId: 'equestrian-tailored',
+          prompt: 'Speak to Captain Henri (Marina)',
+          msg: 'The Riviera waters are clear, blue, and calm, Your Highness. Say the word and I shall sail the Royal Superyacht to Île d’Or or Lighthouse Isle!',
+          duty: 'Commanding the Riviera Royal Superyacht, docking smoothly, and guiding royal bay excursions.',
+          gossip: 'Dolphins and schools of sapphire fish have been circling Cove d’Azur all morning!',
+          flirt: 'Every sunset cruise feels brighter with Your Highness on the bow sunbed.',
+          clout: 3, male: true,
+        },
+        {
+          id: 'hostess-coralie', role: 'citizen', name: 'Coralie (Paloma Beach Club)', roleLabel: 'Waterfront Bistro Hostess',
+          x: -35.5, z: 54.4, y: 0.21, patrolR: 1.6, dressHex: '#1888a8', trimHex: '#fff5e4', hairStyle: 'riviera-bob',
+          walkSpeed: 1.15,
+          waypoints: [
+            { x: -35.5, z: 54.4, pause: 4.0, faceYaw: 0 },
+            { x: -32.2, z: 54.4, pause: 3.5, faceYaw: 0.3 },
+          ],
+          prompt: 'Visit Coralie at Paloma Beach Club',
+          msg: 'Bienvenue to Paloma Beach Club! Sparkling turquoise shallows, chilled rosé, and waterfront cabanas await.',
+          duty: 'Hosting Royal Beach Events, waterfront dining, and sunset music nights.',
+          gossip: 'Half the court booked sunset tables for tonight’s golden ocean view!',
+          flirt: 'Your cabana is always reserved right by the water’s edge, Your Highness!',
+          clout: 2, isCitizen: true,
+        },
+        {
+          id: 'diver-marco', role: 'citizen', name: 'Guide Marco (Cove d’Azur)', roleLabel: 'Reef & Snorkel Guide',
+          x: 122.0, z: 63.0, y: 0.27, patrolR: 0, stationaryPose: 'idle', stationaryYaw: 0,
+          dressHex: '#1b6ca8', trimHex: '#48dbfb', hairStyle: 'wavy-curtain-shag',
+          outfitId: 'equestrian-tailored',
+          prompt: 'Chat with Reef Guide Marco',
+          msg: 'Crystal visibility down to the coral garden today! Step off the pier to snorkel or dive alongside the reef fish.',
+          duty: 'Guiding snorkelers, deep-water divers, and coastal explorers at Cove d’Azur.',
+          gossip: 'Rumour says Île d’Or’s lagoon glows brightest right before sunset.',
+          flirt: 'Race me around the regatta buoys anytime, Your Highness!',
+          clout: 2, male: true, isCitizen: true,
+        },
       ].forEach(function (npc, idx) {
         const isMaleNpc = Boolean(npc.male);
         const ageGrp = npc.ageGroup || 'adult';
@@ -2659,6 +2736,10 @@
       }
       joyZone.addEventListener('pointerup', resetJoy);
       joyZone.addEventListener('pointercancel', resetJoy);
+
+      const underwaterTintEl = document.createElement('div');
+      underwaterTintEl.className = 'world-underwater-tint';
+      shell.appendChild(underwaterTintEl);
 
       // Single Collapsible Bottom Dock
       const dockWrap = document.createElement('div');
@@ -3202,7 +3283,20 @@
           });
         }
 
-        if (act.ageGroup !== 'toddler') {
+        if (act.id === 'captain-henri') {
+          makeBtn('Sail Yacht w/ Captain Henri', 'activity', function () {
+            closeNpcConversation();
+            openBoatCaptainSheet('riviera_royal_yacht');
+          });
+        } else if (act.ageGroup !== 'toddler') {
+          makeBtn('Invite Yachting (Royal Superyacht)', 'activity', function () {
+            closeNpcConversation();
+            inviteActorToBoat(act, 'riviera_royal_yacht');
+          });
+          makeBtn('Invite Boating (Cedar Rowboat)', 'activity', function () {
+            closeNpcConversation();
+            inviteActorToBoat(act, 'riviera_rowboat_west');
+          });
           makeBtn(act.summon && act.summon.follow ? 'Stop Walking With Me' : 'Form Group / Hang Out', 'activity', function () {
             if (act.summon && act.summon.follow) {
               act.summon = null;
@@ -3277,6 +3371,20 @@
         convRole.textContent = (act.roleLabel || 'Riviera Resident') + (healthEntry ? ' · Check-Up: ' + healthEntry.status : '');
         addRelScore(act, 2);
         appendConversationTurn('npc', act.name || 'Friend', act.greetLine || 'Hey! Good to run into you — how is your day going?');
+        const repNow = g.reputation || { clout: 50, scandal: 0 };
+        const secMode = (g.world && g.world.securityMode) || 'royal';
+        if (act.role === 'guard') {
+          const secLine = secMode === 'lockdown'
+            ? 'Security Alert: Gates are on HIGH GUARD LOCKDOWN — unauthorized guests are turned away.'
+            : secMode === 'public'
+              ? 'Public Tour Active: Kingdom gates are open for peaceful citizens & visitors today.'
+              : 'Royal Protocol: Palace checkpoints are filtering for Court guests & invited nobles.';
+          appendConversationTurn('npc', act.name || 'Guard', secLine);
+        } else if ((repNow.scandal || 0) >= 35) {
+          appendConversationTurn('npc', act.name || 'Friend', 'Psst — did you see Crown Dispatch?! Everyone across the kingdom is buzzing about that ' + Math.round(repNow.scandal) + '% scandal!');
+        } else if ((repNow.clout || 50) >= 75) {
+          appendConversationTurn('npc', act.name || 'Friend', 'Your prestige precedes you today — society is endlessly impressed (' + Math.round(repNow.clout) + '% Clout)!');
+        }
         renderConversationChoices();
 
         convOverlay.classList.add('open');
@@ -3851,6 +3959,12 @@
         { id: 'farm', title: 'Greenfields Royal Farm', x: -153.5, z: -32.0, yaw: -Math.PI * 0.5 },
         { id: 'elmwood', title: 'Elmwood 3-Bedroom Houses', x: -83.0, z: 0.0, yaw: -Math.PI * 0.5 },
         { id: 'university', title: 'Crown University & High School', x: 106.5, z: 0.0, yaw: Math.PI * 0.5 },
+        { id: 'bank_salon', title: 'Royal Crown Bank & Lumina Salon', x: -194.0, z: 0.0, yaw: -Math.PI * 0.5 },
+        { id: 'gym_library', title: 'Couronne Athletic Club & Library', x: -194.0, z: 48.0, yaw: -Math.PI * 0.5 },
+        { id: 'cinema_offices', title: 'Riviera Cinema & Business Offices', x: 198.0, z: 0.0, yaw: Math.PI * 0.5 },
+        { id: 'community_apts', title: 'Community Centre & Belvedere Apts', x: 206.0, z: 19.2, yaw: Math.PI * 0.5 },
+        { id: 'villa_west', title: 'Villa Soléa Waterfront (West Beach)', x: -194.0, z: 48.0, yaw: -Math.PI * 0.5 },
+        { id: 'villa_east', title: 'Cap d’Azur Villa & Cliff (East Beach)', x: 206.0, z: 48.0, yaw: Math.PI * 0.5 },
       ];
 
       let roadGraphCache = null;
@@ -3878,33 +3992,32 @@
           if (typeof castle.hasBlockedSegment === 'function' && castle.hasBlockedSegment(x0, z0, x1, z1, 0.9, 0, { carMode: true })) return false;
           return true;
         }
+        function linkIfClean(x0, z0, x1, z1) {
+          if (isEdgeClean(x0, z0, x1, z1)) {
+            const a = addNode(x0, z0);
+            const b = addNode(x1, z1);
+            const w = Math.hypot(x1 - x0, z1 - z0);
+            edges[a].push({ to: b, w: w });
+            edges[b].push({ to: a, w: w });
+          }
+        }
         function connectAxis(xs, zs) {
           for (let zi = 0; zi < zs.length; zi++) {
             const z = zs[zi];
             for (let xi = 0; xi < xs.length - 1; xi++) {
-              if (isEdgeClean(xs[xi], z, xs[xi + 1], z)) {
-                const a = addNode(xs[xi], z);
-                const b = addNode(xs[xi + 1], z);
-                const w = Math.abs(xs[xi + 1] - xs[xi]);
-                edges[a].push({ to: b, w: w });
-                edges[b].push({ to: a, w: w });
-              }
+              linkIfClean(xs[xi], z, xs[xi + 1], z);
             }
           }
           for (let xi = 0; xi < xs.length; xi++) {
             const x = xs[xi];
             for (let zi = 0; zi < zs.length - 1; zi++) {
-              if (isEdgeClean(x, zs[zi], x, zs[zi + 1])) {
-                const a = addNode(x, zs[zi]);
-                const b = addNode(x, zs[zi + 1]);
-                const w = Math.abs(zs[zi + 1] - zs[zi]);
-                edges[a].push({ to: b, w: w });
-                edges[b].push({ to: a, w: w });
-              }
+              linkIfClean(x, zs[zi], x, zs[zi + 1]);
             }
           }
         }
-        connectAxis([-153.5, -123.5, -95.0, -67.0, -44.0], [-10.5, 0.0, 19.2, 48.0]);
+        // Core West, Courtyard & East Road Grid (splitting around the 3 Roundabouts!)
+        connectAxis([-153.5, -123.5, -95.0, -67.0, -44.0], [-10.5, 0.0, 48.0]);
+        connectAxis([-123.5, -95.0, -67.0, -44.0], [0.0, 19.2, 48.0]);
         connectAxis([-153.5, -67.0], [-32.0, -10.5]);
         connectAxis([-44.0, -20.0, 0.0, 20.0, 44.0], [4.8, 20.2, 36.5, 48.0]);
         connectAxis([0.0], [4.8, 5.5, 20.2, 36.5, 48.0]);
@@ -3912,6 +4025,44 @@
         connectAxis([67.0, 92.5, 120.5, 156.5], [-32.0, -10.5]);
         connectAxis([120.5], [0.0, 9.8, 19.2]);
         connectAxis([120.5, 125.0], [9.8]);
+
+        // Expanded West District Streets (-218, -186, -153.5)
+        connectAxis([-218.0, -186.0, -153.5], [0.0, 48.0]);
+        connectAxis([-218.0], [0.0, 19.2, 48.0]);
+
+        // Expanded East District Streets (156.5, 190.0, 222.0)
+        connectAxis([156.5, 190.0, 222.0], [0.0, 48.0]);
+        connectAxis([156.5, 222.0], [0.0, 19.2, 48.0]);
+
+        // Circumferential 8-Node Octagon Rings + Street Tangents for all 3 Landscaped Roundabouts
+        const rbs = [
+          { x: -153.5, z: 19.2, westX: -181.2, eastX: -123.5, southZ: 48.0, northZ: 0.0 },
+          { x: -186.0, z: 19.2, westX: -218.0, eastX: -158.3, southZ: 48.0, northZ: 0.0 },
+          { x: 190.0, z: 19.2, westX: 156.5, eastX: 222.0, southZ: 48.0, northZ: 0.0 },
+        ];
+        rbs.forEach(function (rb) {
+          const ringR = 4.85;
+          const pts = [];
+          for (let k = 0; k < 8; k++) {
+            const ang = (k / 8) * Math.PI * 2;
+            pts.push([rb.x + Math.cos(ang) * ringR, rb.z + Math.sin(ang) * ringR]);
+          }
+          for (let k = 0; k < 8; k++) {
+            const n = (k + 1) % 8;
+            linkIfClean(pts[k][0], pts[k][1], pts[n][0], pts[n][1]);
+          }
+          linkIfClean(pts[0][0], pts[0][1], rb.eastX, rb.z); // East tangent
+          linkIfClean(pts[4][0], pts[4][1], rb.westX, rb.z); // West tangent
+          linkIfClean(pts[2][0], pts[2][1], rb.x, rb.southZ); // South tangent
+          linkIfClean(pts[6][0], pts[6][1], rb.x, rb.northZ); // North tangent
+        });
+        linkIfClean(-194.0, 48.0, -186.0, 48.0);
+        linkIfClean(-194.0, 0.0, -186.0, 0.0);
+        linkIfClean(198.0, 0.0, 190.0, 0.0);
+        linkIfClean(206.0, 48.0, 190.0, 48.0);
+        linkIfClean(206.0, 19.2, 194.85, 19.2);
+        linkIfClean(206.0, 19.2, 222.0, 19.2);
+
         roadGraphCache = { nodes: nodes, edges: edges, isEdgeClean: isEdgeClean };
         return roadGraphCache;
       }
@@ -4311,6 +4462,502 @@
         actionOverlay.classList.add('open');
       }
 
+      function resolveTargetBoat(boatId) {
+        const list = castle.boats || [];
+        if (boatId) {
+          const found = list.find(function (b) { return b.id === boatId; });
+          if (found) return found;
+        }
+        const curTr = playerCtrl.getTransport();
+        if (curTr && curTr.kind === 'boat' && curTr.entity) return curTr.entity;
+        return list.find(function (b) { return b.isYacht; }) || list[0] || null;
+      }
+
+      function buildMarineWaypoints(sx, sz, dx, dz, endYaw, destId) {
+        const wps = [];
+        // Exit sheltered pier/marina zone into open channel first if needed
+        if (sz < 72.0) {
+          wps.push({ x: sx < -4.0 ? -10.5 : (sx > 10.0 ? sx : 7.5), z: 76.0 });
+        }
+        if (destId === 'sunset_loop') {
+          wps.push({ x: -24.0, z: 112.0 }, { x: 0.0, z: 148.0 }, { x: 34.0, z: 118.0 }, { x: 6.5, z: 72.0, yaw: Math.PI * 0.42 });
+          return wps;
+        }
+        // Clear Île d'Or & Lighthouse Isle safely via central bay channel if crossing far east/west
+        if (Math.abs(sx - dx) > 65 && dz > 110) {
+          wps.push({ x: (sx + dx) * 0.5, z: 112.0 });
+        }
+        wps.push({ x: dx, z: dz, yaw: endYaw });
+        return wps;
+      }
+
+      function openBoatCaptainSheet(boatId) {
+        const boatDef = resolveTargetBoat(boatId);
+        const capHenri = getActorById('captain-henri');
+        const dests = (castle.ocean && castle.ocean.dockDestinations) || [
+          { id: 'ile_dor', title: 'Île d’Or Private Island', x: 62, z: 141, yaw: 0 },
+          { id: 'lighthouse', title: 'Sapphire Lighthouse Isle', x: -51.5, z: 145, yaw: -Math.PI * 0.5 },
+          { id: 'coral_cove', title: 'Cove d’Azur Coral Reef', x: 118, z: 74, yaw: Math.PI * 0.35 },
+          { id: 'marina', title: 'Royal Riviera Marina', x: -10.5, z: 75.5, yaw: Math.PI },
+        ];
+        if (!boatDef) return;
+        actionTitle.innerHTML = '<span class="s4-plumbob"></span>Captain Henri — Sail Destination';
+        actionList.innerHTML = '';
+
+        const selfPilotBtn = document.createElement('button');
+        selfPilotBtn.type = 'button';
+        selfPilotBtn.className = 'world-action-item s4-card s4-cat-swim';
+        const spT = document.createElement('strong');
+        spT.textContent = 'Take Helm Control Yourself';
+        const spH = document.createElement('span');
+        spH.textContent = 'Drive forward, reverse & steer freely across the Riviera Ocean';
+        selfPilotBtn.appendChild(spT);
+        selfPilotBtn.appendChild(spH);
+        selfPilotBtn.addEventListener('click', function () {
+          closeActionSheet();
+          const trNow = playerCtrl.getTransport();
+          if (trNow && trNow.kind === 'boat' && trNow.entity.id === boatDef.id) {
+            playerCtrl.takeBoatControl();
+          } else {
+            playerCtrl.enterBoat(boatDef);
+          }
+          g.toast('You have the helm of ' + (boatDef.title || 'Royal Superyacht') + '!');
+          syncHud(playerCtrl.actor.root.position);
+        });
+        actionList.appendChild(selfPilotBtn);
+
+        dests.forEach(function (dest) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'world-action-item s4-card s4-cat-activity';
+          const tEl = document.createElement('strong');
+          tEl.textContent = 'Captain Sail → ' + dest.title;
+          const hEl = document.createElement('span');
+          hEl.textContent = 'Relax on the bow sunbeds while Captain Henri steers across open waves';
+          btn.appendChild(tEl);
+          btn.appendChild(hEl);
+          btn.addEventListener('click', function () {
+            closeActionSheet();
+            const wps = buildMarineWaypoints(boatDef.x, boatDef.z, dest.x, dest.z, dest.yaw, dest.id);
+            playerCtrl.setYachtCaptainCruise(boatDef, capHenri, wps, dest.title, function (arrivedTitle) {
+              g.toast('Captain Henri dropped anchor smoothly at ' + arrivedTitle + '!');
+            });
+            g.toast('Captain Henri is sailing ' + (boatDef.title || 'Yacht') + ' toward ' + dest.title + '!');
+            syncHud(playerCtrl.actor.root.position);
+          });
+          actionList.appendChild(btn);
+        });
+        actionOverlay.classList.add('open');
+      }
+
+      function inviteActorToBoat(act, boatId) {
+        const boatDef = resolveTargetBoat(boatId || 'riviera_royal_yacht');
+        if (!boatDef) return false;
+        const curTr = playerCtrl.getTransport();
+        if (!curTr || curTr.kind !== 'boat' || curTr.entity.id !== boatDef.id) {
+          playerCtrl.enterBoat(boatDef);
+        }
+        if (act && act.id !== 'captain-henri') {
+          const ok = playerCtrl.addBoatPassenger({ id: act.id, name: act.name, actor: act.mesh, npcRef: act });
+          if (!ok) {
+            g.toast('All seats on ' + (boatDef.title || 'the vessel') + ' are filled!');
+          } else {
+            g.toast(act.name + ' came aboard ' + (boatDef.title || 'the vessel') + ' with you!');
+          }
+        }
+        camCtrl.resetCamera(0);
+        syncHud(playerCtrl.actor.root.position);
+        return true;
+      }
+
+      function getSortedBoatCandidates() {
+        const vipBoost = {
+          'hostess-coralie': 1,
+          'diver-marco': 2,
+          'mansionette-sophia': 3,
+          'neighbor-claire': 4,
+          'lifeguard-gabriel': 5,
+        };
+        return actors
+          .filter(function (a) {
+            return a.id !== 'captain-henri' && (a.actorCategory === 'friend' || a.actorCategory === 'citizen' || a.actorCategory === 'staff') && a.ageGroup !== 'toddler';
+          })
+          .sort(function (a, b) {
+            const aRank = a.actorCategory === 'friend' ? 0 : (vipBoost[a.id] ? 1 : (a.actorCategory === 'citizen' ? 2 : 3));
+            const bRank = b.actorCategory === 'friend' ? 0 : (vipBoost[b.id] ? 1 : (b.actorCategory === 'citizen' ? 2 : 3));
+            if (aRank !== bRank) return aRank - bRank;
+            if (vipBoost[a.id] || vipBoost[b.id]) return (vipBoost[a.id] || 99) - (vipBoost[b.id] || 99);
+            return 0;
+          });
+      }
+
+      function openBoatPassengersSheet(boatId) {
+        const boatDef = resolveTargetBoat(boatId);
+        if (!boatDef) return;
+        const curTr = playerCtrl.getTransport();
+        if (!curTr || curTr.kind !== 'boat' || curTr.entity.id !== boatDef.id) {
+          playerCtrl.enterBoat(boatDef);
+        }
+        actionTitle.innerHTML = '<span class="s4-plumbob"></span>Friends Aboard ' + (boatDef.title || 'Vessel');
+        actionList.innerHTML = '';
+
+        const seatedList = playerCtrl.getBoatPassengers ? playerCtrl.getBoatPassengers() : [];
+        const seatedMap = {};
+        for (let i = 0; i < seatedList.length; i++) seatedMap[seatedList[i].id] = seatedList[i];
+
+        const candidates = getSortedBoatCandidates();
+
+        const inviteBestiesBtn = document.createElement('button');
+        inviteBestiesBtn.type = 'button';
+        inviteBestiesBtn.className = 'world-action-item s4-card s4-cat-friendly';
+        const ibT = document.createElement('strong');
+        ibT.textContent = boatDef.isYacht ? 'Invite All 4 Besties Aboard Yacht' : 'Invite 2 Besties Into Rowboat';
+        const ibH = document.createElement('span');
+        ibH.textContent = boatDef.isYacht ? 'Boards Camille, Chloe, Vivienne & Julian together onto deck!' : 'Seats Camille & Chloe on bow & stern benches!';
+        inviteBestiesBtn.appendChild(ibT);
+        inviteBestiesBtn.appendChild(ibH);
+        inviteBestiesBtn.addEventListener('click', function () {
+          const maxSeats = boatDef.isYacht ? 4 : 2;
+          let added = 0;
+          for (let ci = 0; ci < candidates.length && added < maxSeats; ci++) {
+            const c = candidates[ci];
+            if (playerCtrl.addBoatPassenger({ id: c.id, name: c.name, actor: c.mesh, npcRef: c })) {
+              added += 1;
+            }
+          }
+          g.toast('Friends came aboard ' + (boatDef.title || 'the vessel') + '!');
+          openBoatPassengersSheet(boatDef.id);
+          syncHud(playerCtrl.actor.root.position);
+        });
+        actionList.appendChild(inviteBestiesBtn);
+
+        const altBoatId = boatDef.isYacht ? 'riviera_rowboat_west' : 'riviera_royal_yacht';
+        const switchBtn = document.createElement('button');
+        switchBtn.type = 'button';
+        switchBtn.className = 'world-action-item s4-card s4-cat-activity';
+        const swT = document.createElement('strong');
+        swT.textContent = boatDef.isYacht ? 'Switch to Cedar Rowboat Trip' : 'Switch to Royal Superyacht';
+        const swH = document.createElement('span');
+        swH.textContent = boatDef.isYacht ? 'Row across blue Riviera waters with up to 2 friends' : 'Cruise on the luxury superyacht with up to 4 friends';
+        switchBtn.appendChild(swT);
+        switchBtn.appendChild(swH);
+        switchBtn.addEventListener('click', function () {
+          openBoatPassengersSheet(altBoatId);
+        });
+        actionList.appendChild(switchBtn);
+
+        if (boatDef.isYacht) {
+          const capBtn = document.createElement('button');
+          capBtn.type = 'button';
+          capBtn.className = 'world-action-item s4-card s4-cat-swim';
+          const cT = document.createElement('strong');
+          cT.textContent = 'Have Captain Henri Steer Yacht';
+          const cH = document.createElement('span');
+          cH.textContent = 'Pick an Island, Sunset Cruise, or Marina destination';
+          capBtn.appendChild(cT);
+          capBtn.appendChild(cH);
+          capBtn.addEventListener('click', function () {
+            openBoatCaptainSheet(boatDef.id);
+          });
+          actionList.appendChild(capBtn);
+        }
+
+        candidates.forEach(function (act) {
+          const isIn = Boolean(seatedMap[act.id]);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'world-action-item s4-card s4-cat-friendly';
+          const tEl = document.createElement('strong');
+          tEl.textContent = (isIn ? '✓ Disembark ' : '+ Board ') + act.name;
+          const hEl = document.createElement('span');
+          hEl.textContent = isIn ? ('Seated on deck: ' + seatedMap[act.id].seatKey) : (act.roleLabel || 'Court Guest');
+          btn.appendChild(tEl);
+          btn.appendChild(hEl);
+          btn.addEventListener('click', function () {
+            if (isIn) {
+              playerCtrl.removeBoatPassenger(act.id);
+              g.toast(act.name + ' stepped ashore.');
+            } else {
+              const ok = playerCtrl.addBoatPassenger({ id: act.id, name: act.name, actor: act.mesh, npcRef: act });
+              if (!ok) g.toast('All deck seats are filled! Disembark someone first.');
+              else g.toast(act.name + ' came aboard ' + (boatDef.title || 'the vessel') + '!');
+            }
+            openBoatPassengersSheet(boatDef.id);
+            syncHud(playerCtrl.actor.root.position);
+          });
+          actionList.appendChild(btn);
+        });
+        actionOverlay.classList.add('open');
+      }
+
+      const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+      const SEASON_LABELS = { spring: 'Spring', summer: 'Summer', autumn: 'Autumn', winter: 'Winter' };
+      function getCurrentSeason() {
+        if (g.world && g.world.seasonOverride && SEASONS.indexOf(g.world.seasonOverride) !== -1) {
+          return g.world.seasonOverride;
+        }
+        const dayIdx = Math.max(0, (g.world && g.world.day ? g.world.day : 1) - 1);
+        return SEASONS[Math.floor(dayIdx / 7) % 4];
+      }
+      function applySeasonEffects(forceTint) {
+        const s = getCurrentSeason();
+        const changed = !g.world || g.world.season !== s;
+        if (g.world) g.world.season = s;
+        if ((changed || forceTint) && castle && typeof castle.setSeasonTint === 'function') {
+          castle.setSeasonTint(s);
+          lastSkyHr = -999;
+        }
+        return s;
+      }
+      function cycleSeason() {
+        const curOv = g.world && g.world.seasonOverride;
+        if (!curOv) {
+          const cur = getCurrentSeason();
+          g.world.seasonOverride = SEASONS[(SEASONS.indexOf(cur) + 1) % SEASONS.length];
+        } else {
+          const idx = SEASONS.indexOf(curOv);
+          g.world.seasonOverride = idx === SEASONS.length - 1 ? null : SEASONS[idx + 1];
+        }
+        const nextS = applySeasonEffects(true);
+        if (window.CrownSave) window.CrownSave.save(true);
+        syncHud(playerCtrl.actor.root.position);
+        g.toast(
+          g.world.seasonOverride
+            ? 'Kingdom Season set to ' + SEASON_LABELS[nextS] + '!'
+            : 'Seasonal Auto-Cycle restored (' + SEASON_LABELS[nextS] + ')!'
+        );
+      }
+
+      const SECURITY_MODES = ['public', 'royal', 'lockdown'];
+      const SECURITY_LABELS = {
+        public: 'Public Open Kingdom Tour',
+        royal: 'Royal Court Clearance Only',
+        lockdown: 'High Guard Lockdown',
+      };
+      function cycleSecurityMode() {
+        const cur = (g.world && g.world.securityMode) || 'royal';
+        const nxt = SECURITY_MODES[(SECURITY_MODES.indexOf(cur) + 1) % SECURITY_MODES.length];
+        g.world.securityMode = nxt;
+        if (!Array.isArray(g.gossipLog)) g.gossipLog = [];
+        g.gossipLog.unshift({
+          day: (g.world && g.world.day) || 1,
+          text: 'Crown Dispatch Protocol: Royal Gate Security switched to ' + SECURITY_LABELS[nxt] + '.',
+        });
+        if (g.gossipLog.length > 24) g.gossipLog.length = 24;
+        if (window.CrownSave) window.CrownSave.save(true);
+        g.toast('Palace Gate Security: ' + SECURITY_LABELS[nxt] + '!');
+      }
+
+      const REAL_ESTATE_CATALOG = [
+        { id: 'palace', title: 'Grand Royal Château de Versailles', subtitle: '7 Floors · 15+ Suites, Ballroom, 4F Vault & 7F Sky Pool', price: 0, x: 0, y: 0.65, z: -20.5, yaw: Math.PI },
+        { id: 'belvedere_apt', title: 'Belvedere 2-Storey Luxury Penthouse', subtitle: 'East Capital District · 2-Storey Private Loft Residence', price: 900, x: 206.0, y: 4.12, z: 32.0, yaw: Math.PI },
+        { id: 'villa_solea', title: 'Villa Soléa Waterfront Beach House', subtitle: 'West Riviera Coastline · Direct Sand & Blue Ocean Access', price: 1800, x: -194.0, y: 0.12, z: 54.4, yaw: 0 },
+        { id: 'cap_dazur', title: 'Cap d’Azur Waterfront Beach Villa', subtitle: 'East Riviera Coastline · Private Sea-View Terrace', price: 2200, x: 194.0, y: 0.12, z: 54.4, yaw: 0 },
+        { id: 'elmwood_house', title: 'Elmwood 3-Bedroom Family Residence', subtitle: 'Willow Creek Avenue · Lawn, Car Garage & Garden Porch', price: 750, x: -83.0, y: 0.12, z: 13.0, yaw: Math.PI },
+        { id: 'stone_mansionette', title: 'Willow Creek 2-Storey Mansionette', subtitle: 'North Suburb · Twin Reception Salon & Nursery Suite', price: 1350, x: -77.5, y: 0.12, z: -20.5, yaw: Math.PI },
+        { id: 'village_cottage', title: 'Charming Village Hearth Cottage', subtitle: 'West Courtyard Quarter · Rustic Hearth & Cozy Study', price: 420, x: -50.8, y: 0.08, z: 9.0, yaw: Math.PI * 0.5 },
+      ];
+
+      function openRealEstateSheet() {
+        if (!Array.isArray(g.ownedProperties)) g.ownedProperties = ['palace'];
+        if (g.ownedProperties.indexOf('palace') === -1) g.ownedProperties.unshift('palace');
+        if (!g.homePropertyId) g.homePropertyId = 'palace';
+        actionTitle.textContent = 'Royal Real Estate & Kingdom Homes';
+        actionList.innerHTML = '';
+        REAL_ESTATE_CATALOG.forEach(function (prop) {
+          const isOwned = g.ownedProperties.indexOf(prop.id) !== -1;
+          const isPrimary = g.homePropertyId === prop.id;
+          const card = document.createElement('div');
+          card.className = 'world-action-item';
+          card.style.cursor = 'default';
+          const titleEl = document.createElement('strong');
+          titleEl.textContent = prop.title + (isPrimary ? ' [Primary Home]' : isOwned ? ' [Owned]' : ' · ₡' + prop.price);
+          const subEl = document.createElement('span');
+          subEl.textContent = prop.subtitle;
+          card.appendChild(titleEl);
+          card.appendChild(subEl);
+
+          const btnRow = document.createElement('div');
+          btnRow.style.display = 'flex';
+          btnRow.style.gap = '6px';
+          btnRow.style.marginTop = '6px';
+          btnRow.style.flexWrap = 'wrap';
+
+          if (!isOwned) {
+            const buyBtn = document.createElement('button');
+            buyBtn.type = 'button';
+            buyBtn.className = 'world-dir-tab active';
+            buyBtn.textContent = 'Buy Property (₡' + prop.price + ')';
+            buyBtn.addEventListener('click', function () {
+              if ((g.money || 0) < prop.price) {
+                return g.toast('Need ₡' + prop.price + ' Crowns to purchase ' + prop.title + '.');
+              }
+              g.money -= prop.price;
+              g.ownedProperties.push(prop.id);
+              g.homePropertyId = prop.id;
+              if (g.reputation) g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + 6);
+              if (!Array.isArray(g.gossipLog)) g.gossipLog = [];
+              g.gossipLog.unshift({
+                day: (g.world && g.world.day) || 1,
+                text: 'Crown Dispatch Estates: Princess acquired deed to ' + prop.title + '!',
+              });
+              if (window.CrownSave) window.CrownSave.save(true);
+              syncHud(playerCtrl.actor.root.position);
+              g.toast('Congratulations! Purchased ' + prop.title + ' (+6 Clout)!');
+              openRealEstateSheet();
+            });
+            btnRow.appendChild(buyBtn);
+          } else if (!isPrimary) {
+            const homeBtn = document.createElement('button');
+            homeBtn.type = 'button';
+            homeBtn.className = 'world-dir-tab';
+            homeBtn.textContent = 'Set as Primary Home';
+            homeBtn.addEventListener('click', function () {
+              g.homePropertyId = prop.id;
+              if (window.CrownSave) window.CrownSave.save(true);
+              g.toast(prop.title + ' set as your Primary Residence!');
+              openRealEstateSheet();
+            });
+            btnRow.appendChild(homeBtn);
+          }
+
+          const visitBtn = document.createElement('button');
+          visitBtn.type = 'button';
+          visitBtn.className = 'world-dir-tab';
+          visitBtn.textContent = isOwned ? 'Go Home Here' : 'Tour Exterior';
+          visitBtn.addEventListener('click', function () {
+            closeActionSheet();
+            floorMode = 'auto';
+            btnFloorCutaway.textContent = 'Cutaway: Auto';
+            btnFloorCutaway.classList.remove('active');
+            playerCtrl.teleport(prop.x, prop.z, prop.yaw, prop.y);
+            camCtrl.resetCamera(prop.yaw);
+            syncHud(playerCtrl.actor.root.position);
+          });
+          btnRow.appendChild(visitBtn);
+
+          card.appendChild(btnRow);
+          actionList.appendChild(card);
+        });
+        actionOverlay.classList.add('open');
+      }
+
+      const ROYAL_EVENTS_CATALOG = [
+        {
+          id: 'state_dinner', title: 'Royal State Dinner Banquet', cost: 120,
+          venue: 'West Royal Dining Salon (1F)', x: -13.0, y: 0.65, z: -24.5, yaw: Math.PI,
+          clout: 5, scandal: 0, fun: 28, hunger: 35, composure: 16,
+          headline: 'Candlelit State Dinner dazzled courtiers inside the Royal Dining Salon!',
+        },
+        {
+          id: 'birthday_party', title: 'Princess Birthday Soirée', cost: 150,
+          venue: 'Hall of Mirrors Crystal Ballroom', x: 0, y: 0.65, z: -23.0, yaw: Math.PI,
+          clout: 7, scandal: 1, fun: 36, hunger: 20, composure: 20,
+          headline: 'Champagne towers & birthday toasts echoed beneath the Hall of Mirrors!',
+        },
+        {
+          id: 'grand_ball', title: 'Golden Chandelier Grand Royal Ball', cost: 220,
+          venue: 'Grand Royal Ballroom (1F East)', x: 15.0, y: 0.65, z: -31.0, yaw: Math.PI,
+          clout: 10, scandal: 0, fun: 40, hunger: 18, composure: 28,
+          headline: 'Silk ballgowns & waltzes captivated high society at the Grand Royal Ball!',
+        },
+        {
+          id: 'royal_wedding', title: 'Royal Wedding & Coronation Celebration', cost: 350,
+          venue: 'Grand Ballroom Thrones (1F)', x: 15.0, y: 0.65, z: -30.5, yaw: Math.PI,
+          clout: 15, scandal: 0, fun: 45, hunger: 25, composure: 32,
+          headline: 'Bells rang across the Kingdom as guests celebrated a glittering Royal Wedding Gala!',
+        },
+        {
+          id: 'family_gathering', title: 'Private Royal Family Tea Gathering', cost: 60,
+          venue: 'Private Family Sitting Room (1F)', x: 16.0, y: 0.65, z: -22.5, yaw: Math.PI,
+          clout: 4, scandal: -2, fun: 24, hunger: 22, composure: 18,
+          headline: 'Warm laughter & pastries united the Royal Family in their private sitting room.',
+        },
+        {
+          id: 'charity_gala', title: 'Kingdom Hearts & Charity Gala', cost: 140,
+          venue: 'Kingdom Community Centre', x: 173.5, y: 0.12, z: 32.0, yaw: Math.PI,
+          clout: 12, scandal: -4, fun: 26, hunger: 15, composure: 22,
+          headline: 'Generous Kingdom Charity Gala raised Crowns for citizens across Riviera Town!',
+        },
+        {
+          id: 'beach_party', title: 'Riviera Waterfront Sunset Party', cost: 160,
+          venue: 'Paloma Beach Club & Shore', x: -35.5, y: 0.21, z: 54.4, yaw: 0,
+          clout: 8, scandal: 2, fun: 38, hunger: 20, composure: 14,
+          headline: 'Music & golden sunset lanterns illuminated Paloma Beach Club for a royal party!',
+        },
+      ];
+
+      function openHostEventSheet() {
+        actionTitle.textContent = 'Host Royal Party, Gala or Ceremony';
+        actionList.innerHTML = '';
+        ROYAL_EVENTS_CATALOG.forEach(function (ev) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'world-action-item';
+          const tEl = document.createElement('strong');
+          tEl.textContent = ev.title + ' (₡' + ev.cost + ')';
+          const hEl = document.createElement('span');
+          hEl.textContent = ev.venue + ' · +' + ev.clout + ' Clout, +' + ev.fun + ' Fun & summons guests';
+          btn.appendChild(tEl);
+          btn.appendChild(hEl);
+          btn.addEventListener('click', function () {
+            if ((g.money || 0) < ev.cost) {
+              return g.toast('Need ₡' + ev.cost + ' Crowns to host ' + ev.title + '.');
+            }
+            closeActionSheet();
+            g.money -= ev.cost;
+            g.world.hostedEventsCount = (g.world.hostedEventsCount || 0) + 1;
+            floorMode = 'auto';
+            btnFloorCutaway.textContent = 'Cutaway: Auto';
+            btnFloorCutaway.classList.remove('active');
+            playerCtrl.teleport(ev.x, ev.z, ev.yaw, ev.y);
+            camCtrl.resetCamera(ev.yaw);
+
+            // Summon up to 5 friends/butlers/guests around the venue
+            const guestPool = actors.filter(function (a) {
+              return a.actorCategory === 'friend' || a.role === 'butler' || a.role === 'citizen';
+            }).slice(0, 5);
+            guestPool.forEach(function (guest, gi) {
+              summonActorToPlayer(guest, {
+                distance: 1.9 + (gi % 2) * 0.65,
+                sideAngle: (gi - 2) * 0.72,
+              });
+            });
+
+            if (window.CrownNeeds) {
+              window.CrownNeeds.applyBoost({ fun: ev.fun, hunger: ev.hunger, composure: ev.composure });
+            }
+            if (!g.reputation) g.reputation = { clout: 50, scandal: 0, rank: 'Crown Heiress' };
+            g.reputation.clout = Math.min(100, (g.reputation.clout || 50) + ev.clout);
+            g.reputation.scandal = Math.max(0, Math.min(100, (g.reputation.scandal || 0) + ev.scandal));
+            if (!Array.isArray(g.gossipLog)) g.gossipLog = [];
+            g.gossipLog.unshift({
+              day: (g.world && g.world.day) || 1,
+              text: 'Crown Dispatch Events: ' + ev.headline,
+            });
+            if (g.gossipLog.length > 24) g.gossipLog.length = 24;
+            if (window.CrownSave) window.CrownSave.save(true);
+            syncHud(playerCtrl.actor.root.position);
+            g.toast('Hosted ' + ev.title + '! +' + ev.clout + ' Clout & guests arrived!');
+          });
+          actionList.appendChild(btn);
+        });
+        actionOverlay.classList.add('open');
+      }
+
+      const WEATHER_MODES = ['clear', 'sunset', 'rain', 'storm'];
+      const WEATHER_LABELS = { clear: 'Clear Blue', sunset: 'Golden Sunset', rain: 'Coastal Rain', storm: 'Ocean Storm' };
+      function setOceanWeather(mode) {
+        if (!castle || typeof castle.setWeather !== 'function') return;
+        const st = castle.setWeather(mode);
+        lastSkyHr = -999;
+        if (typeof btnWeather !== 'undefined' && btnWeather) {
+          btnWeather.textContent = 'Ocean: ' + (WEATHER_LABELS[st.mode] || 'Clear');
+          btnWeather.classList.toggle('active', st.mode !== 'clear');
+        }
+        g.toast('Riviera Ocean weather set to ' + (WEATHER_LABELS[st.mode] || st.mode) + '!');
+      }
+
       const royalCommands = {
         summonActorToPlayer: summonActorToPlayer,
         serveMealInBed: serveMealInBed,
@@ -4321,10 +4968,18 @@
         triggerEmergency: triggerEmergencyEvent,
         openChauffeurRideSheet: openChauffeurRideSheet,
         openCarPassengersSheet: openCarPassengersSheet,
+        openBoatCaptainSheet: openBoatCaptainSheet,
+        openBoatPassengersSheet: openBoatPassengersSheet,
+        setOceanWeather: setOceanWeather,
         openDiningPartnerSheet: openDiningPartnerSheet,
         callGroupToMeal: callGroupToMeal,
+        openRealEstateSheet: openRealEstateSheet,
+        openHostEventSheet: openHostEventSheet,
+        cycleSecurityMode: cycleSecurityMode,
+        cycleSeason: cycleSeason,
       };
       window.CrownCommands = royalCommands;
+      applySeasonEffects(true);
 
       activityDoorBtn.addEventListener('click', function () {
         const tr = playerCtrl.getTransport();
@@ -4332,6 +4987,16 @@
           const nowOpen = playerCtrl.toggleCarDoors(tr.entity);
           activityDoorBtn.textContent = nowOpen ? 'Close Doors' : 'Open Doors';
           g.toast(nowOpen ? 'Car doors swung open!' : 'Car doors closed!');
+        } else if (tr && tr.kind === 'boat') {
+          if (tr.captainRoute && tr.captainRoute.active && typeof playerCtrl.takeBoatControl === 'function') {
+            playerCtrl.takeBoatControl();
+            g.toast('Took manual helm control from Captain Henri!');
+            syncHud(playerCtrl.actor.root.position);
+          } else if (typeof playerCtrl.setBoatReverse === 'function') {
+            const rev = playerCtrl.setBoatReverse();
+            g.toast(rev ? 'Reverse gear engaged!' : 'Forward gear engaged!');
+            syncHud(playerCtrl.actor.root.position);
+          }
         }
       });
 
@@ -4339,10 +5004,19 @@
         const tr = playerCtrl.getTransport();
         if (tr && tr.kind === 'car') {
           openCarPassengersSheet(tr.entity && tr.entity.id);
+        } else if (tr && tr.kind === 'boat') {
+          openBoatPassengersSheet(tr.entity && tr.entity.id);
         } else if (tr && tr.kind === 'horse') {
           tr.boost = !tr.boost;
           activityExtraBtn.textContent = tr.boost ? 'Canter: Fast' : 'Trot Pace';
           g.toast(tr.boost ? 'Galloping at full canter!' : 'Relaxed equestrian trot.');
+        } else if (playerCtrl.isSwimming() && playerCtrl.actor.root.position.z >= 58.6 && typeof playerCtrl.setSwimMode === 'function') {
+          const modesSwim = ['swim', 'snorkel', 'dive'];
+          const curM = playerCtrl.getSwimMode ? playerCtrl.getSwimMode() : 'swim';
+          const nxtM = modesSwim[(modesSwim.indexOf(curM) + 1) % modesSwim.length];
+          playerCtrl.setSwimMode(nxtM);
+          g.toast(nxtM === 'dive' ? 'Free-diving underwater!' : nxtM === 'snorkel' ? 'Snorkeling along the surface!' : 'Surface swimming!');
+          syncHud(playerCtrl.actor.root.position);
         } else {
           const activeAct = interactMgr ? interactMgr.getActiveActivity() : null;
           if (activeAct && (activeAct.pose === 'sleep' || activeAct.pose === 'nap')) {
@@ -4560,13 +5234,14 @@
         const tabs = [
           { id: 'services', label: 'Town Services & Hospital' },
           { id: 'town', label: 'All Town, Farm & Cars' },
+          { id: 'properties', label: 'Real Estate & Homes' },
           { id: 'schools', label: 'Schools & University' },
           { id: 'floors', label: '1F–7F Lifts' },
           { id: 'living', label: 'Salons & Theatre' },
           { id: 'bedrooms', label: '22 Bedrooms + Hotel' },
           { id: 'toilets', label: 'Baths & Pool' },
-          { id: 'cottages', label: '3BR Houses, Mansionettes & Cottages' },
-          { id: 'gardens', label: 'Gardens' },
+          { id: 'cottages', label: 'Houses, Villas & Cottages' },
+          { id: 'gardens', label: 'Gardens & Cliffs' },
           { id: 'dispatch', label: 'Crown Dispatch' },
         ];
 
@@ -4655,6 +5330,10 @@
           itemsBox.innerHTML = '';
           if (cat === 'services') {
             renderTownServicesTab(itemsBox);
+            return;
+          }
+          if (cat === 'properties') {
+            openRealEstateSheet();
             return;
           }
           if (cat === 'dispatch') {
@@ -4759,6 +5438,53 @@
             });
             addCmdItem('Carpool / Ride With Friends', 'Invite friends, family or neighbors to hop inside your car', function () {
               openCarPassengersSheet();
+            });
+            const curTrCmd = playerCtrl.getTransport();
+            const nearWaterCmd = Boolean(
+              (curTrCmd && curTrCmd.kind === 'boat') ||
+              (castle.isNearWaterZone && castle.isNearWaterZone(playerCtrl.actor.root.position))
+            );
+            if (nearWaterCmd && typeof playerCtrl.setSwimwearPreferred === 'function') {
+              const wearingSwim = Boolean(playerCtrl.isInSwimwear && playerCtrl.isInSwimwear());
+              addCmdItem(
+                wearingSwim ? 'Change Back Into Royal Outfit' : 'Wear Swimming Costume',
+                wearingSwim ? 'Switch out of swimwear while poolside, on beach or yacht' : 'Put on your swimming costume for the pool, beach or yacht',
+                function () {
+                  playerCtrl.setSwimwearPreferred(!wearingSwim);
+                  g.toast(!wearingSwim ? 'Changed into your swimming costume!' : 'Changed back into your outfit!');
+                }
+              );
+            }
+            addCmdItem('Sail Yacht w/ Captain Henri', 'Relax on bow sunbeds while Captain Henri sails to Islands or Sunset Cruise', function () {
+              openBoatCaptainSheet('riviera_royal_yacht');
+            });
+            addCmdItem('Invite Friends Aboard Yacht', 'Board up to 4 friends on deck to lounge & sail across Riviera Bay', function () {
+              openBoatPassengersSheet('riviera_royal_yacht');
+            });
+            addCmdItem('Go Boating w/ Friends (Cedar Rowboat)', 'Invite up to 2 friends into a Cedar Rowboat to paddle across Riviera Bay', function () {
+              openBoatPassengersSheet('riviera_rowboat_west');
+            });
+            addCmdItem('Host Royal Event, Party or Wedding Gala', 'Throw a State Dinner, Birthday Party, Grand Ball, Charity Gala or Wedding', function () {
+              openHostEventSheet();
+            });
+            addCmdItem('Royal Real Estate & Kingdom Properties', 'Buy beachfront villas, Belvedere Penthouse or set your primary home', function () {
+              openRealEstateSheet();
+            });
+            addCmdItem('Cycle Estate Gate Security (' + (SECURITY_LABELS[(g.world && g.world.securityMode) || 'royal']) + ')', 'Switch Kingdom Gate Checkpoints between Public, Royal Court or Lockdown', function () {
+              cycleSecurityMode();
+            });
+            addCmdItem('Cycle Kingdom Season (' + (SEASON_LABELS[getCurrentSeason()]) + ')', 'Switch between Spring, Summer, Autumn, Winter or Auto-Cycle', function () {
+              cycleSeason();
+            });
+            addCmdItem('Cycle Ocean Weather (Clear / Sunset / Rain / Storm)', 'Change live waves, reflections, sunset light & coastal rain', function () {
+              const curW = (castle.ocean && castle.ocean.weatherState && castle.ocean.weatherState.mode) || 'clear';
+              const nxtW = WEATHER_MODES[(WEATHER_MODES.indexOf(curW) + 1) % WEATHER_MODES.length];
+              setOceanWeather(nxtW);
+            });
+            addCmdItem('Visit Île d’Or Private Royal Island', 'Arrive on the sandy lagoon dock & sunset champagne pergola', function () {
+              playerCtrl.teleport(62.0, 152.5, 0, 0.37);
+              camCtrl.resetCamera(0);
+              syncHud(playerCtrl.actor.root.position);
             });
             addCmdItem('Call Live Hospital ER Emergency', 'Trigger ambulance emergency arrival with ER doctors & nurses treating live', function () {
               triggerEmergencyEvent(true);
@@ -5031,6 +5757,40 @@
         btnCamMode.classList.toggle('active', nextCam !== 'follow');
       });
 
+      const btnGoBeach = document.createElement('button');
+      btnGoBeach.type = 'button';
+      btnGoBeach.className = 'world-dock-btn';
+      btnGoBeach.textContent = 'Riviera Yacht & Beach';
+      btnGoBeach.addEventListener('click', function () {
+        playerCtrl.teleport(-10.5, 58.6, 0, 0.26);
+        floorMode = 'auto';
+        btnFloorCutaway.textContent = 'Cutaway: Auto';
+        btnFloorCutaway.classList.remove('active');
+        camCtrl.resetCamera(0);
+      });
+
+      const btnGoIsland = document.createElement('button');
+      btnGoIsland.type = 'button';
+      btnGoIsland.className = 'world-dock-btn';
+      btnGoIsland.textContent = 'Île d’Or Island';
+      btnGoIsland.addEventListener('click', function () {
+        playerCtrl.teleport(62.0, 152.5, 0, 0.37);
+        floorMode = 'auto';
+        btnFloorCutaway.textContent = 'Cutaway: Auto';
+        btnFloorCutaway.classList.remove('active');
+        camCtrl.resetCamera(0);
+      });
+
+      const btnWeather = document.createElement('button');
+      btnWeather.type = 'button';
+      btnWeather.className = 'world-dock-btn';
+      btnWeather.textContent = 'Ocean: Clear Blue';
+      btnWeather.addEventListener('click', function () {
+        const curW = (castle.ocean && castle.ocean.weatherState && castle.ocean.weatherState.mode) || 'clear';
+        const nxtW = WEATHER_MODES[(WEATHER_MODES.indexOf(curW) + 1) % WEATHER_MODES.length];
+        setOceanWeather(nxtW);
+      });
+
       const btnSpeed = document.createElement('button');
       btnSpeed.type = 'button';
       btnSpeed.className = 'world-dock-btn';
@@ -5046,6 +5806,9 @@
       rowActions.appendChild(btnDispatch);
       rowActions.appendChild(btnCas);
       rowActions.appendChild(btnGardens);
+      rowActions.appendChild(btnGoBeach);
+      rowActions.appendChild(btnGoIsland);
+      rowActions.appendChild(btnWeather);
       rowActions.appendChild(btnEnterHall);
       rowActions.appendChild(btnGo4F);
       rowActions.appendChild(btnGo7F);
@@ -5220,7 +5983,8 @@
       function syncHud(pos) {
         g.world.zone = castle.detectZone(pos);
         setTextCached(zoneSpan, 'zone', g.world.zone);
-        setTextCached(timeSpan, 'time', 'Day ' + (g.world.day || 1) + ' · ' + formatClock(g.world.hour || 10.5));
+        const sLbl = SEASON_LABELS[getCurrentSeason()] || 'Spring';
+        setTextCached(timeSpan, 'time', 'Day ' + (g.world.day || 1) + ' · ' + sLbl + ' · ' + formatClock(g.world.hour || 10.5));
         setTextCached(moneySpan, 'money', window.CrownSave ? window.CrownSave.formatCrowns(g.money) : '₡' + g.money);
 
         setTextCached(chipEnergy, 'energy', 'Energy ' + Math.round(g.needs.energy) + '%');
@@ -5250,12 +6014,18 @@
             setTextCached(activityStopBtn, 'stopText', 'Exit Car');
             setHtmlCached(interactBtn, 'interactHtml', '<span>Park & Exit Car</span><span>Tap / E</span>');
           } else if (tr.kind === 'boat') {
-            setDoorBtnDisplay('none');
-            setExtraBtnDisplay('none');
-            const boatVerb = tr.entity && tr.entity.isYacht ? 'Piloting ' : 'Rowing ';
-            setTextCached(activityText, 'actText', boatVerb + (tr.entity.title || 'Boat') + ' · Stick / WASD');
-            setTextCached(activityStopBtn, 'stopText', 'Step Ashore');
-            setHtmlCached(interactBtn, 'interactHtml', '<span>Step Ashore</span><span>Tap / E</span>');
+            setDoorBtnDisplay('inline-block');
+            setExtraBtnDisplay('inline-block');
+            const capActive = Boolean(tr.captainRoute && tr.captainRoute.active);
+            const boatPassCount = Array.isArray(tr.passengers) ? tr.passengers.length : 0;
+            setTextCached(activityDoorBtn, 'doorText', capActive ? 'Take Helm' : (tr.reverseGear ? 'Gear: Reverse' : 'Gear: Forward'));
+            setTextCached(activityExtraBtn, 'extraText', 'Friends (' + boatPassCount + ')');
+            const boatVerb = capActive
+              ? ('Captain Henri → ' + (tr.captainRoute.destTitle || 'Bay'))
+              : (tr.entity && tr.entity.isYacht ? 'Piloting ' : 'Rowing ') + (tr.entity.title || 'Boat') + (tr.reverseGear ? ' [REV]' : '');
+            setTextCached(activityText, 'actText', boatVerb + (boatPassCount ? (' · ' + boatPassCount + ' aboard') : ''));
+            setTextCached(activityStopBtn, 'stopText', 'Dock & Disembark');
+            setHtmlCached(interactBtn, 'interactHtml', '<span>Dock &amp; Disembark</span><span>Tap / E</span>');
           } else {
             setDoorBtnDisplay('none');
             setExtraBtnDisplay('inline-block');
@@ -5267,6 +6037,7 @@
           setBannerVisible(true);
           if (interactBtn.disabled) interactBtn.disabled = false;
           currentTarget = null;
+          underwaterTintEl.classList.remove('visible');
           return;
         }
 
@@ -5292,22 +6063,29 @@
             '</span><span>Tap / E</span>'
           );
           currentTarget = null;
+          underwaterTintEl.classList.toggle('visible', Boolean(playerCtrl.isUnderwater && playerCtrl.isUnderwater()));
           return;
         }
 
-        setExtraBtnDisplay('none');
-
         if (swimmingNow) {
           const inOcean = pos.z >= 58.6;
+          setExtraBtnDisplay(inOcean ? 'inline-block' : 'none');
+          if (inOcean) {
+            const sm = playerCtrl.getSwimMode ? playerCtrl.getSwimMode() : 'swim';
+            setTextCached(activityExtraBtn, 'extraText', sm === 'dive' ? 'Mode: Dive' : sm === 'snorkel' ? 'Mode: Snorkel' : 'Mode: Swim');
+          }
+          underwaterTintEl.classList.toggle('visible', Boolean(playerCtrl.isUnderwater && playerCtrl.isUnderwater()));
           setTextCached(activityText, 'actText', (inOcean ? 'Swimming in Riviera Ocean' : 'Swimming in Pool') + ' — stick/WASD!');
           setTextCached(activityStopBtn, 'stopText', 'Exit Water');
           setBannerVisible(true);
           if (interactBtn.disabled) interactBtn.disabled = false;
-          setHtmlCached(interactBtn, 'interactHtml', '<span>' + (inOcean ? 'Walk Back Ashore' : 'Climb Out of Pool') + '</span><span>Tap / E</span>');
+          setHtmlCached(interactBtn, 'interactHtml', '<span>' + (inOcean ? 'Return to Shore/Dock' : 'Climb Out of Pool') + '</span><span>Tap / E</span>');
           currentTarget = null;
           return;
         }
 
+        setExtraBtnDisplay('none');
+        underwaterTintEl.classList.remove('visible');
         setBannerVisible(false);
 
         const nearest = interactMgr ? interactMgr.getNearest(pos) : null;
@@ -5442,6 +6220,18 @@
         return 1;
       }
 
+      const _stormSky = new THREE.Color(0x6b92bd);
+      const _topStorm = new THREE.Color(0x304c75);
+      const _envInfo = {
+        sunDir: new THREE.Vector3(0.45, 0.72, 0.52).normalize(),
+        skyColor: new THREE.Color(0x88c7f8),
+        fogColor: new THREE.Color(0xcce4f8),
+        fogDensity: 0.0014,
+        moonMix: 0.0,
+        sunsetMix: 0.0,
+      };
+      let npcFrameCount = 0;
+
       function tick() {
         if (!active) return;
 
@@ -5462,6 +6252,7 @@
         const delta = Math.min((nowMs - lastTimeMs) / 1000, 0.1);
         lastTimeMs = nowMs;
         const elapsed = nowMs * 0.001;
+        npcFrameCount = (npcFrameCount + 1) & 1023;
 
         const pInfo = playerCtrl.update(delta, camCtrl.state.yaw, elapsed);
         camCtrl.update(delta, pInfo.position, castle.groundHeightAt, false);
@@ -5481,7 +6272,81 @@
           lastCutZ = pz;
           lastCutMode = floorMode;
         }
-        castle.update(elapsed, pInfo.transport, pInfo.position);
+
+        // Day / Sunset / Night / Weather Cycle
+        const prevDay = g.world.day || 1;
+        g.world.hour = (g.world.hour || 10.5) + delta * 0.07 * (g.world.timeScale || 1);
+        if (g.world.hour >= 24) {
+          g.world.hour -= 24;
+          g.world.day = prevDay + 1;
+          if (window.CrownSave) window.CrownSave.grantAllowanceIfNewWeek(prevDay, g.world.day);
+          applySeasonEffects(false);
+        }
+
+        const hr = g.world.hour;
+        const curSeason = getCurrentSeason();
+        const wState = (castle.ocean && castle.ocean.weatherState) || { mode: 'clear', stormDark: 0, sunsetMix: 0 };
+        if (Math.abs(hr - lastSkyHr) > 0.003 || hr < lastSkyHr) {
+          lastSkyHr = hr;
+          let moonMix = 0.0;
+          let sunsetMix = wState.sunsetMix || 0.0;
+          if (wState.mode === 'sunset') {
+            _curSky.copy(_sunsetSky);
+            skyUniforms.uTopColor.value.copy(_topSunset);
+            skyUniforms.uNightMix.value = 0.18;
+            sunLight.intensity = 1.65;
+            hemiLight.intensity = 0.92;
+            _envInfo.sunDir.set(0.35, 0.24, 0.90).normalize();
+            sunsetMix = 1.0;
+          } else if (hr >= 6 && hr < 17) {
+            _curSky.copy(_daySky);
+            skyUniforms.uTopColor.value.copy(_topDay);
+            skyUniforms.uNightMix.value = 0.0;
+            sunLight.intensity = 2.08;
+            hemiLight.intensity = 1.08;
+            _envInfo.sunDir.set(0.45, 0.72, 0.52).normalize();
+          } else if (hr >= 17 && hr < 20) {
+            const t = (hr - 17) / 3;
+            sunsetMix = Math.max(sunsetMix, Math.sin(t * Math.PI));
+            _curSky.copy(_daySky).lerp(_sunsetSky, sunsetMix);
+            skyUniforms.uTopColor.value.copy(_topDay).lerp(_topSunset, t);
+            skyUniforms.uNightMix.value = t * 0.35;
+            sunLight.intensity = 2.08 - t * 0.92;
+            hemiLight.intensity = 0.98 - t * 0.32;
+            _envInfo.sunDir.set(0.35, Math.max(0.18, 0.65 - t * 0.45), 0.75).normalize();
+          } else {
+            moonMix = 1.0;
+            _curSky.copy(_nightSky);
+            skyUniforms.uTopColor.value.copy(_topNight);
+            skyUniforms.uNightMix.value = 1.0;
+            sunLight.intensity = 0.72;
+            hemiLight.intensity = 0.52;
+            _envInfo.sunDir.set(-0.3, 0.55, 0.78).normalize();
+          }
+          if (wState.stormDark > 0.05) {
+            _curSky.lerp(_stormSky, wState.stormDark * 0.68);
+            skyUniforms.uTopColor.value.lerp(_topStorm, wState.stormDark * 0.65);
+            sunLight.intensity *= (1.0 - wState.stormDark * 0.45);
+          }
+          if (curSeason === 'autumn') {
+            _curSky.offsetHSL(-0.02, 0.04, -0.02);
+          } else if (curSeason === 'winter') {
+            _curSky.offsetHSL(0.01, -0.14, 0.03);
+          } else if (curSeason === 'summer') {
+            sunLight.intensity *= 1.05;
+          }
+          skyUniforms.uHorizonColor.value.copy(_curSky);
+          scene.background.copy(_curSky);
+          scene.fog.color.copy(_curSky);
+          scene.fog.density = 0.0014 + (wState.stormDark || 0) * 0.0012 + (curSeason === 'winter' ? 0.0002 : 0);
+          _envInfo.skyColor.copy(skyUniforms.uTopColor.value);
+          _envInfo.fogColor.copy(_curSky);
+          _envInfo.fogDensity = scene.fog.density;
+          _envInfo.moonMix = moonMix;
+          _envInfo.sunsetMix = sunsetMix;
+        }
+
+        castle.update(elapsed, pInfo.transport, pInfo.position, _envInfo);
 
         // Keep SkyDome & Player-Tracking Sun Shadows synced cleanly across all 304m of Riviera Town!
         if (Math.abs(px - lastSunX) > 0.35 || Math.abs(pz - lastSunZ) > 0.35) {
@@ -5501,43 +6366,6 @@
                 ? _swimPassiveAct
                 : null;
           window.CrownNeeds.tick(delta, curNeedAct, g);
-        }
-
-        // Day / Sunset / Night Cycle
-        const prevDay = g.world.day || 1;
-        g.world.hour = (g.world.hour || 10.5) + delta * 0.07 * (g.world.timeScale || 1);
-        if (g.world.hour >= 24) {
-          g.world.hour -= 24;
-          g.world.day = prevDay + 1;
-          if (window.CrownSave) window.CrownSave.grantAllowanceIfNewWeek(prevDay, g.world.day);
-        }
-
-        const hr = g.world.hour;
-        if (Math.abs(hr - lastSkyHr) > 0.003 || hr < lastSkyHr) {
-          lastSkyHr = hr;
-          if (hr >= 6 && hr < 17) {
-            _curSky.copy(_daySky);
-            skyUniforms.uTopColor.value.copy(_topDay);
-            skyUniforms.uNightMix.value = 0.0;
-            sunLight.intensity = 2.08;
-            hemiLight.intensity = 1.08;
-          } else if (hr >= 17 && hr < 20) {
-            const t = (hr - 17) / 3;
-            _curSky.copy(_daySky).lerp(_sunsetSky, Math.sin(t * Math.PI));
-            skyUniforms.uTopColor.value.copy(_topDay).lerp(_topSunset, t);
-            skyUniforms.uNightMix.value = t * 0.35;
-            sunLight.intensity = 2.08 - t * 0.92;
-            hemiLight.intensity = 0.98 - t * 0.32;
-          } else {
-            _curSky.copy(_nightSky);
-            skyUniforms.uTopColor.value.copy(_topNight);
-            skyUniforms.uNightMix.value = 1.0;
-            sunLight.intensity = 0.72;
-            hemiLight.intensity = 0.52;
-          }
-          skyUniforms.uHorizonColor.value.copy(_curSky);
-          scene.background.copy(_curSky);
-          scene.fog.color.copy(_curSky);
         }
 
         const insidePalaceNow = castle.isInsidePalace(pInfo.position);
@@ -5569,7 +6397,7 @@
           releaseDiningGroup();
         }
 
-        // Map any actors currently seated inside the active car (Chauffeur driver or passengers)
+        // Map any actors currently seated inside the active car or boat (Chauffeur/Captain/Passengers)
         const carOccupantsMap = {};
         if (pInfo.transport && pInfo.transport.kind === 'car' && pInfo.transport.entity && pInfo.transport.entity.group) {
           const trCar = pInfo.transport;
@@ -5584,13 +6412,42 @@
           const cCos = Math.cos(grpCar.rotation.y);
           const cSin = Math.sin(grpCar.rotation.y);
           if (trCar.chauffeur && trCar.chauffeur.id) {
-            carOccupantsMap[trCar.chauffeur.id] = { grp: grpCar, seat: seatsMap.driver, pose: 'drive', steer: trCar.steer, cos: cCos, sin: cSin };
+            carOccupantsMap[trCar.chauffeur.id] = { grp: grpCar, seat: seatsMap.driver, pose: 'drive', steer: trCar.steer, cos: cCos, sin: cSin, yOff: -0.28 };
           }
           if (Array.isArray(trCar.passengers)) {
             for (let pi = 0; pi < trCar.passengers.length; pi++) {
               const pass = trCar.passengers[pi];
               if (pass && pass.id && seatsMap[pass.seatKey]) {
-                carOccupantsMap[pass.id] = { grp: grpCar, seat: seatsMap[pass.seatKey], pose: 'drive_passenger', steer: trCar.steer, cos: cCos, sin: cSin };
+                carOccupantsMap[pass.id] = { grp: grpCar, seat: seatsMap[pass.seatKey], pose: 'drive_passenger', steer: trCar.steer, cos: cCos, sin: cSin, yOff: -0.28 };
+              }
+            }
+          }
+        } else if (pInfo.transport && pInfo.transport.kind === 'boat' && pInfo.transport.entity && pInfo.transport.entity.group) {
+          const trBoat = pInfo.transport;
+          const grpBoat = trBoat.entity.group;
+          const bUd = grpBoat.userData || {};
+          const bSeats = bUd.seats || {
+            captain: { x: 0, y: 2.25, z: -0.2 },
+            sunbedL: { x: -0.78, y: 1.56, z: 3.1 },
+            sunbedR: { x: 0.78, y: 1.56, z: 3.1 },
+            loungeL: { x: -0.95, y: 1.48, z: -3.2 },
+            loungeR: { x: 0.95, y: 1.48, z: -3.2 },
+            stern: { x: 0, y: 0.46, z: -0.82 },
+          };
+          const bCos = Math.cos(grpBoat.rotation.y);
+          const bSin = Math.sin(grpBoat.rotation.y);
+          if (trBoat.captain && trBoat.captain.id) {
+            const capSeat = bSeats.captain || bSeats.helm;
+            if (capSeat) {
+              carOccupantsMap[trBoat.captain.id] = { grp: grpBoat, seat: capSeat, pose: 'drive', steer: trBoat.steer, cos: bCos, sin: bSin, yOff: -0.16 };
+            }
+          }
+          if (Array.isArray(trBoat.passengers)) {
+            for (let pi = 0; pi < trBoat.passengers.length; pi++) {
+              const pass = trBoat.passengers[pi];
+              const pSeat = pass && (bSeats[pass.seatKey] || bSeats.stern || bSeats.loungeL);
+              if (pass && pass.id && pSeat) {
+                carOccupantsMap[pass.id] = { grp: grpBoat, seat: pSeat, pose: 'sofa', steer: 0, cos: bCos, sin: bSin, yOff: -0.16 };
               }
             }
           }
@@ -5622,7 +6479,7 @@
           if (!keepProp) setActorPropVisible(actObj, null);
         }
 
-        // Natural Waypoint Pedestrian Walking + Arrival Pauses + Summoned Staff/Friends + Car Occupants + Work/Home Poses
+        // Natural Waypoint Pedestrian Walking + Arrival Pauses + Summoned Staff/Friends + Vehicle/Vessel Occupants + Work/Home Poses
         for (let actIdx = 0; actIdx < actors.length; actIdx++) {
           const act = actors[actIdx];
           const rootObj = act.mesh.root;
@@ -5633,9 +6490,10 @@
             rootObj.visible = true;
             const sg = carSeatInfo.grp;
             const st = carSeatInfo.seat;
+            const yOff = typeof carSeatInfo.yOff === 'number' ? carSeatInfo.yOff : -0.28;
             posNow.set(
               sg.position.x + st.x * carSeatInfo.cos + st.z * carSeatInfo.sin,
-              sg.position.y + st.y - 0.28,
+              sg.position.y + st.y + yOff,
               sg.position.z - st.x * carSeatInfo.sin + st.z * carSeatInfo.cos
             );
             rootObj.rotation.y = sg.rotation.y;
@@ -5643,7 +6501,7 @@
               const aBaseLeg = act.mesh.baseLeg || 0.94;
               window.CrownAnim.applyPose(act.mesh, carSeatInfo.pose, delta, elapsed + act.phase, {
                 steer: carSeatInfo.steer || 0,
-                rigOffsetY: -aBaseLeg * 0.62,
+                rigOffsetY: -aBaseLeg * 0.58,
               });
               act.wasInPose = true;
             }
@@ -5667,12 +6525,20 @@
             const showActor = !hiddenByCutaway && !hiddenByHotelCutaway && distSqP <= 3364;
             if (rootObj.visible !== showActor) rootObj.visible = showActor;
             if (!showActor) continue;
+            // Distant NPC cadence throttling on mobile/laptop so Redmi Note 13 Pro+ 5G stays smooth
+            if (distSqP > 676 && ((actIdx + npcFrameCount) & 1) === 1 && !act.wasInPose) continue;
           } else if (!rootObj.visible) {
             rootObj.visible = true;
           }
 
           if (typeof act.mesh.setSwimwear === 'function') {
-            act.mesh.setSwimwear(Boolean(castle.isInPool && castle.isInPool(posNow)));
+            const npcInPool = Boolean(castle.isInPool && castle.isInPool(posNow));
+            if (npcInPool) {
+              act.swimwearPreferred = true;
+            } else if (!castle.isNearWaterZone || !castle.isNearWaterZone(posNow)) {
+              act.swimwearPreferred = false;
+            }
+            act.mesh.setSwimwear(Boolean(npcInPool || act.swimwearPreferred));
           }
 
           if (act.isTalking) {

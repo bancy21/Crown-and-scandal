@@ -401,6 +401,23 @@
         label: cfg.title,
       });
 
+      const lotCat = cfg.dirCategory || cfg.category || 'town';
+      const customActs = Array.isArray(cfg.actions) ? cfg.actions : [];
+      if (customActs.length > 0) {
+        registerSpot({
+          id: cfg.id,
+          title: cfg.title,
+          floor: 0,
+          category: lotCat,
+          shortcut: Boolean(cfg.shortcut),
+          x: cx,
+          y: baseFloorY,
+          z: cz,
+          radius: Math.max(4.4, Math.min(w, d) * 0.62),
+          actions: customActs,
+        });
+      }
+
       const entrySpotId = cfg.id + '_plot_visit';
       const teleX = doorFace === 'E' ? cx + 2.4 : doorFace === 'W' ? cx - 2.4 : cx;
       const teleZ = doorFace.indexOf('S') !== -1 ? cz + d * 0.28 : doorFace.indexOf('N') !== -1 ? cz - d * 0.28 : cz;
@@ -409,7 +426,7 @@
         id: entrySpotId,
         title: cfg.title,
         floor: 0,
-        category: cfg.dirCategory || 'town',
+        category: lotCat,
         x: cx,
         y: baseFloorY,
         z: cz,
@@ -426,7 +443,7 @@
               actCtx.toast('Arrived at ' + cfg.title);
             },
           },
-        ],
+        ].concat(customActs),
       };
       registerSpot(dirEntry);
       townDirectory.push(dirEntry);
@@ -2355,6 +2372,56 @@
     groveCrowns.computeBoundingSphere();
     townGroup.add(groveTrunks, groveCrowns);
 
+    let expansionMod = null;
+    if (window.CrownKingdomExpansion && typeof window.CrownKingdomExpansion.build === 'function') {
+      expansionMod = window.CrownKingdomExpansion.build({
+        THREE: THREE,
+        kit: kit,
+        townGroup: townGroup,
+        sharedColliders: sharedColliders,
+        walkableFloors: walkableFloors,
+        cutaways: cutaways,
+        townZones: townZones,
+        townDirectory: townDirectory,
+        townDoors: townDoors,
+        dynamicNodes: dynamicNodes,
+        ivoryMat: ivoryMat,
+        marbleMat: marbleMat,
+        whiteMarbleMat: whiteMarbleMat,
+        parquetMat: parquetMat,
+        goldMat: goldMat,
+        glassMat: glassMat,
+        slateRoofMat: slateRoofMat,
+        waterMat: waterMat,
+        boxwoodMat: boxwoodMat,
+        sidewalkMat: sidewalkMat,
+        asphaltMat: asphaltMat,
+        terracottaMat: terracottaMat,
+        pastelPinkWall: pastelPinkWall,
+        mintWallMat: mintWallMat,
+        skyWallMat: skyWallMat,
+        butterWallMat: butterWallMat,
+        stoneWallMat: stoneWallMat,
+        clubDarkMat: clubDarkMat,
+        tileFloorMat: tileFloorMat,
+        addBox: addBox,
+        addCircle: addCircle,
+        addWallX: addWallX,
+        addWallZ: addWallZ,
+        placeBed: placeBed,
+        placeToilet: placeToilet,
+        placeVanitySink: placeVanitySink,
+        placeShower: placeShower,
+        placeSofa: placeSofa,
+        placeArmchair: placeArmchair,
+        tagInteractable: tagInteractable,
+        registerSpot: registerSpot,
+        addEnterableLot: addEnterableLot,
+        addStreetStrip: addStreetStrip,
+        recordDispatchGossip: recordDispatchGossip,
+      });
+    }
+
     // Tag animated nodes and spatially batch static town geometry for low draw calls + frustum culling
     danceFloor.userData.noMerge = true;
     dynamicNodes.push(danceFloor);
@@ -2470,6 +2537,10 @@
     }
 
     function groundHeightAtTown(x, z, yNow) {
+      if (expansionMod && typeof expansionMod.groundHeightAtExpansion === 'function') {
+        const eh = expansionMod.groundHeightAtExpansion(x, z, yNow);
+        if (typeof eh === 'number') return eh;
+      }
       if (hotelMod && typeof hotelMod.groundHeightAtHotel === 'function') {
         const hh = hotelMod.groundHeightAtHotel(x, z, yNow);
         if (typeof hh === 'number') return hh;
@@ -2529,6 +2600,9 @@
     }
 
     function isOnUpperFloor(x, z, yNow) {
+      if (expansionMod && typeof expansionMod.isOnUpperFloor === 'function' && expansionMod.isOnUpperFloor(x, z, yNow)) {
+        return true;
+      }
       if (hotelMod && typeof hotelMod.isOnUpperFloor === 'function' && hotelMod.isOnUpperFloor(x, z, yNow)) {
         return true;
       }
@@ -2536,6 +2610,10 @@
     }
 
     function resolveUpperCollision(nx, nz, radius, yNow) {
+      if (expansionMod && typeof expansionMod.resolveUpperCollision === 'function') {
+        const er = expansionMod.resolveUpperCollision(nx, nz, radius, yNow);
+        if (er) return er;
+      }
       if (hotelMod && typeof hotelMod.resolveUpperCollision === 'function') {
         const hr = hotelMod.resolveUpperCollision(nx, nz, radius, yNow);
         if (hr) return hr;
@@ -2814,6 +2892,7 @@
       detectTownZone: detectTownZone,
       isOnUpperFloor: isOnUpperFloor,
       resolveUpperCollision: resolveUpperCollision,
+      isExtraDrivable: expansionMod && typeof expansionMod.isExtraDrivable === 'function' ? expansionMod.isExtraDrivable : null,
       toggleDoor: toggleDoor,
       townDirectory: townDirectory,
       townDoors: townDoors,
@@ -2827,6 +2906,7 @@
         if (hospitalMod && typeof hospitalMod.dispose === 'function') hospitalMod.dispose();
         if (bakeryMod && typeof bakeryMod.dispose === 'function') bakeryMod.dispose();
         if (hotelMod && typeof hotelMod.dispose === 'function') hotelMod.dispose();
+        if (expansionMod && typeof expansionMod.dispose === 'function') expansionMod.dispose();
       },
     };
   }

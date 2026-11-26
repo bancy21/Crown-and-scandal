@@ -260,7 +260,7 @@
     parquetTex.repeat.set(6, 5);
     const blushRugTex = trackTex(createPalaceTexture(renderer, 'blush-rug', 256));
     const grassTex = trackTex(createPalaceTexture(renderer, 'grass', 256));
-    grassTex.repeat.set(34, 28);
+    grassTex.repeat.set(34, 20);
     const gravelTex = trackTex(createPalaceTexture(renderer, 'gravel-walk', 256));
     gravelTex.repeat.set(18, 18);
     const waterTex = trackTex(createPalaceTexture(renderer, 'water', 256));
@@ -285,24 +285,13 @@
     const waterUniforms = { uWaterTime: { value: 0 } };
     const waterMat = new THREE.MeshPhysicalMaterial({
       map: waterTex,
-      color: 0x5bc8ea,
+      color: 0x1ca8e8,
       roughness: 0.08,
-      metalness: 0.1,
+      metalness: 0.08,
       clearcoat: 1.0,
       clearcoatRoughness: 0.06,
-      envMapIntensity: 1.35,
+      envMapIntensity: 1.1,
     });
-    const seaWaterMat = waterMat.clone();
-    if (!isSoftwareGl) {
-      seaWaterMat.onBeforeCompile = function (shader) {
-        shader.uniforms.uWaterTime = waterUniforms.uWaterTime;
-        shader.vertexShader = 'uniform float uWaterTime;\n' + shader.vertexShader;
-        shader.vertexShader = shader.vertexShader.replace(
-          '#include <begin_vertex>',
-          '#include <begin_vertex>\n  transformed.z += sin(position.x * 0.45 + uWaterTime * 1.9) * 0.025 + cos(position.y * 0.5 + uWaterTime * 1.4) * 0.02;'
-        );
-      };
-    }
     const glassMat = new THREE.MeshStandardMaterial({ color: 0x3a4f66, roughness: 0.12, metalness: 0.22, transparent: true, opacity: 0.46 });
     const mirrorGlassMat = new THREE.MeshPhysicalMaterial({ color: 0xeaf4fc, roughness: 0.05, metalness: 0.88, clearcoat: 1.0 });
     const pinkVelvetMat = new THREE.MeshStandardMaterial({ color: 0xd98fa0, roughness: 0.72, metalness: 0.02 });
@@ -363,6 +352,7 @@
 
     let upperFloors = null;
     let townMod = null;
+    let oceanMod = null;
 
     // Walkable Height across Courtyard, Grass Parterres, 1F-7F Palace Suites, Town Lots, Pool & Hotel
     function groundHeightAt(x, z, currentY) {
@@ -434,14 +424,18 @@
         }
       }
 
-      // Riviera Timber Yacht Pier, Golden Sandy Beach & Swimmable Ocean Shallows
+      // Riviera Marina, Beaches, Islands & Underwater Seabed
+      if (oceanMod) {
+        const ocH = oceanMod.groundHeightAtOcean(x, z, yNow);
+        if (typeof ocH === 'number') return ocH;
+      }
       if (yNow < 2.0 && Math.abs(x) <= 2.6 && z >= 51.8 && z <= 67.0) {
         return 0.26;
       }
       if (yNow < 2.0 && z >= 51.8 && z <= 59.4) {
         return 0.03;
       }
-      if (yNow < 1.5 && z > 59.4 && z <= 145 && Math.abs(x) <= 158) {
+      if (yNow < 1.5 && z > 59.4 && z <= 240 && Math.abs(x) <= 258) {
         return -0.35;
       }
 
@@ -503,8 +497,8 @@
       const yNow = typeof currentY === 'number' ? currentY : 0;
       const cfg = opts || {};
       const wallsOnly = Boolean(cfg.wallsOnly);
-      const maxZBound = (cfg.ignoreEntityId || cfg.excludePools) ? 50.2 : 136;
-      let rx = THREE.MathUtils.clamp(nx, -162, 162);
+      const maxZBound = (cfg.ignoreEntityId || cfg.excludePools) ? 50.2 : 238;
+      let rx = THREE.MathUtils.clamp(nx, -258, 258);
       let rz = THREE.MathUtils.clamp(nz, -56, maxZBound);
 
       if (upperFloors && yNow >= 13.2 && Math.abs(nx) <= 34 && nz <= -13) {
@@ -612,6 +606,10 @@
         }
       }
 
+      if (oceanMod && res.z > 50.5 && yNow < 2.5) {
+        res = oceanMod.resolveOceanObstacles(res.x, res.z, radius, false);
+      }
+
       return res;
     }
 
@@ -697,6 +695,9 @@
         // Hôtel Montieri Cobblestone Valet Courtyard (connects cleanly at x = 120.5)
         if (x >= 118.0 && x <= 133.2 && z >= 3.4 && z <= 16.2) return true;
       }
+      if (townMod && typeof townMod.isExtraDrivable === 'function' && townMod.isExtraDrivable(x, z, r)) {
+        return true;
+      }
       return false;
     }
 
@@ -705,10 +706,12 @@
       let best = null;
       let bestDistSq = Infinity;
       const roadZs = [48.0, 19.2, 0.0, -10.5];
-      const roadXs = [-153.5, -123.5, -95.0, -67.0, -44.0, 44.0, 67.0, 92.5, 120.5, 156.5];
+      const roadXs = [-218.0, -186.0, -153.5, -123.5, -95.0, -67.0, -44.0, 44.0, 67.0, 92.5, 120.5, 156.5, 190.0, 222.0];
       for (let i = 0; i < roadZs.length; i++) {
         const rz = roadZs[i];
-        const rx = THREE.MathUtils.clamp(x, -154.0, 156.0);
+        const minX = rz === -10.5 ? -154.0 : -236.0;
+        const maxX = rz === -10.5 ? 156.0 : 238.0;
+        const rx = THREE.MathUtils.clamp(x, minX, maxX);
         if (isDrivableSurface(rx, rz, 0.2)) {
           const dSq = (rx - x) * (rx - x) + (rz - z) * (rz - z);
           if (dSq < bestDistSq) { bestDistSq = dSq; best = { x: rx, z: rz }; }
@@ -716,7 +719,7 @@
       }
       for (let j = 0; j < roadXs.length; j++) {
         const rx = roadXs[j];
-        const minZ = (rx === -95.0 || rx === -123.5) ? -10.5 : (Math.abs(rx) === 44.0 ? -22.5 : -38.0);
+        const minZ = (rx <= -180 || rx >= 180) ? 0.0 : (rx === -95.0 || rx === -123.5) ? -10.5 : (Math.abs(rx) === 44.0 ? -22.5 : -38.0);
         const rz = THREE.MathUtils.clamp(z, minZ, 48.0);
         if (isDrivableSurface(rx, rz, 0.2)) {
           const dSq = (rx - x) * (rx - x) + (rz - z) * (rz - z);
@@ -1196,9 +1199,9 @@
     // -----------------------------------------------------------
     // 1. ESTATE GROUNDS, HILLS, COASTAL QUAY & COMMONERS' VILLAGES
     // -----------------------------------------------------------
-    const grounds = new THREE.Mesh(new THREE.PlaneGeometry(640, 420), grassMat);
+    const grounds = new THREE.Mesh(new THREE.PlaneGeometry(640, 298), grassMat);
     grounds.rotation.x = -Math.PI / 2;
-    grounds.position.set(0, 0, -35);
+    grounds.position.set(0, 0, -96);
     grounds.receiveShadow = true;
     scene.add(grounds);
 
@@ -1265,18 +1268,36 @@
     centralAvenue.position.set(0, 0.025, 24);
     scene.add(centralAvenue);
 
-    // Riviera Golden Sandy Beach + Timber Yacht Pier + Moored Royal Yacht!
+    // Riviera Golden Sandy Beach + Sloped Foreshore + Timber Yacht Pier
     const sandMat = new THREE.MeshStandardMaterial({ color: 0xeed9b0, roughness: 0.9 });
-    const beachStrip = new THREE.Mesh(new THREE.BoxGeometry(360, 0.42, 7.6), sandMat);
-    beachStrip.position.set(0, -0.18, 55.8);
+    const beachStrip = new THREE.Mesh(new THREE.BoxGeometry(640, 0.42, 6.6), sandMat);
+    beachStrip.position.set(0, -0.18, 55.3);
     beachStrip.receiveShadow = true;
     scene.add(beachStrip);
+
+    const foreshoreGeo = new THREE.PlaneGeometry(640, 5.2, 1, 1);
+    foreshoreGeo.rotateX(-Math.PI / 2);
+    const foreshoreSlope = new THREE.Mesh(foreshoreGeo, sandMat);
+    foreshoreSlope.position.set(0, -0.32, 60.8);
+    foreshoreSlope.rotation.x = 0.145;
+    foreshoreSlope.receiveShadow = true;
+    scene.add(foreshoreSlope);
 
     const timberPierMat = new THREE.MeshStandardMaterial({ color: 0x8e6340, roughness: 0.78 });
     const yachtPier = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.24, 15.0), timberPierMat);
     yachtPier.position.set(0, 0.14, 59.5);
     yachtPier.receiveShadow = true;
     scene.add(yachtPier);
+
+    if (window.CrownOcean && typeof window.CrownOcean.buildOceanWorld === 'function') {
+      oceanMod = window.CrownOcean.buildOceanWorld(scene, renderer, {
+        isSoftwareGl: isSoftwareGl,
+        isLowQuality: Boolean(opts && opts.isLowQuality),
+        registerSpot: registerSpot,
+        tagInteractable: tagInteractable,
+      });
+    }
+
     const boatsList = [];
     if (kit) {
       const yacht = kit.buildRoyalYacht('riviera_royal_yacht');
@@ -1304,13 +1325,27 @@
         category: 'town',
         shortcut: true,
         x: 3.0, y: 0.14, z: 65.5,
-        radius: 6.8,
+        radius: 7.2,
         actions: [
           {
             id: 'yacht_pilot',
-            label: 'Pilot Royal Superyacht Across Ocean',
-            hint: 'Sail anywhere along Riviera Bay with stick or WASD!',
+            label: 'Take Helm & Pilot Royal Superyacht',
+            hint: 'Forward, Reverse & Dock anywhere across the blue Riviera Ocean!',
             type: 'board_boat',
+            boatId: 'riviera_royal_yacht',
+          },
+          {
+            id: 'yacht_captain_cruise',
+            label: 'Have Captain Henri Sail Yacht (Autopilot)',
+            hint: 'Relax on bow sunbeds while Captain Henri steers to Islands or Sunset Cruise!',
+            type: 'boat_captain_cruise',
+            boatId: 'riviera_royal_yacht',
+          },
+          {
+            id: 'yacht_board_friends',
+            label: 'Invite Friends Aboard Yacht (Up to 4 Guests)',
+            hint: 'Seat friends on bow sunbeds & aft champagne lounge to cruise together!',
+            type: 'boat_passengers',
             boatId: 'riviera_royal_yacht',
           },
           {
@@ -1371,6 +1406,13 @@
               boatId: rbCfg.id,
             },
             {
+              id: 'friends_' + rbCfg.id,
+              label: 'Invite Friends Into Rowboat (Up to 2)',
+              hint: 'Bring up to 2 friends aboard as you row across blue water!',
+              type: 'boat_passengers',
+              boatId: rbCfg.id,
+            },
+            {
               id: 'swim_from_' + rbCfg.id,
               label: 'Swim Into Riviera Ocean From Shore',
               hint: 'Changes into swimwear automatically — swim freely!',
@@ -1378,6 +1420,7 @@
               onInstant: function (actCtx) {
                 if (actCtx && actCtx.playerCtrl) {
                   actCtx.playerCtrl.teleport(rbCfg.x + 2.4, 62.6, 0, -0.35);
+                  if (oceanMod) oceanMod.triggerSplash(rbCfg.x + 2.4, 62.6, 1.25);
                   if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 12, hygiene: 10 });
                   actCtx.toast('Changed into swimwear and dove into Riviera Ocean!');
                 }
@@ -1387,7 +1430,7 @@
         });
       });
 
-      // Sims 4 Ocean Swim & Float Hotspot along the Riviera Sandy Shoreline
+      // Sims 4 Ocean Swim, Dive, Snorkel & Float Hotspot along the Riviera Sandy Shoreline
       registerSpot({
         id: 'riviera_ocean_swim',
         title: 'Riviera Ocean Shoreline',
@@ -1395,7 +1438,7 @@
         category: 'town',
         shortcut: true,
         x: 0, y: 0.03, z: 60.5,
-        bounds: { minX: -145, maxX: 145, minZ: 58.6, maxZ: 74 },
+        bounds: { minX: -165, maxX: 165, minZ: 58.6, maxZ: 74 },
         radius: 3.0,
         actions: [
           {
@@ -1407,10 +1450,20 @@
               if (actCtx && actCtx.playerCtrl) {
                 const pxNow = actCtx.playerCtrl.actor.root.position.x || 8;
                 actCtx.playerCtrl.teleport(pxNow, 63.2, 0, -0.35);
+                if (oceanMod) oceanMod.triggerSplash(pxNow, 63.2, 1.3);
                 if (window.CrownNeeds) window.CrownNeeds.applyBoost({ fun: 14, hygiene: 10 });
                 actCtx.toast('Swimming in Riviera Ocean! Move with stick/WASD.');
               }
             },
+          },
+          {
+            id: 'ocean_snorkel',
+            label: 'Snorkel Along Turquoise Shallows',
+            hint: '+22 Fun/s & +14 Hygiene/s with underwater reef view!',
+            pose: 'snorkel',
+            anchor: { x: 14, y: -0.58, z: 65.5, yaw: 0, rigOffsetY: -0.1, floorY: -0.58, exitX: 14, exitZ: 57.6, exitYaw: Math.PI },
+            rates: { fun: 22, hygiene: 14, composure: 8 },
+            statusText: 'Snorkeling through crystal-clear Riviera shallows...',
           },
           {
             id: 'ocean_back_float',
@@ -1440,12 +1493,6 @@
         scene.add(bSet);
       });
     }
-
-    const seaMesh = new THREE.Mesh(new THREE.PlaneGeometry(720, 280, 36, 18), seaWaterMat);
-    seaMesh.rotation.x = -Math.PI / 2;
-    seaMesh.position.set(0, -0.45, 198);
-    seaMesh.userData.noMerge = true;
-    scene.add(seaMesh);
 
     const hillMatFar = new THREE.MeshStandardMaterial({ color: 0x4c7041, roughness: 0.92 });
     const hillMatMid = new THREE.MeshStandardMaterial({ color: 0x5c8549, roughness: 0.88 });
@@ -1737,12 +1784,12 @@
       }
     });
 
-    // Background outer hillside cottages (instanced for skyline richness)
+    // Background outer hillside cottages (instanced for skyline richness, placed outside expanded town streets)
     const dummy = new THREE.Object3D();
     const tint = new THREE.Color();
     const outerHouses = [
-      [-164, 10], [-166, 22], [-162, 36], [-172, 16], [-170, 30], [-160, -14],
-      [164, 10], [166, 22], [162, 36], [172, 16], [170, 30], [160, -14],
+      [-248, 8], [-250, 20], [-248, 34], [-246, -10], [-252, -24], [-178, -22],
+      [248, 8], [250, 20], [248, 34], [246, -10], [252, -24], [178, -22],
     ];
     const hwMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.78 });
     const hrMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.68 });
@@ -2103,6 +2150,205 @@
       scene.add(finial);
       addCircle(sharedColliders, px, 41, 0.85);
     });
+
+    // Two Royal Gate Security Checkpoints (West & East of Gate Archway)
+    [
+      { id: 'gate_security_west', title: 'West Gate Security Checkpoint', x: -9.4, z: 39.2, armDir: 1 },
+      { id: 'gate_security_east', title: 'East Gate Security Checkpoint', x: 9.4, z: 39.2, armDir: -1 },
+    ].forEach(function (gp) {
+      const boxGrp = new THREE.Group();
+      boxGrp.position.set(gp.x, 0, gp.z);
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.1, 2.5), whiteMarbleMat);
+      pad.position.y = 0.05;
+      boxGrp.add(pad);
+      const booth = new THREE.Mesh(new THREE.BoxGeometry(1.65, 2.55, 1.8), ivoryMat);
+      booth.position.y = 1.32;
+      boxGrp.add(booth);
+      const win = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.88, 1.86), glassMat);
+      win.position.y = 1.62;
+      boxGrp.add(win);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(1.45, 0.85, 4), slateRoofMat);
+      cap.rotation.y = Math.PI * 0.25;
+      cap.position.y = 3.0;
+      boxGrp.add(cap);
+      const barArm = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.12), goldMat);
+      barArm.position.set(gp.armDir * 1.4, 1.05, 1.15);
+      boxGrp.add(barArm);
+      scene.add(boxGrp);
+      addBox(sharedColliders, gp.x, gp.z, 1.9, 2.0);
+      tagInteractable(boxGrp, gp.id);
+      registerSpot({
+        id: gp.id,
+        title: gp.title,
+        floor: 0,
+        category: 'gardens',
+        x: gp.x, y: 0.08, z: gp.z + 1.5,
+        radius: 4.0,
+        actions: [
+          {
+            id: gp.id + '_cycle_sec',
+            label: 'Cycle Gate Security Mode (Public / Royal / Lockdown)',
+            hint: 'Update royal gate access protocol & guard briefings',
+            instant: true,
+            onInstant: function () {
+              if (window.CrownCommands && typeof window.CrownCommands.cycleSecurityMode === 'function') {
+                window.CrownCommands.cycleSecurityMode();
+              }
+            },
+          },
+          {
+            id: gp.id + '_log',
+            label: 'Inspect Palace Gate Visitor Log',
+            hint: '+10 Poise & +6 Fun',
+            instant: true,
+            onInstant: function (ctx) {
+              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 10, fun: 6 });
+              ctx.toast('Reviewed royal gate carriages & security roster! (+10 Poise)');
+            },
+          },
+          {
+            id: gp.id + '_escort',
+            label: 'Summon Royal Guard Escort',
+            hint: 'Assign a uniformed Royal Guard to follow & escort you',
+            instant: true,
+            onInstant: function () {
+              if (window.CrownCommands && typeof window.CrownCommands.summonActorToPlayer === 'function') {
+                window.CrownCommands.summonActorToPlayer(gp.x < 0 ? 'sentinel-left' : 'guard-steps-east', { follow: true, distance: 1.75 });
+              }
+            },
+          },
+        ],
+      });
+    });
+
+    // Palace Servants' Quarters, Staff Office & Security Command Wing (behind West Auto Pavilion: x = -38.8, z = -34.2)
+    (function buildPalaceStaffWing() {
+      const sx = -38.8;
+      const sz = -34.2;
+      const sw = 9.0;
+      const sd = 7.2;
+      const wallH = 3.3;
+      const wingGrp = new THREE.Group();
+      scene.add(wingGrp);
+
+      const sFloor = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.14, sd), cottageFloorMat);
+      sFloor.position.set(sx, 0.05, sz);
+      sFloor.receiveShadow = true;
+      wingGrp.add(sFloor);
+
+      // Walls (East doorway facing Château driveway lane)
+      addWallZ(wingGrp, sharedColliders, 0, wallH, sx - sw * 0.5, sz - sd * 0.5, sz + sd * 0.5, null, 0, 0.28, ivoryMat);
+      addWallZ(wingGrp, sharedColliders, 0, wallH, sx + sw * 0.5, sz - sd * 0.5, sz + sd * 0.5, sz, 2.2, 0.28, ivoryMat);
+      addWallX(wingGrp, sharedColliders, 0, wallH, sz - sd * 0.5, sx - sw * 0.5, sx + sw * 0.5, null, 0, 0.28, ivoryMat);
+      addWallX(wingGrp, sharedColliders, 0, wallH, sz + sd * 0.5, sx - sw * 0.5, sx + sw * 0.5, null, 0, 0.28, ivoryMat);
+      // Partition splitting North Security Command / Staff Office & South Servants' Quarters
+      addWallX(wingGrp, sharedColliders, 0, wallH - 0.1, sz - 0.3, sx - sw * 0.5, sx + sw * 0.5, sx + 1.8, 1.8, 0.2, ivoryMat);
+
+      const sRoofGrp = new THREE.Group();
+      if (kit && typeof kit.buildGableRoof === 'function') {
+        const gRoof = kit.buildGableRoof(sw, sd, 1.85, slateRoofMat, ivoryMat, { chimney: true, dormer: true });
+        gRoof.position.set(sx, wallH - 0.02, sz);
+        gRoof.rotation.y = Math.PI * 0.5;
+        sRoofGrp.add(gRoof);
+      }
+      wingGrp.add(sRoofGrp);
+
+      // South Side: Servants' Quarters (2 Staff Beds + Toilet)
+      placeBed(wingGrp, sharedColliders, { id: 'servants_bed_1', title: 'Staff Suite Bed #1', floor: 0, x: sx - 2.6, y: 0.08, z: sz + 1.8, yaw: 0, tone: 'sapphire', cottage: true, w: 1.5, d: 2.05, noSideTable: true });
+      placeBed(wingGrp, sharedColliders, { id: 'servants_bed_2', title: 'Staff Suite Bed #2', floor: 0, x: sx + 0.1, y: 0.08, z: sz + 1.8, yaw: 0, tone: 'champagne', cottage: true, w: 1.5, d: 2.05, noSideTable: true });
+      placeToilet(wingGrp, sharedColliders, { id: 'servants_toilet', title: 'Servants’ Wing Toilet', floor: 0, rustic: true, x: sx + 3.2, y: 0.08, z: sz + 2.4, yaw: -Math.PI * 0.5 });
+
+      // North Side: Staff Office & Security Command Monitor Console
+      if (kit && typeof kit.buildWritingDesk === 'function') {
+        const secDesk = kit.buildWritingDesk('palace_security_office', 'sapphire');
+        secDesk.position.set(sx - 1.8, 0.08, sz - 2.1);
+        wingGrp.add(secDesk);
+        tagInteractable(secDesk, 'palace_security_office');
+        addBox(sharedColliders, sx - 1.8, sz - 2.1, 1.8, 0.9);
+      }
+      const cctvGrp = new THREE.Group();
+      cctvGrp.position.set(sx - 1.8, 1.05, sz - 2.25);
+      const monMat = new THREE.MeshStandardMaterial({ color: 0x163245, emissive: 0x267aa8, emissiveIntensity: 0.5 });
+      [-0.55, 0, 0.55].forEach(function (mx) {
+        const scr = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.32, 0.06), monMat);
+        scr.position.x = mx;
+        cctvGrp.add(scr);
+      });
+      wingGrp.add(cctvGrp);
+      tagInteractable(cctvGrp, 'palace_security_office');
+
+      registerSpot({
+        id: 'palace_servants_quarters',
+        title: 'Palace Servants’ Quarters & Staff Lounge',
+        floor: 0,
+        category: 'living',
+        shortcut: true,
+        x: sx + 1.2, y: 0.08, z: sz + 1.1,
+        radius: 3.8,
+        actions: [
+          {
+            id: 'staff_shift_stipend',
+            label: 'Inspect Staff Quarters & Grant Bonus (+10 Clout / +₡90)',
+            hint: 'Reward Head Butler Henri & palace maids (+14 Poise)',
+            instant: true,
+            onInstant: function (ctx) {
+              if (ctx.game) {
+                ctx.game.money = (ctx.game.money || 0) + 90;
+                if (ctx.game.reputation) ctx.game.reputation.clout = Math.min(100, (ctx.game.reputation.clout || 50) + 4);
+              }
+              if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 14, fun: 10 });
+              ctx.toast('Palace staff delighted! (+₡90 Treasury bonus, +4 Clout)');
+            },
+          },
+        ],
+      });
+
+      registerSpot({
+        id: 'palace_security_office',
+        title: 'Palace Staff Office & Security Command',
+        floor: 0,
+        category: 'living',
+        shortcut: true,
+        x: sx - 1.2, y: 0.08, z: sz - 1.6,
+        radius: 3.8,
+        actions: [
+          {
+            id: 'sec_cycle_mode',
+            label: 'Cycle Estate Security Protocol (Public / Royal / Lockdown)',
+            hint: 'Controls Gate Checkpoints & Guard alert posture',
+            instant: true,
+            onInstant: function () {
+              if (window.CrownCommands && typeof window.CrownCommands.cycleSecurityMode === 'function') {
+                window.CrownCommands.cycleSecurityMode();
+              }
+            },
+          },
+          {
+            id: 'sec_review_cctv',
+            label: 'Monitor Palace CCTV & Gate Cameras',
+            hint: '+12 Poise & +8 Fun',
+            pose: 'work_station',
+            anchor: { x: sx - 1.8, y: 0.08, z: sz - 1.35, yaw: Math.PI, floorY: 0.08, exitX: sx, exitZ: sz - 1.2, exitYaw: 0 },
+            rates: { composure: 12, fun: 8 },
+            statusText: 'Inspecting Estate Security cameras & Staff duty schedules...',
+          },
+        ],
+      });
+
+      enterableCottages.push({
+        id: 'palace_staff_wing',
+        title: 'Palace Servants’ & Security Wing',
+        minX: sx - sw * 0.5,
+        maxX: sx + sw * 0.5,
+        minZ: sz - sd * 0.5,
+        maxZ: sz + sd * 0.5,
+        cx: sx,
+        cz: sz,
+        doorX: sx + sw * 0.5,
+        roofGrp: sRoofGrp,
+        grp: wingGrp,
+      });
+    })();
 
     // -----------------------------------------------------------
     // 3. 3-STORY 15-BEDROOM FRENCH BAROQUE CHÂTEAU
@@ -2961,7 +3207,7 @@
         return false;
       }
 
-      const sceneStaticSkip = new Set([palaceRoot, grounds, seaMesh]);
+      const sceneStaticSkip = new Set([palaceRoot, grounds, oceanMod && oceanMod.group]);
       const extZones = [new THREE.Group(), new THREE.Group(), new THREE.Group()];
       const _extBox = new THREE.Box3();
       const _extCtr = new THREE.Vector3();
@@ -3068,14 +3314,34 @@
           }
         }
       }
-      // Riviera Ocean Swimming Shallows (clear of Yacht Pier)
-      if (
+      // Riviera Ocean Swimming Waters (excludes dry piers, marina boardwalk & private island dry ground)
+      if (oceanMod && typeof oceanMod.isInOceanWater === 'function') {
+        if (oceanMod.isInOceanWater(pos)) return true;
+      } else if (
         pos.y < 1.2 &&
         pos.z >= 59.4 &&
-        pos.z <= 145 &&
-        Math.abs(pos.x) <= 156 &&
+        pos.z <= 238 &&
+        Math.abs(pos.x) <= 258 &&
         !(Math.abs(pos.x) <= 2.75 && pos.z <= 67.2)
       ) {
+        return true;
+      }
+      return false;
+    }
+
+    function isNearWaterZone(pos) {
+      if (!pos) return false;
+      if (isInPool(pos)) return true;
+      // 5F Rosewater Spa Thermal Plunge & Lounge Deck
+      if (pos.y >= 18.2 && pos.y < 23.2 && pos.x >= -26.5 && pos.x <= -13.5 && pos.z >= -38.2 && pos.z <= -26.0) {
+        return true;
+      }
+      // Villa Azure Swimming Pool & Surrounding Lounger Deck
+      if (pos.y < 2.2 && pos.x >= 68.0 && pos.x <= 91.5 && pos.z >= 19.5 && pos.z <= 36.0) {
+        return true;
+      }
+      // Riviera Coastline, Beach, Beach Club, Piers, Marina, Islands & Ocean
+      if (pos.y < 3.0 && pos.z >= 50.8) {
         return true;
       }
       return false;
@@ -3133,7 +3399,7 @@
       }
     })(scene, false);
 
-    function update(elapsedSec, activeTransport, playerPos) {
+    function update(elapsedSec, activeTransport, playerPos, envInfo) {
       waterUniforms.uWaterTime.value = elapsedSec;
       waterTex.offset.x = (elapsedSec * 0.028) % 1;
       waterTex.offset.y = (elapsedSec * 0.016) % 1;
@@ -3158,12 +3424,18 @@
       if (showerSpray.visible) {
         showerSpray.rotation.y = elapsedSec * 6.0;
       }
+      const waveAmp = oceanMod && oceanMod.weatherState ? oceanMod.weatherState.waveAmp : 1.0;
       const activeBoat = activeTransport && activeTransport.kind === 'boat' ? activeTransport.entity : null;
       for (let bi = 0; bi < boatsList.length; bi++) {
         const bt = boatsList[bi];
         if (!bt || !bt.group || bt === activeBoat) continue;
-        bt.group.position.y = (bt.baseWaterY || -0.40) + Math.sin(elapsedSec * 1.9 + (bt.phase || 0)) * 0.045;
-        bt.group.rotation.z = Math.sin(elapsedSec * 1.3 + (bt.phase || 0)) * 0.03;
+        const wH = oceanMod ? oceanMod.getWaveHeight(bt.x, bt.z, elapsedSec, waveAmp) : Math.sin(elapsedSec * 1.9 + (bt.phase || 0)) * 0.045;
+        bt.group.position.y = (bt.baseWaterY || -0.40) + wH * 0.72;
+        bt.group.rotation.z = Math.sin(elapsedSec * 1.3 + (bt.phase || 0)) * 0.03 * waveAmp;
+        bt.group.rotation.x = Math.cos(elapsedSec * 1.1 + (bt.phase || 0)) * 0.02 * waveAmp;
+      }
+      if (oceanMod) {
+        oceanMod.update(elapsedSec, activeTransport, playerPos, envInfo);
       }
       if (townMod) {
         townMod.update(elapsedSec, activeTransport, playerPos);
@@ -3207,6 +3479,10 @@
         const tz = townMod.detectTownZone(pos);
         if (tz) return tz;
       }
+      if (oceanMod) {
+        const oz = oceanMod.detectOceanZone(pos);
+        if (oz) return oz;
+      }
       if (pos.z < -12) return 'Palace Grand Steps';
       if (pos.z <= 41 && Math.abs(pos.x) <= 42) return 'Versailles Parterre Gardens';
       if (pos.z >= 59.5 && Math.abs(pos.x) <= 4.5) return 'Riviera Yacht Pier';
@@ -3220,8 +3496,24 @@
       showerSpray.visible = Boolean(on);
     }
 
+    const SEASON_TINTS = {
+      spring: { grass: 0xffffff, hillFar: 0x4c7041, hillMid: 0x5c8549, boxwood: 0x4c6e32 },
+      summer: { grass: 0xfff6dd, hillFar: 0x5c7c3d, hillMid: 0x6f9446, boxwood: 0x567a34 },
+      autumn: { grass: 0xf4dcba, hillFar: 0x8f6638, hillMid: 0xa6783e, boxwood: 0x8d6334 },
+      winter: { grass: 0xeaf4ff, hillFar: 0x6b848c, hillMid: 0x7e979e, boxwood: 0x5f7d76 },
+    };
+
+    function setSeasonTint(season) {
+      const cfg = SEASON_TINTS[season] || SEASON_TINTS.spring;
+      grassMat.color.setHex(cfg.grass);
+      hillMatFar.color.setHex(cfg.hillFar);
+      hillMatMid.color.setHex(cfg.hillMid);
+      boxwoodMat.color.setHex(cfg.boxwood);
+    }
+
     function dispose() {
       textures.forEach(function (t) { t.dispose(); });
+      if (oceanMod && typeof oceanMod.dispose === 'function') oceanMod.dispose();
       if (townMod && typeof townMod.dispose === 'function') townMod.dispose();
       if (kit) kit.dispose();
     }
@@ -3236,6 +3528,25 @@
       detectZone: detectZone,
       isInsidePalace: isInsidePalace,
       isInPool: isInPool,
+      isNearWaterZone: isNearWaterZone,
+      ocean: oceanMod,
+      getWaveHeight: function (x, z, t) {
+        const amp = oceanMod && oceanMod.weatherState ? oceanMod.weatherState.waveAmp : 1.0;
+        return oceanMod ? oceanMod.getWaveHeight(x, z, t, amp) : 0;
+      },
+      getWaterDepth: function (x, z) {
+        return oceanMod ? oceanMod.getWaterDepth(x, z) : 1.0;
+      },
+      triggerWaterSplash: function (x, z, sc) {
+        if (oceanMod) oceanMod.triggerSplash(x, z, sc);
+      },
+      resolveOceanBoat: function (x, z, r) {
+        return oceanMod ? oceanMod.resolveOceanObstacles(x, z, r, true) : { x: x, z: z };
+      },
+      setWeather: function (mode) {
+        return oceanMod ? oceanMod.setWeather(mode) : null;
+      },
+      setSeasonTint: setSeasonTint,
       interactiveMeshes: interactiveMeshes,
       spots: spots,
       shortcuts: shortcutsList,

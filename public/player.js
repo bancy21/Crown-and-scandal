@@ -2480,7 +2480,10 @@
     const startPos = (initialWorldState && initialWorldState.playerPos) || { x: 2.8, y: 0, z: 18 };
     const sx = typeof startPos.x === 'number' ? startPos.x : 2.8;
     const sz = typeof startPos.z === 'number' ? startPos.z : 18;
-    const sy = worldApi.groundHeightAt(sx, sz, typeof startPos.y === 'number' ? startPos.y : 0);
+    let sy = worldApi.groundHeightAt(sx, sz, typeof startPos.y === 'number' ? startPos.y : 0);
+    if (sz >= 59.2 && worldApi.isInPool && worldApi.isInPool({ x: sx, y: 0, z: sz })) {
+      sy = -0.35;
+    }
     actor.root.position.set(sx, sy, sz);
     actor.root.rotation.y =
       typeof (initialWorldState && initialWorldState.playerYaw) === 'number'
@@ -2511,11 +2514,33 @@
     const _moveDir = new THREE.Vector3();
     const _seatOff = new THREE.Vector3();
     let currentActivity = null; // { pose, x, y, z, yaw, floorY, rigOffsetY, onCancel }
-    let transport = null; // { kind: 'car'|'horse', entity, speed, steer, wheelAngle, gallopPhase, boost }
+    let transport = null; // { kind: 'car'|'horse'|'boat', entity, speed, steer, ... }
     let inWater = false;
+    let swimwearPreferred = false;
     let swimPhase = 0;
+    let swimMode = 'swim'; // 'swim' | 'snorkel' | 'dive'
     let transportListener = null;
     let movementLocked = false;
+
+    function syncSwimwearState(pos, nowInWater) {
+      if (nowInWater) {
+        swimwearPreferred = true;
+      } else {
+        const onBoat = Boolean(transport && transport.kind === 'boat');
+        const nearWater = Boolean(onBoat || (worldApi && typeof worldApi.isNearWaterZone === 'function' && worldApi.isNearWaterZone(pos)));
+        if (!nearWater) swimwearPreferred = false;
+      }
+      const wantSwim = Boolean(nowInWater || swimwearPreferred);
+      if (typeof actor.setSwimwear === 'function') actor.setSwimwear(wantSwim);
+      return wantSwim;
+    }
+
+    function setSwimwearPreferred(enabled) {
+      swimwearPreferred = Boolean(enabled);
+      const want = Boolean(inWater || swimwearPreferred);
+      if (typeof actor.setSwimwear === 'function') actor.setSwimwear(want);
+      return want;
+    }
 
     function setMovementLocked(locked) {
       movementLocked = Boolean(locked);
@@ -2737,9 +2762,13 @@
       return cd.manualOpen;
     }
 
-    function enterBoat(boatDef) {
+    function enterBoat(boatDef, boatOpts) {
       if (!boatDef || !boatDef.group) return;
       if (currentActivity) clearActivityPose(false);
+      const sameBoat = Boolean(transport && transport.kind === 'boat' && transport.entity && transport.entity.id === boatDef.id);
+      const keepPassengers = boatOpts && Array.isArray(boatOpts.passengers)
+        ? boatOpts.passengers.slice()
+        : (sameBoat && Array.isArray(transport.passengers) ? transport.passengers.slice() : []);
       if (transport) exitTransport();
       transport = {
         kind: 'boat',
@@ -2747,11 +2776,98 @@
         speed: 0,
         steer: 0,
         rowPhase: 0,
+        reverseGear: false,
+        passengers: keepPassengers,
+        captain: (boatOpts && boatOpts.captain) || null,
+        captainRoute: (boatOpts && boatOpts.captainRoute) || null,
       };
       inWater = false;
+      swimMode = 'swim';
       speedMag = 0;
-      if (typeof actor.setSwimwear === 'function') actor.setSwimwear(false);
+      syncSwimwearState(boatDef.group.position, false);
       notifyTransport();
+    }
+
+    function setYachtCaptainCruise(boatDef, captainNpc, waypoints, destTitle, onArrive) {
+      if (!boatDef || !boatDef.group) return false;
+      const existingPass = transport && transport.kind === 'boat' && Array.isArray(transport.passengers)
+        ? transport.passengers.filter(function (p) { return p && (!captainNpc || p.id !== captainNpc.id); })
+        : [];
+      enterBoat(boatDef, {
+        passengers: existingPass,
+        captain: captainNpc || null,
+        captainRoute: {
+          active: true,
+          waypoints: Array.isArray(waypoints) ? waypoints.slice() : [],
+          idx: 0,
+          destTitle: destTitle || 'Horizon Bay',
+          onArrive: onArrive || null,
+        },
+      });
+      return true;
+    }
+
+    function takeBoatControl() {
+      if (!transport || transport.kind !== 'boat') return false;
+      if (transport.captainRoute) transport.captainRoute.active = false;
+      transport.captain = null;
+      notifyTransport();
+      return true;
+    }
+
+    function setBoatReverse(on) {
+      if (!transport || transport.kind !== 'boat') return false;
+      transport.reverseGear = typeof on === 'boolean' ? on : !transport.reverseGear;
+      notifyTransport();
+      return transport.reverseGear;
+    }
+
+    function addBoatPassenger(passengerDef) {
+      if (!transport || transport.kind !== 'boat' || !passengerDef) return false;
+      if (!Array.isArray(transport.passengers)) transport.passengers = [];
+      if (transport.passengers.some(function (p) { return p.id === passengerDef.id; })) return true;
+      const isYacht = Boolean(transport.entity && transport.entity.isYacht);
+      const seatOrder = isYacht ? ['sunbedL', 'loungeL', 'loungeR', 'sunbedR'] : ['stern', 'bow'];
+      const usedSeats = {};
+      if (transport.captain) {
+        usedSeats.captain = true;
+        usedSeats.sunbedR = true;
+      }
+      for (let i = 0; i < transport.passengers.length; i++) {
+        usedSeats[transport.passengers[i].seatKey] = true;
+      }
+      let chosenSeat = null;
+      for (let i = 0; i < seatOrder.length; i++) {
+        if (!usedSeats[seatOrder[i]]) {
+          chosenSeat = seatOrder[i];
+          break;
+        }
+      }
+      if (!chosenSeat) return false;
+      transport.passengers.push({
+        id: passengerDef.id,
+        name: passengerDef.name,
+        actor: passengerDef.actor,
+        seatKey: chosenSeat,
+        npcRef: passengerDef,
+      });
+      notifyTransport();
+      return true;
+    }
+
+    function removeBoatPassenger(id) {
+      if (!transport || transport.kind !== 'boat' || !Array.isArray(transport.passengers)) return false;
+      const idx = transport.passengers.findIndex(function (p) { return p.id === id; });
+      if (idx === -1) return false;
+      transport.passengers.splice(idx, 1);
+      notifyTransport();
+      return true;
+    }
+
+    function getBoatPassengers() {
+      return transport && transport.kind === 'boat' && Array.isArray(transport.passengers)
+        ? transport.passengers
+        : [];
     }
 
     function mountHorse(horseDef) {
@@ -2771,12 +2887,34 @@
       notifyTransport();
     }
 
+    function resolveNearestBoatDock(gx, gz) {
+      const docks = [
+        { name: 'Royal Riviera Marina', x: -10.5, z: 66.5, y: 0.26, yaw: Math.PI },
+        { name: 'Riviera Yacht Pier', x: 0.0, z: 65.0, y: 0.26, yaw: Math.PI },
+        { name: 'Île d’Or Private Island Dock', x: 62.0, z: 152.5, y: 0.37, yaw: 0 },
+        { name: 'Sapphire Lighthouse Pier', x: -62.5, z: 145.0, y: 0.37, yaw: -Math.PI * 0.5 },
+        { name: 'Cove d’Azur Coral Pier', x: 122.0, z: 64.5, y: 0.27, yaw: Math.PI },
+        { name: 'Paloma Beach Club Shore', x: -35.0, z: 57.6, y: 0.21, yaw: Math.PI },
+      ];
+      let best = { name: 'Riviera Sandy Beach', x: THREE.MathUtils.clamp(gx, -162, 162), z: 57.6, y: 0.03, yaw: Math.PI };
+      let bestDist = Math.hypot(gx - best.x, gz - best.z);
+      for (let i = 0; i < docks.length; i++) {
+        const d = Math.hypot(gx - docks[i].x, gz - docks[i].z);
+        if (d < bestDist + 6.0 && d < 28.0) {
+          bestDist = d;
+          best = docks[i];
+        }
+      }
+      return best;
+    }
+
     function exitTransport() {
       if (!transport) return;
       const ent = transport.entity;
       const wasKind = transport.kind;
       const oldPassengers = Array.isArray(transport.passengers) ? transport.passengers.slice() : [];
       const oldChauffeur = transport.chauffeur || null;
+      const oldCaptain = transport.captain || null;
       transport = null;
       speedMag = 0;
       if (wasKind === 'car' && ent && ent.group && ent.group.userData && ent.group.userData.carDoors) {
@@ -2786,12 +2924,23 @@
       const grpPos = ent && ent.group ? ent.group.position : actor.root.position;
       const yaw = ent && ent.group ? ent.group.rotation.y : actor.root.rotation.y;
       if (wasKind === 'boat') {
-        const dockOnPier = Math.abs(grpPos.x) < 10.5 && grpPos.z < 75;
-        const bx = dockOnPier ? 0.0 : THREE.MathUtils.clamp(grpPos.x, -152, 152);
-        const bz = dockOnPier ? 65.0 : 57.6;
-        const by = worldApi.groundHeightAt(bx, bz, 0.3);
-        actor.root.position.set(bx, by, bz);
-        actor.root.rotation.y = Math.PI;
+        const dockPt = resolveNearestBoatDock(grpPos.x, grpPos.z);
+        const by = worldApi.groundHeightAt(dockPt.x, dockPt.z, dockPt.y + 0.2);
+        actor.root.position.set(dockPt.x, by, dockPt.z);
+        actor.root.rotation.y = dockPt.yaw;
+        for (let pi = 0; pi < oldPassengers.length; pi++) {
+          const ps = oldPassengers[pi];
+          if (ps && ps.actor && ps.actor.root) {
+            const ox = dockPt.x + ((pi % 2 === 0 ? 1 : -1) * (1.1 + Math.floor(pi / 2) * 0.9));
+            const oz = dockPt.z - 0.8 - pi * 0.45;
+            ps.actor.root.position.set(ox, worldApi.groundHeightAt(ox, oz, dockPt.y + 0.2), oz);
+            if (ps.actor.contactShadow) ps.actor.contactShadow.visible = true;
+          }
+        }
+        if (oldCaptain && oldCaptain.mesh && oldCaptain.mesh.root) {
+          oldCaptain.mesh.root.position.set(dockPt.x - 1.35, worldApi.groundHeightAt(dockPt.x - 1.35, dockPt.z, dockPt.y + 0.2), dockPt.z);
+          if (oldCaptain.mesh.contactShadow) oldCaptain.mesh.contactShadow.visible = true;
+        }
         if (ent && ent.group && ent.group.userData) {
           if (ent.group.userData.oarL) ent.group.userData.oarL.rotation.set(0, 0, 0);
           if (ent.group.userData.oarR) ent.group.userData.oarR.rotation.set(0, 0, 0);
@@ -2841,23 +2990,42 @@
       }
     }
 
+    function setSwimMode(nextMode) {
+      swimMode = nextMode || 'swim';
+      return swimMode;
+    }
+
+    function getSwimMode() {
+      return swimMode;
+    }
+
     function exitPool() {
-      if (currentActivity && (currentActivity.pose === 'swim' || currentActivity.pose === 'swim_float' || currentActivity.pose === 'swim_splash')) {
+      if (currentActivity && (currentActivity.pose === 'swim' || currentActivity.pose === 'swim_float' || currentActivity.pose === 'swim_splash' || currentActivity.pose === 'swim_dive' || currentActivity.pose === 'snorkel')) {
         clearActivityPose(true);
-        if (typeof actor.setSwimwear === 'function') actor.setSwimwear(false);
+        swimMode = 'swim';
+        syncSwimwearState(actor.root.position, false);
         return true;
       }
       if (!inWater) return false;
       inWater = false;
-      if (typeof actor.setSwimwear === 'function') actor.setSwimwear(false);
+      swimMode = 'swim';
       const px = actor.root.position.x;
       const pz = actor.root.position.z;
       const py = actor.root.position.y;
+      if (typeof worldApi.triggerWaterSplash === 'function') {
+        worldApi.triggerWaterSplash(px, pz, 1.15);
+      }
       let ex = px;
       let ez = pz + 4.6;
       if (pz >= 57.5) {
-        ex = THREE.MathUtils.clamp(px, -154, 154);
-        ez = 57.4;
+        const dockPt = resolveNearestBoatDock(px, pz);
+        if (Math.hypot(px - dockPt.x, pz - dockPt.z) < 28) {
+          ex = dockPt.x;
+          ez = dockPt.z;
+        } else {
+          ex = THREE.MathUtils.clamp(px, -162, 162);
+          ez = 57.4;
+        }
       } else if (Math.abs(px - 82) < 12 && pz < 26) {
         ex = 82;
         ez = 19.2;
@@ -2867,6 +3035,7 @@
       }
       const sy = worldApi.groundHeightAt(ex, ez, Math.max(0, py));
       actor.root.position.set(ex, sy, ez);
+      syncSwimwearState(actor.root.position, false);
       if (actor.contactShadow) actor.contactShadow.visible = true;
       return true;
     }
@@ -3128,9 +3297,48 @@
         const grp = bt.group;
         const ud = grp.userData || {};
         const isYacht = Boolean(ud.isYacht || bt.isYacht);
-        const maxBoatSpd = isYacht ? 11.5 : (keys.ShiftLeft || keys.ShiftRight || len > 0.88 ? 6.8 : 4.6);
+        const capRoute = transport.captainRoute;
+        const hasAutoSail = Boolean(capRoute && capRoute.active && capRoute.waypoints && capRoute.waypoints.length);
+        const maxBoatSpd = isYacht ? (keys.ShiftLeft || keys.ShiftRight || len > 0.88 ? 14.5 : 11.2) : (keys.ShiftLeft || keys.ShiftRight || len > 0.88 ? 7.2 : 4.8);
 
-        if (len > 0.08) {
+        if (len > 0.42 && hasAutoSail) {
+          capRoute.active = false;
+          transport.captain = null;
+          notifyTransport();
+        }
+
+        if (hasAutoSail && capRoute.active) {
+          const wp = capRoute.waypoints[capRoute.idx];
+          if (wp) {
+            const dx = wp.x - grp.position.x;
+            const dz = wp.z - grp.position.z;
+            const distWp = Math.hypot(dx, dz);
+            const isFinal = capRoute.idx >= capRoute.waypoints.length - 1;
+            const reachRad = isFinal ? 3.2 : 5.5;
+            if (distWp <= reachRad) {
+              if (!isFinal) {
+                capRoute.idx++;
+              } else {
+                capRoute.active = false;
+                transport.speed = 0;
+                transport.steer = 0;
+                if (typeof wp.yaw === 'number') grp.rotation.y = wp.yaw;
+                if (typeof capRoute.onArrive === 'function') capRoute.onArrive(capRoute.destTitle);
+                notifyTransport();
+              }
+            } else {
+              const targetYaw = Math.atan2(dx, dz);
+              let angDiff = targetYaw - grp.rotation.y;
+              while (angDiff > Math.PI) angDiff -= Math.PI * 2;
+              while (angDiff < -Math.PI) angDiff += Math.PI * 2;
+              transport.steer += (THREE.MathUtils.clamp(angDiff, -0.75, 0.75) - transport.steer) * (1 - Math.exp(-7 * dt));
+              grp.rotation.y += angDiff * (1 - Math.exp(-2.6 * dt));
+              const cruiseSpd = isFinal && distWp < 12.0 ? Math.max(3.2, distWp * 0.85) : 12.2;
+              const targetSpd = cruiseSpd * Math.max(0.3, Math.cos(Math.min(1.25, Math.abs(angDiff))));
+              transport.speed += (targetSpd - transport.speed) * (1 - Math.exp(-3.8 * dt));
+            }
+          }
+        } else if (len > 0.08) {
           const clamped = Math.min(1, len);
           const nx = inputX / len;
           const nz = inputZ / len;
@@ -3143,21 +3351,32 @@
           while (angDiff > Math.PI) angDiff -= Math.PI * 2;
           while (angDiff < -Math.PI) angDiff += Math.PI * 2;
 
-          transport.steer += (THREE.MathUtils.clamp(angDiff, -0.7, 0.7) - transport.steer) * (1 - Math.exp(-8 * dt));
-          grp.rotation.y += angDiff * (1 - Math.exp((isYacht ? -2.8 : -4.6) * dt));
-          const targetSpd = maxBoatSpd * clamped * Math.max(0.25, Math.cos(Math.min(1.3, Math.abs(angDiff))));
-          transport.speed += (targetSpd - transport.speed) * (1 - Math.exp(-4.5 * dt));
-          transport.rowPhase += dt * (transport.speed * 1.15 + 1.8);
+          if (transport.reverseGear) {
+            // Reverse gear backs smoothly while turning rudder opposite
+            let revDiff = (targetYaw + Math.PI) - grp.rotation.y;
+            while (revDiff > Math.PI) revDiff -= Math.PI * 2;
+            while (revDiff < -Math.PI) revDiff += Math.PI * 2;
+            transport.steer += (THREE.MathUtils.clamp(-revDiff, -0.75, 0.75) - transport.steer) * (1 - Math.exp(-8 * dt));
+            grp.rotation.y += revDiff * (1 - Math.exp((isYacht ? -2.2 : -3.8) * dt));
+            const targetRevSpd = -4.6 * clamped;
+            transport.speed += (targetRevSpd - transport.speed) * (1 - Math.exp(-4.0 * dt));
+          } else {
+            transport.steer += (THREE.MathUtils.clamp(angDiff, -0.75, 0.75) - transport.steer) * (1 - Math.exp(-8 * dt));
+            grp.rotation.y += angDiff * (1 - Math.exp((isYacht ? -2.9 : -4.6) * dt));
+            const targetSpd = maxBoatSpd * clamped * Math.max(0.28, Math.cos(Math.min(1.3, Math.abs(angDiff))));
+            transport.speed += (targetSpd - transport.speed) * (1 - Math.exp(-4.2 * dt));
+          }
+          transport.rowPhase += dt * (Math.abs(transport.speed) * 1.15 + 1.8);
         } else {
-          transport.steer += (0 - transport.steer) * (1 - Math.exp(-7 * dt));
-          transport.speed += (0 - transport.speed) * (1 - Math.exp(-4.2 * dt));
+          transport.steer += (0 - transport.steer) * (1 - Math.exp(-6.5 * dt));
+          transport.speed += (0 - transport.speed) * (1 - Math.exp(-3.4 * dt));
         }
 
         const fwdX = Math.sin(grp.rotation.y);
         const fwdZ = Math.cos(grp.rotation.y);
-        const minZWater = isYacht ? 64.0 : 59.8;
-        let nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -154, 154);
-        let nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, minZWater, 156);
+        const minZWater = isYacht ? 64.2 : 59.8;
+        let nextX = THREE.MathUtils.clamp(grp.position.x + fwdX * transport.speed * dt, -188, 188);
+        let nextZ = THREE.MathUtils.clamp(grp.position.z + fwdZ * transport.speed * dt, minZWater, 234);
         // Keep boats clear of the central Yacht Pier
         const pierHalfW = isYacht ? 5.2 : 3.4;
         if (Math.abs(nextX) < pierHalfW && nextZ < 68.4) {
@@ -3167,17 +3386,35 @@
             nextZ = 68.4;
           }
         }
-        const waveBob = Math.sin(tNow * 2.1 + (bt.phase || 0)) * 0.055;
-        grp.position.set(nextX, (bt.baseWaterY || -0.40) + waveBob, nextZ);
-        grp.rotation.z = -transport.steer * 0.09 + Math.sin(tNow * 1.5) * 0.02;
-        grp.rotation.x = -Math.min(0.08, transport.speed * 0.008);
+        if (typeof worldApi.resolveOceanBoat === 'function') {
+          const bRes = worldApi.resolveOceanBoat(nextX, nextZ, isYacht ? 2.4 : 0.95);
+          nextX = bRes.x;
+          nextZ = bRes.z;
+        }
+        // Sample 3D ocean waves at bow, stern, port, starboard for authentic pitch & roll buoyancy
+        const wFn = typeof worldApi.getWaveHeight === 'function' ? worldApi.getWaveHeight : null;
+        const wCenter = wFn ? wFn(nextX, nextZ, tNow) : Math.sin(tNow * 2.1 + (bt.phase || 0)) * 0.055;
+        const span = isYacht ? 4.2 : 1.3;
+        const wBow = wFn ? wFn(nextX + fwdX * span, nextZ + fwdZ * span, tNow) : wCenter;
+        const wStern = wFn ? wFn(nextX - fwdX * span, nextZ - fwdZ * span, tNow) : wCenter;
+        const wPort = wFn ? wFn(nextX - fwdZ * 1.4, nextZ + fwdX * 1.4, tNow) : wCenter;
+        const wStbd = wFn ? wFn(nextX + fwdZ * 1.4, nextZ - fwdX * 1.4, tNow) : wCenter;
+        const wavePitch = Math.atan2(wStern - wBow, span * 2) * 0.72;
+        const waveRoll = Math.atan2(wPort - wStbd, 2.8) * 0.65;
+
+        grp.position.set(nextX, (bt.baseWaterY || -0.40) + wCenter * 0.82, nextZ);
+        grp.rotation.z = -transport.steer * 0.085 + waveRoll;
+        grp.rotation.x = wavePitch - THREE.MathUtils.clamp(transport.speed * 0.006, -0.05, 0.08);
         bt.x = nextX;
         bt.z = nextZ;
         bt.yaw = grp.rotation.y;
 
+        if (ud.helmWheel) {
+          ud.helmWheel.rotation.z = -transport.steer * 1.65;
+        }
         if (!isYacht && (ud.oarL || ud.oarR)) {
-          const isRowingNow = transport.speed > 0.25 || len > 0.1;
-          const sweep = isRowingNow ? Math.sin(transport.rowPhase) * 0.42 : 0;
+          const isRowingNow = Math.abs(transport.speed) > 0.25 || len > 0.1;
+          const sweep = isRowingNow ? Math.sin(transport.rowPhase) * 0.42 * (transport.reverseGear ? -1 : 1) : 0;
           const dip = isRowingNow ? Math.cos(transport.rowPhase) * 0.22 : 0;
           if (ud.oarL) {
             ud.oarL.rotation.y = sweep;
@@ -3189,7 +3426,9 @@
           }
         }
 
-        const sp = ud.seatPos || { x: 0, y: 0.44, z: -0.06 };
+        const seatsMap = ud.seats || {};
+        const captainOnBridge = Boolean(transport.captain && hasAutoSail && capRoute.active);
+        const sp = captainOnBridge && seatsMap.sunbedR ? seatsMap.sunbedR : (seatsMap.helm || ud.seatPos || { x: 0, y: 0.44, z: -0.06 });
         const cosRot = Math.cos(grp.rotation.y);
         const sinRot = Math.sin(grp.rotation.y);
         actor.root.position.set(
@@ -3198,19 +3437,22 @@
           grp.position.z - sp.x * sinRot + sp.z * cosRot
         );
         actor.root.rotation.y = grp.rotation.y;
-        speedMag = transport.speed;
+        speedMag = Math.abs(transport.speed);
 
         if (window.CrownAnim) {
-          window.CrownAnim.applyPose(actor, isYacht ? 'sit' : 'row_boat', dt, tNow, {
+          const playerBoatPose = captainOnBridge ? 'sofa' : (isYacht ? 'drive' : 'row_boat');
+          window.CrownAnim.applyPose(actor, playerBoatPose, dt, tNow, {
+            steer: transport.steer,
             rowPhase: transport.rowPhase,
-            rowing: transport.speed > 0.25 || len > 0.1,
+            rowing: Math.abs(transport.speed) > 0.25 || len > 0.1,
             rigOffsetY: -baseLeg * 0.56,
           });
         }
+        syncSwimwearState(actor.root.position, false);
         updateLivingSkin(actor, tNow, window.CrownGame && window.CrownGame.needs, false, speedMag);
       } else if (currentActivity && window.CrownAnim) {
-        const isSwimAct = currentActivity.pose === 'swim' || currentActivity.pose === 'swim_float' || currentActivity.pose === 'swim_splash';
-        if (typeof actor.setSwimwear === 'function') actor.setSwimwear(isSwimAct);
+        const isSwimAct = currentActivity.pose === 'swim' || currentActivity.pose === 'swim_float' || currentActivity.pose === 'swim_splash' || currentActivity.pose === 'swim_dive' || currentActivity.pose === 'snorkel';
+        syncSwimwearState(actor.root.position, isSwimAct);
         window.CrownAnim.applyPose(actor, currentActivity.pose, dt, tNow, currentActivity);
         updateLivingSkin(
           actor,
@@ -3224,7 +3466,7 @@
         const wasWater = inWater;
         inWater = Boolean(worldApi.isInPool && worldApi.isInPool(actor.root.position));
         const isSprinting = Boolean(keys.ShiftLeft || keys.ShiftRight || len > 0.88);
-        const maxSpeed = inWater ? 3.4 : isSprinting ? 7.6 : 4.8;
+        const maxSpeed = inWater ? (swimMode === 'dive' ? 4.2 : 3.6) : isSprinting ? 7.6 : 4.8;
 
         if (len > 0.08) {
           const clampedLen = Math.min(1, len);
@@ -3260,20 +3502,34 @@
           speedMag += (0 - speedMag) * (1 - Math.exp(-10 * dt));
         }
 
-        actor.root.position.y = worldApi.groundHeightAt(
-          actor.root.position.x,
-          actor.root.position.z,
-          actor.root.position.y
-        );
+        const inOceanNow = Boolean(actor.root.position.z >= 59.2 && worldApi.isInPool && worldApi.isInPool(actor.root.position));
+        if (inOceanNow) {
+          const seabedY = worldApi.groundHeightAt(actor.root.position.x, actor.root.position.z, 0);
+          const waveH = typeof worldApi.getWaveHeight === 'function' ? worldApi.getWaveHeight(actor.root.position.x, actor.root.position.z, tNow) : 0;
+          const targetSwimY = swimMode === 'dive' ? -1.45 : swimMode === 'snorkel' ? -0.68 + waveH * 0.35 : -0.35 + waveH * 0.55;
+          actor.root.position.y = Math.max(seabedY + 0.35, targetSwimY);
+        } else {
+          actor.root.position.y = worldApi.groundHeightAt(
+            actor.root.position.x,
+            actor.root.position.z,
+            actor.root.position.y
+          );
+        }
 
         inWater = Boolean(worldApi.isInPool && worldApi.isInPool(actor.root.position));
-        if (typeof actor.setSwimwear === 'function') actor.setSwimwear(inWater);
+        if (!inWater) swimMode = 'swim';
+        syncSwimwearState(actor.root.position, inWater);
+        if (inWater !== wasWater && typeof worldApi.triggerWaterSplash === 'function') {
+          worldApi.triggerWaterSplash(actor.root.position.x, actor.root.position.z, 1.25);
+        }
         if (inWater && !wasWater && window.CrownNeeds) {
           window.CrownNeeds.applyBoost({ fun: 4, hygiene: 4 });
         }
 
         const moveWeight = Math.min(1, speedMag / (inWater ? 2.4 : 4.2));
-        if (inWater && window.CrownAnim && typeof window.CrownAnim.applySwimLocomotion === 'function') {
+        if (inWater && (swimMode === 'dive' || swimMode === 'snorkel') && window.CrownAnim) {
+          window.CrownAnim.applyPose(actor, swimMode === 'dive' ? 'swim_dive' : 'snorkel', dt, tNow, { rigOffsetY: -0.1 });
+        } else if (inWater && window.CrownAnim && typeof window.CrownAnim.applySwimLocomotion === 'function') {
           window.CrownAnim.applySwimLocomotion(actor, dt, tNow, swimPhase, moveWeight, baseLeg);
         } else if (window.CrownAnim) {
           window.CrownAnim.applyLocomotion(actor, dt, tNow, walkPhase, moveWeight, baseLeg);
@@ -3336,14 +3592,30 @@
       clearPassengers: clearPassengers,
       toggleCarDoors: toggleCarDoors,
       enterBoat: enterBoat,
+      setYachtCaptainCruise: setYachtCaptainCruise,
+      takeBoatControl: takeBoatControl,
+      setBoatReverse: setBoatReverse,
+      addBoatPassenger: addBoatPassenger,
+      removeBoatPassenger: removeBoatPassenger,
+      getBoatPassengers: getBoatPassengers,
       mountHorse: mountHorse,
       exitTransport: exitTransport,
       getTransport: function () { return transport; },
       setTransportListener: setTransportListener,
       setCanterBoost: setCanterBoost,
+      setSwimMode: setSwimMode,
+      getSwimMode: getSwimMode,
+      setSwimwearPreferred: setSwimwearPreferred,
+      isInSwimwear: function () {
+        return typeof actor.isInSwimwear === 'function' ? actor.isInSwimwear() : false;
+      },
       isSwimming: function () {
         const p = currentActivity && currentActivity.pose;
-        return inWater || p === 'swim' || p === 'swim_float' || p === 'swim_splash';
+        return inWater || p === 'swim' || p === 'swim_float' || p === 'swim_splash' || p === 'swim_dive' || p === 'snorkel';
+      },
+      isUnderwater: function () {
+        const p = currentActivity && currentActivity.pose;
+        return (inWater && (swimMode === 'dive' || swimMode === 'snorkel')) || p === 'swim_dive' || p === 'snorkel';
       },
       setMovementLocked: setMovementLocked,
       exitPool: exitPool,

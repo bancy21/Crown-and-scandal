@@ -2388,30 +2388,90 @@
     }
 
     /**
-     * Moored Royal Riviera Yacht at Coastal Pier.
+     * Multi-Seat Royal Riviera Superyacht with Flybridge Helm, Bow Sunbeds, Aft Champagne Lounge & Nav Lights.
      */
     function buildRoyalYacht(interactId) {
       const grp = new THREE.Group();
-      const deckMat = getStdMat(0xb07c4a, 0.62);
-      const hull = addMesh(grp, g.cushion, palette.ivory, 3.6, 1.4, 12.2, 0, 0.65, 0);
+      const deckMat = getStdMat(0xb6814e, 0.58);
+      const navyHullMat = palette.royalNavy || getStdMat(0x14335c, 0.34, 0.18);
+      const cushionMat = getStdMat(0xfcf7ee, 0.72);
+      const champagneMat = palette.gold;
+      const hullWhiteMat = palette.ivory;
+
+      // Sculpted Stepped White & Royal Navy Boot-Stripe Hull + Flared Bow
+      const lowerHull = addMesh(grp, g.cushion, navyHullMat, 3.85, 0.55, 13.0, 0, 0.36, -0.1);
+      lowerHull.castShadow = true;
+      const hull = addMesh(grp, g.cushion, hullWhiteMat, 3.92, 1.05, 13.2, 0, 0.96, 0);
       hull.castShadow = true;
-      addMesh(grp, g.cone1, palette.ivory, 3.5, 3.6, 2.2, 0, 0.72, 7.6, Math.PI * 0.5, 0, 0);
-      addMesh(grp, g.cushion, deckMat, 3.2, 0.08, 10.6, 0, 1.36, -0.2);
-      // Sleek Cabin & Tinted Bridge Glass
-      addMesh(grp, g.cushion, palette.ivory, 2.5, 1.15, 5.2, 0, 1.95, 0.6);
-      addMesh(grp, g.box1, palette.crystal, 2.56, 0.62, 4.4, 0, 2.02, 0.8);
-      addMesh(grp, g.cushion, palette.gold, 2.6, 0.08, 5.3, 0, 2.54, 0.6);
-      addMesh(grp, g.cyl1, palette.gold, 0.1, 2.8, 0.1, 0, 3.85, 1.1);
+      addMesh(grp, g.box1, champagneMat, 3.98, 0.06, 13.1, 0, 1.38, 0);
+      addMesh(grp, g.cone1, navyHullMat, 3.7, 3.8, 1.2, 0, 0.44, 7.8, Math.PI * 0.5, 0, 0);
+      addMesh(grp, g.cone1, hullWhiteMat, 3.76, 3.95, 2.0, 0, 0.98, 7.9, Math.PI * 0.5, 0, 0);
+
+      // Teak Main Deck & Swim Platform
+      addMesh(grp, g.cushion, deckMat, 3.55, 0.1, 11.8, 0, 1.48, -0.2);
+      addMesh(grp, g.box1, deckMat, 3.3, 0.16, 1.35, 0, 0.68, -6.95);
+
+      // Bow Twin Luxury Sunbeds + Gold Bow Guardrail
+      [-0.78, 0.78].forEach(function (sx) {
+        addMesh(grp, g.cushion, cushionMat, 1.05, 0.18, 2.4, sx, 1.56, 3.65);
+        addMesh(grp, g.cushion, navyHullMat, 0.85, 0.16, 0.5, sx, 1.68, 2.72, -0.35, 0, 0);
+      });
+      addMesh(grp, g.box1, champagneMat, 0.05, 0.42, 4.2, -1.68, 1.72, 3.8);
+      addMesh(grp, g.box1, champagneMat, 0.05, 0.42, 4.2, 1.68, 1.72, 3.8);
+
+      // Midship Cabin & Tinted Panoramic Salon Glass
+      addMesh(grp, g.cushion, hullWhiteMat, 2.75, 1.18, 4.8, 0, 2.04, 0.55);
+      addMesh(grp, g.box1, palette.crystal, 2.82, 0.66, 4.1, 0, 2.12, 0.65);
+      // Flybridge Helm Roof & Radar Arch
+      addMesh(grp, g.cushion, hullWhiteMat, 2.84, 0.12, 4.9, 0, 2.66, 0.55);
+      addMesh(grp, g.box1, champagneMat, 2.86, 0.05, 4.94, 0, 2.68, 0.55);
+      addMesh(grp, g.cyl1, champagneMat, 0.08, 2.4, 0.08, 0, 3.9, 0.8);
+      addMesh(grp, g.box1, champagneMat, 1.1, 0.12, 0.35, 0, 4.45, 0.8);
+
+      // Aft U-Lounge Sofa & Champagne Cocktail Table for Friends
+      addMesh(grp, g.cushion, cushionMat, 2.8, 0.32, 0.75, 0, 1.66, -4.7);
+      addMesh(grp, g.cushion, cushionMat, 0.72, 0.32, 2.4, -1.04, 1.66, -3.55);
+      addMesh(grp, g.cushion, cushionMat, 0.72, 0.32, 2.4, 1.04, 1.66, -3.55);
+      addMesh(grp, g.cyl1, deckMat, 0.92, 0.08, 0.92, 0, 1.98, -3.45);
+      addMesh(grp, g.cyl1, champagneMat, 0.14, 0.46, 0.14, 0, 1.72, -3.45);
+      addMesh(grp, g.cyl1, palette.silver, 0.22, 0.26, 0.22, 0, 2.14, -3.45);
+
+      // Nav Lights (Port Red, Starboard Green)
+      const portMat = keepMat(new THREE.MeshBasicMaterial({ color: 0xff3b4e }));
+      const stbdMat = keepMat(new THREE.MeshBasicMaterial({ color: 0x2de07a }));
+      addMesh(grp, g.sphere1, portMat, 0.12, 0.12, 0.12, -1.42, 2.48, 2.1);
+      addMesh(grp, g.sphere1, stbdMat, 0.12, 0.12, 0.12, 1.42, 2.48, 2.1);
+
       mergeStaticGroup(grp);
+
+      // Dynamic Helm Wheel Console (rotates with rudder steer!)
+      const helmWheel = new THREE.Group();
+      helmWheel.position.set(0, 2.16, 2.02);
+      const wheelRing = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.028, 8, 18), champagneMat);
+      const spokeH = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.03, 0.03), champagneMat);
+      const spokeV = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.46, 0.03), champagneMat);
+      helmWheel.add(wheelRing, spokeH, spokeV);
+      helmWheel.rotation.x = -0.35;
+      grp.add(helmWheel);
+
+      grp.userData.helmWheel = helmWheel;
       grp.userData.isYacht = true;
       grp.userData.noMerge = true;
-      grp.userData.seatPos = { x: 0, y: 1.56, z: 1.25 };
+      grp.userData.seatPos = { x: 0, y: 1.72, z: 1.52 };
+      grp.userData.seats = {
+        helm: { x: 0.0, y: 1.72, z: 1.52, pose: 'drive' },
+        captain: { x: -0.54, y: 1.72, z: 1.42, pose: 'drive' },
+        sunbedL: { x: -0.78, y: 1.66, z: 3.35, pose: 'sofa' },
+        sunbedR: { x: 0.78, y: 1.66, z: 3.35, pose: 'sofa' },
+        loungeL: { x: -0.95, y: 1.66, z: -3.2, pose: 'sit' },
+        loungeR: { x: 0.95, y: 1.66, z: -3.2, pose: 'sit' },
+      };
       if (interactId) tag(grp, interactId);
       return grp;
     }
 
     /**
-     * Classic Painted Riviera Cedar Rowboat with Twin Articulated Oars & Brass Oarlocks.
+     * Classic Painted Riviera Cedar Rowboat with Twin Articulated Oars, Brass Oarlocks & Stern Guest Seat.
      */
     function buildRowboat(hullHex, interactId) {
       const grp = new THREE.Group();
@@ -2456,6 +2516,11 @@
       grp.userData.isRowboat = true;
       grp.userData.noMerge = true;
       grp.userData.seatPos = { x: 0, y: 0.44, z: -0.06 };
+      grp.userData.seats = {
+        helm: { x: 0, y: 0.44, z: -0.06, pose: 'row_boat' },
+        stern: { x: 0, y: 0.44, z: -0.92, pose: 'sit' },
+        bow: { x: 0, y: 0.44, z: 0.82, pose: 'sit' },
+      };
       if (interactId) tag(grp, interactId);
       return grp;
     }

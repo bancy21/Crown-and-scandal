@@ -310,6 +310,76 @@
       placeTub(f4G, f4C, { id: 'tub_4f', title: '4F Treasury Porcelain Bathtub', floor: 4, style: 'slate', x: -28.4, y: y4 + 0.02, z: -29.2, yaw: Math.PI * 0.5 });
     }
 
+    // 4F Private Royal Office & Advisory Study (South-East Gallery: x = 2.0..10.2, z = -24.5..-18.2)
+    if (typeof kit.buildRug === 'function') {
+      const offRug4 = kit.buildRug(6.2, 4.0, 'emerald');
+      offRug4.position.set(5.6, y4 + 0.02, -21.2);
+      f4G.add(offRug4);
+    }
+    if (typeof kit.buildBookshelf === 'function') {
+      const offShelf4 = kit.buildBookshelf('office_shelf_4f', true);
+      offShelf4.position.set(2.4, y4 + 0.02, -24.4);
+      f4G.add(offShelf4);
+      addBox(f4C, 2.4, -24.4, 1.8, 0.55);
+    }
+    const officeDeskGrp = typeof kit.buildWritingDesk === 'function' ? kit.buildWritingDesk(true) : new THREE.Group();
+    officeDeskGrp.position.set(5.8, y4 + 0.02, -21.2);
+    officeDeskGrp.rotation.y = Math.PI;
+    // Royal Gold Dispatch Seal & Ledger on Desk
+    kit.addMesh(officeDeskGrp, kit.g.cyl1, kit.palette.gold, 0.24, 0.08, 0.24, 0.42, 0.84, 0.14);
+    kit.addMesh(officeDeskGrp, kit.g.box1, kit.palette.crimson, 0.34, 0.05, 0.26, -0.34, 0.83, 0.1);
+    f4G.add(officeDeskGrp);
+    tagInteractable(officeDeskGrp, 'royal_office_4f');
+    addBox(f4C, 5.8, -21.2, 2.0, 1.0);
+    placeArmchair(f4G, f4C, { id: 'office_chair_4f', title: '4F Royal Advisory Armchair', floor: 4, x: 8.6, y: y4 + 0.02, z: -21.4, yaw: -Math.PI * 0.5, tone: 'emerald' });
+    registerSpot({
+      id: 'royal_office_4f',
+      title: '4F Private Royal Office & Advisory Study',
+      floor: 4,
+      category: 'living',
+      shortcut: true,
+      x: 5.8, y: y4 + 0.02, z: -21.2,
+      radius: 3.8,
+      actions: [
+        {
+          id: 'draft_decree_4f',
+          label: 'Draft Royal Decree & State Correspondence',
+          hint: '+16 Poise/s & +8 Fun/s',
+          pose: 'work_station',
+          anchor: { x: 5.8, y: y4 + 0.02, z: -20.1, yaw: Math.PI, floorY: y4, exitX: 5.8, exitZ: -19.2, exitYaw: 0 },
+          rates: { composure: 16, fun: 8 },
+          statusText: 'Signing royal decrees & reviewing state dispatches in your Private Office...',
+        },
+        {
+          id: 'office_grant_4f',
+          label: 'Authorize Crown Treasury Stipend (+₡140)',
+          hint: 'Collect Sovereign Governance Stipend & +4 Clout',
+          instant: true,
+          onInstant: function (actCtx) {
+            if (actCtx.game) {
+              actCtx.game.money = (actCtx.game.money || 0) + 140;
+              if (actCtx.game.reputation) actCtx.game.reputation.clout = Math.min(100, (actCtx.game.reputation.clout || 50) + 4);
+            }
+            if (window.CrownNeeds) window.CrownNeeds.applyBoost({ composure: 14, fun: 6 });
+            actCtx.toast('Signed State Decree! +₡140 Crowns & +4 Clout.');
+          },
+        },
+        {
+          id: 'office_security_cycle_4f',
+          label: 'Cycle Palace Gate Security Directive',
+          hint: 'Switch between Open Public Tours, Royal Clearance & Palace Lockdown',
+          instant: true,
+          onInstant: function (actCtx) {
+            if (window.CrownCommands && typeof window.CrownCommands.cycleSecurityMode === 'function') {
+              window.CrownCommands.cycleSecurityMode();
+            } else {
+              actCtx.toast('Royal Gate Security status updated.');
+            }
+          },
+        },
+      ],
+    });
+
     // -----------------------------------------------------------
     // FLOOR 5 (y = 20.65): AMBASSADORS' WING & ROYAL SPA CONSERVATORY (Beds #18-#19, Toilet #9)
     // -----------------------------------------------------------
@@ -427,6 +497,72 @@
     if (typeof placeShower === 'function') {
       placeShower(f5G, f5C, { id: 'shower_5f', title: '5F Spa Cascade Shower', floor: 5, x: -28.8, y: y5 + 0.02, z: -29.2, yaw: 0 });
     }
+
+    // 5F Royal Nursery & Family Playroom (South-East Gallery: x = 2.0..10.5, z = -24.5..-18.2)
+    if (typeof kit.buildRug === 'function') {
+      const nursRug = kit.buildRug(6.2, 4.2, 'blush');
+      nursRug.position.set(5.8, y5 + 0.02, -21.2);
+      f5G.add(nursRug);
+    }
+    const cribGrp = new THREE.Group();
+    cribGrp.position.set(7.6, y5 + 0.02, -22.8);
+    kit.addMesh(cribGrp, kit.g.box1, kit.palette.ivory || ivoryMat, 1.5, 0.14, 0.96, 0, 0.36, 0);
+    kit.addMesh(cribGrp, kit.g.cushion, kit.palette.fabricColors.rose, 1.38, 0.18, 0.84, 0, 0.48, 0);
+    kit.addMesh(cribGrp, kit.g.box1, kit.palette.ivory || ivoryMat, 1.5, 0.62, 0.08, 0, 0.72, -0.44);
+    kit.addMesh(cribGrp, kit.g.box1, kit.palette.ivory || ivoryMat, 1.5, 0.52, 0.08, 0, 0.68, 0.44);
+    [-0.71, 0.71].forEach(function (px) {
+      kit.addMesh(cribGrp, kit.g.cyl1, kit.palette.gold, 0.06, 1.65, 0.06, px, 0.82, -0.44);
+      kit.addMesh(cribGrp, kit.g.cyl1, kit.palette.gold, 0.06, 1.65, 0.06, px, 0.82, 0.44);
+    });
+    kit.addMesh(cribGrp, kit.g.box1, kit.palette.fabricColors.champagne, 1.54, 0.12, 1.0, 0, 1.68, 0);
+    kit.addMesh(cribGrp, kit.g.sphere1, kit.palette.gold, 0.12, 0.12, 0.12, 0, 1.38, 0);
+    f5G.add(cribGrp);
+    tagInteractable(cribGrp, 'royal_nursery_5f');
+    addBox(f5C, 7.6, -22.8, 1.65, 1.1);
+
+    // Hand-Carved Rocking Horse + Toy Chest
+    const rockGrp = new THREE.Group();
+    rockGrp.position.set(4.4, y5 + 0.02, -20.2);
+    kit.addMesh(rockGrp, kit.g.box1, kit.palette.mahogany, 1.1, 0.07, 0.08, 0, 0.05, -0.2);
+    kit.addMesh(rockGrp, kit.g.box1, kit.palette.mahogany, 1.1, 0.07, 0.08, 0, 0.05, 0.2);
+    kit.addMesh(rockGrp, kit.g.box1, kit.palette.ivory || ivoryMat, 0.72, 0.34, 0.26, 0, 0.48, 0);
+    kit.addMesh(rockGrp, kit.g.box1, kit.palette.ivory || ivoryMat, 0.24, 0.4, 0.2, 0.34, 0.72, 0, 0, 0, -0.35);
+    kit.addMesh(rockGrp, kit.g.cushion, kit.palette.fabricColors.crimson, 0.32, 0.08, 0.28, -0.02, 0.68, 0);
+    kit.addMesh(rockGrp, kit.g.box1, kit.palette.gold, 0.65, 0.34, 0.42, 3.8, 0.22, -0.4);
+    f5G.add(rockGrp);
+    tagInteractable(rockGrp, 'royal_nursery_5f');
+    addBox(f5C, 4.4, -20.2, 1.2, 0.75);
+
+    placeArmchair(f5G, f5C, { id: 'nursery_chair_5f', title: '5F Royal Nursery Armchair', floor: 5, x: 2.8, y: y5 + 0.02, z: -22.6, yaw: Math.PI * 0.5, tone: 'rose' });
+    registerSpot({
+      id: 'royal_nursery_5f',
+      title: '5F Royal Nursery & Playroom',
+      floor: 5,
+      category: 'living',
+      shortcut: true,
+      x: 5.8, y: y5 + 0.02, z: -21.2,
+      radius: 4.0,
+      actions: [
+        {
+          id: 'nursery_lullaby_5f',
+          label: 'Rock Royal Cradle & Sing Lullaby',
+          hint: '+18 Fun/s & +14 Poise/s',
+          pose: 'sit',
+          anchor: { x: 2.8, y: y5 + 0.04, z: -22.6, yaw: Math.PI * 0.5, rigOffsetY: -0.46, floorY: y5, exitX: 4.5, exitZ: -21.6, exitYaw: 0 },
+          rates: { fun: 18, composure: 14 },
+          statusText: 'Humming a royal lullaby beside the gilded nursery cradle...',
+        },
+        {
+          id: 'nursery_play_5f',
+          label: 'Play in the Royal Nursery Playroom',
+          hint: '+22 Fun/s & Cheerful Mood',
+          pose: 'play_kid',
+          anchor: { x: 5.8, y: y5 + 0.02, z: -20.6, yaw: 0, floorY: y5, exitX: 5.8, exitZ: -19.2, exitYaw: 0 },
+          rates: { fun: 22, composure: 8 },
+          statusText: 'Enjoying whimsical playtime in the 5F Royal Nursery...',
+        },
+      ],
+    });
 
     // -----------------------------------------------------------
     // FLOOR 6 (y = 25.65): GRAND THEATRE STAGE & MUSIC CONSERVATORY (Beds #20-#21, Toilet #10)
@@ -610,6 +746,77 @@
     if (typeof placeTub === 'function') {
       placeTub(f7G, f7C, { id: 'tub_7f', title: '7F Penthouse Gold Soaking Tub', floor: 7, style: 'baroque', x: -28.4, y: y7 + 0.02, z: -29.0, yaw: Math.PI * 0.5 });
     }
+
+    // 7F East Wing: Palace Sky Gym & Wellness Studio (x = 18.0..30.0, z = -38.2..-25.2)
+    addWallZ(f7G, f7C, y7, 4.0, 17.5, -38.4, -25.2, -31.8, 2.8, 0.26, ivoryMat);
+    const gymMatFloor = kit.keepMat(new THREE.MeshStandardMaterial({ color: 0x2c3442, roughness: 0.72 }));
+    const gymStudioPad = new THREE.Mesh(new THREE.PlaneGeometry(11.6, 12.0), gymMatFloor);
+    gymStudioPad.rotation.x = -Math.PI / 2;
+    gymStudioPad.position.set(24.0, y7 + 0.015, -31.8);
+    f7G.add(gymStudioPad);
+    // Wall Fitness Mirror along North Wall
+    const gymMirror = new THREE.Mesh(new THREE.BoxGeometry(8.2, 2.5, 0.08), kit.palette.crystal || marbleMat);
+    gymMirror.position.set(24.0, y7 + 1.5, -38.12);
+    f7G.add(gymMirror);
+    // 2 Luxury Sky Treadmills
+    [21.4, 24.0].forEach(function (tx) {
+      const tm = new THREE.Group();
+      tm.position.set(tx, y7 + 0.02, -35.6);
+      kit.addMesh(tm, kit.g.box1, kit.palette.iron || gymMatFloor, 0.96, 0.16, 1.9, 0, 0.08, 0);
+      kit.addMesh(tm, kit.g.cyl1, kit.palette.gold, 0.06, 1.15, 0.06, -0.4, 0.65, -0.78);
+      kit.addMesh(tm, kit.g.cyl1, kit.palette.gold, 0.06, 1.15, 0.06, 0.4, 0.65, -0.78);
+      kit.addMesh(tm, kit.g.box1, kit.palette.iron || gymMatFloor, 0.88, 0.32, 0.24, 0, 1.24, -0.78, -0.45, 0, 0);
+      f7G.add(tm);
+      tagInteractable(tm, 'palace_gym_7f');
+      addBox(f7C, tx, -35.6, 1.05, 1.95);
+    });
+    // Weight Bench + Gold Barbell + Stationary Cycle + Yoga Mats
+    const benchGym = new THREE.Group();
+    benchGym.position.set(27.8, y7 + 0.02, -35.4);
+    kit.addMesh(benchGym, kit.g.box1, kit.palette.fabricColors.crimson, 0.48, 0.12, 1.35, 0, 0.44, 0);
+    kit.addMesh(benchGym, kit.g.box1, kit.palette.gold, 0.12, 0.42, 0.9, 0, 0.21, 0);
+    kit.addMesh(benchGym, kit.g.cyl1, kit.palette.gold, 0.04, 1.65, 0.04, 0, 0.95, -0.46, 0, 0, Math.PI * 0.5);
+    kit.addMesh(benchGym, kit.g.cyl1, kit.palette.iron || gymMatFloor, 0.26, 0.12, 0.26, -0.72, 0.95, -0.46, 0, 0, Math.PI * 0.5);
+    kit.addMesh(benchGym, kit.g.cyl1, kit.palette.iron || gymMatFloor, 0.26, 0.12, 0.26, 0.72, 0.95, -0.46, 0, 0, Math.PI * 0.5);
+    f7G.add(benchGym);
+    tagInteractable(benchGym, 'palace_gym_7f');
+    addBox(f7C, 27.8, -35.4, 1.65, 1.5);
+
+    [21.6, 25.0].forEach(function (ymx, ymi) {
+      const yMat = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 2.0), ymi === 0 ? kit.palette.fabricColors.rose : kit.palette.fabricColors.emerald);
+      yMat.position.set(ymx, y7 + 0.035, -28.4);
+      f7G.add(yMat);
+      tagInteractable(yMat, 'palace_gym_7f');
+    });
+    registerSpot({
+      id: 'palace_gym_7f',
+      title: '7F Palace Sky Gym & Wellness Studio',
+      floor: 7,
+      category: 'living',
+      shortcut: true,
+      x: 24.0, y: y7 + 0.02, z: -32.2,
+      radius: 4.8,
+      actions: [
+        {
+          id: 'gym_cardio_7f',
+          label: 'Run Cardio Interval on Sky Treadmill',
+          hint: '+20 Fun/s & +14 Poise/s',
+          pose: 'workout',
+          anchor: { x: 21.4, y: y7 + 0.18, z: -35.4, yaw: Math.PI, floorY: y7, exitX: 21.4, exitZ: -33.2, exitYaw: 0 },
+          rates: { fun: 20, composure: 14, energy: -2 },
+          statusText: 'Running with panoramic Kingdom views in the 7F Palace Sky Gym...',
+        },
+        {
+          id: 'gym_yoga_7f',
+          label: 'Practice Sunset Yoga & Stretching',
+          hint: '+16 Poise/s & +12 Energy/s',
+          pose: 'curtsy',
+          anchor: { x: 25.0, y: y7 + 0.06, z: -28.4, yaw: Math.PI, floorY: y7, exitX: 25.0, exitZ: -31.0, exitYaw: 0 },
+          rates: { composure: 16, energy: 12, fun: 8 },
+          statusText: 'Flowing through restorative yoga in the 7F Wellness Studio...',
+        },
+      ],
+    });
 
     if (kit && typeof kit.mergeStaticGroup === 'function') {
       const nonInteractFilter = function (m) {

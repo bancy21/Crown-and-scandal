@@ -179,6 +179,14 @@
         }
         return;
       }
+      if (action.type === 'boat_captain_cruise' && window.CrownCommands && typeof window.CrownCommands.openBoatCaptainSheet === 'function') {
+        window.CrownCommands.openBoatCaptainSheet(action.boatId);
+        return;
+      }
+      if (action.type === 'boat_passengers' && window.CrownCommands && typeof window.CrownCommands.openBoatPassengersSheet === 'function') {
+        window.CrownCommands.openBoatPassengersSheet(action.boatId);
+        return;
+      }
       if (action.type === 'call_to_meal' && window.CrownCommands && typeof window.CrownCommands.callGroupToMeal === 'function') {
         const spot = action.spotId ? catalog[action.spotId] : null;
         window.CrownCommands.callGroupToMeal(spot, action);
@@ -355,14 +363,24 @@
         const civic = dir.filter(function (it) {
           return it && (it.category === 'town' || it.id === 'azure_pool_swim');
         });
-        const yacht = all.filter(function (it) {
-          return it.id === 'riviera_royal_yacht';
+        const oceanIds = {
+          riviera_royal_yacht: true,
+          riviera_marina_dock: true,
+          riviera_beach_club: true,
+          riviera_coral_cove: true,
+          ile_dor_island: true,
+          lighthouse_island: true,
+          riviera_ocean_swim: true,
+          riviera_rowboat_west: true,
+        };
+        const marine = all.filter(function (it) {
+          return Boolean(oceanIds[it.id]);
         });
         const cars = all.filter(function (it) {
           return /_car$/.test(it.id);
         });
         const seen = new Set();
-        return civic.concat(yacht, cars).filter(function (it) {
+        return civic.concat(marine, cars).filter(function (it) {
           if (!it || seen.has(it.id)) return false;
           seen.add(it.id);
           return true;

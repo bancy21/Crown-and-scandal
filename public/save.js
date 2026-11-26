@@ -18,6 +18,10 @@
       cameraDist: 8.6,
       cameraMode: 'follow',
       timeScale: 1,
+      season: 'spring',
+      seasonOverride: null,
+      securityMode: 'royal',
+      hostedEventsCount: 0,
     };
   }
 
@@ -55,6 +59,14 @@
       }
     }
     if (!Array.isArray(g.gossipLog)) g.gossipLog = [];
+    if (!Array.isArray(g.ownedProperties) || !g.ownedProperties.length) {
+      g.ownedProperties = ['palace'];
+    } else if (g.ownedProperties.indexOf('palace') === -1) {
+      g.ownedProperties.unshift('palace');
+    }
+    if (!g.homePropertyId || g.ownedProperties.indexOf(g.homePropertyId) === -1) {
+      g.homePropertyId = 'palace';
+    }
     return g;
   }
 
@@ -71,6 +83,8 @@
       reputation: g.reputation,
       dynasty: g.dynasty,
       structures: g.structures,
+      ownedProperties: g.ownedProperties,
+      homePropertyId: g.homePropertyId,
       world: g.world,
       gossipLog: (g.gossipLog || []).slice(0, 24),
     };
@@ -113,6 +127,8 @@
       if (data.reputation) g.reputation = Object.assign({}, g.reputation || {}, data.reputation);
       if (data.dynasty) g.dynasty = Object.assign({}, g.dynasty || {}, data.dynasty);
       if (data.structures) g.structures = Object.assign({}, g.structures || {}, data.structures);
+      if (Array.isArray(data.ownedProperties)) g.ownedProperties = data.ownedProperties;
+      if (typeof data.homePropertyId === 'string') g.homePropertyId = data.homePropertyId;
       if (data.world) g.world = Object.assign(defaultWorldState(), data.world);
       if (Array.isArray(data.gossipLog)) g.gossipLog = data.gossipLog;
       g.saveExists = Boolean(g.household && g.household.houseName);
@@ -134,6 +150,8 @@
     g.princess = null;
     g.roster = [];
     g.money = 0;
+    g.ownedProperties = ['palace'];
+    g.homePropertyId = 'palace';
     g.world = defaultWorldState();
     g.gossipLog = [];
     ensureStateDefaults();
